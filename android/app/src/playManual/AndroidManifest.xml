@@ -1,0 +1,3 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- This Play-compatible flavor remains permission-free at M0. -->
+</manifest>
