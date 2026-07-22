@@ -40,11 +40,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --version
+          android_sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          sdkmanager_path="${android_sdk_root}/cmdline-tools/latest/bin/sdkmanager"
+
+          if [[ ! -x "${sdkmanager_path}" ]]; then
+            echo "::error::sdkmanager was not found at ${sdkmanager_path}"
+            exit 1
+          fi
+
+          "${sdkmanager_path}" --version
           set +o pipefail
-          yes | sdkmanager --licenses > /dev/null
+          yes | "${sdkmanager_path}" --licenses > /dev/null
           set -o pipefail
-          sdkmanager --install "ndk;${NDK_VERSION}"
+          "${sdkmanager_path}" --install "ndk;${NDK_VERSION}"
 
       - name: Resolve dependencies
         run: flutter pub get
