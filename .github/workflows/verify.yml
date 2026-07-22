@@ -2,10 +2,17 @@ name: Verify Money Sync
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+    branches:
+      - master
 
 permissions:
   contents: read
+
+env:
+  NDK_VERSION: 30.0.15729638
 
 jobs:
   verify:
@@ -29,8 +36,24 @@ jobs:
           flutter-version: 3.44.6
           cache: true
 
+      - name: Accept Android SDK licenses and install NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --version
+          set +o pipefail
+          yes | sdkmanager --licenses > /dev/null
+          set -o pipefail
+          sdkmanager --install "ndk;${NDK_VERSION}"
+
       - name: Resolve dependencies
         run: flutter pub get
+
+      - name: Verify generated code
+        run: |
+          dart run build_runner build
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
 
       - name: Verify formatting
         run: dart format --output=none --set-exit-if-changed .
@@ -38,16 +61,16 @@ jobs:
       - name: Analyze
         run: flutter analyze --fatal-infos --fatal-warnings
 
-      - name: Test and record informational M0 coverage
+      - name: Test with coverage
         run: flutter test --coverage --branch-coverage
 
       - name: Verify source hygiene
         run: bash tool/verify_source_hygiene.sh
 
-      - name: Build permission-free Play flavor
+      - name: Build Play flavor
         run: flutter build apk --debug --flavor playManual -t lib/main_play_manual.dart
 
-      - name: Build private flavor with M0 capabilities disabled
+      - name: Build private flavor
         run: flutter build apk --debug --flavor privateFull -t lib/main_private_full.dart
 
       - name: Audit merged APK permissions
@@ -55,11 +78,3 @@ jobs:
           bash tool/verify_android_permissions.sh \
             build/app/outputs/flutter-apk/app-playmanual-debug.apk \
             build/app/outputs/flutter-apk/app-privatefull-debug.apk
-
-      - name: Record generated-code gate
-        run: |
-          if rg --quiet '^[[:space:]]*(build_runner|freezed|drift_dev|riverpod_generator|pigeon):' pubspec.yaml; then
-            echo "Generated-code inputs exist; add their pinned generation command before merging."
-            exit 1
-          fi
-          echo "M0 has no generated-code inputs; generation check is not applicable."
