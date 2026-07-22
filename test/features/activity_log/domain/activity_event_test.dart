@@ -4,8 +4,10 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 
 void main() {
   test('activity event has only typed, allowlisted, sanitized metadata', () {
+    final timestamp = DateTime(2026, 7, 22, 13, 30);
+    final retryAt = DateTime(2026, 7, 22, 14);
     final event = ActivityEvent(
-      timestamp: DateTime(2026, 7, 22, 13, 30),
+      timestamp: timestamp,
       code: ActivityEventCode.rawCopyPurged,
       severity: ActivitySeverity.info,
       entity: ActivityEntityReference(
@@ -20,15 +22,17 @@ void main() {
           currency: ActivityCurrency.lkr,
         ),
         stateTransition: ActivityStateTransition.rawCopyPurged,
-        retryAt: DateTime(2026, 7, 22, 14),
+        retryAt: retryAt,
         correlationId: CorrelationId('work_01'),
       ),
     );
 
-    expect(event.timestamp, DateTime.utc(2026, 7, 22, 8));
+    expect(event.timestamp, timestamp.toUtc());
+    expect(event.timestamp.isUtc, isTrue);
     expect(event.code.wireValue, 'privacy.raw_copy.purged');
     expect(event.metadata.instrumentTail, InstrumentTail('12'));
-    expect(event.metadata.retryAt, DateTime.utc(2026, 7, 22, 8, 30));
+    expect(event.metadata.retryAt, retryAt.toUtc());
+    expect(event.metadata.retryAt!.isUtc, isTrue);
   });
 
   test('opaque IDs and correlation IDs reject arbitrary text', () {
@@ -69,8 +73,9 @@ void main() {
   test(
     'metadata defaults to no optional details and normalizes retry time',
     () {
+      final retryAt = DateTime(2026, 7, 22, 13, 30);
       final metadata = SanitizedActivityMetadata(
-        retryAt: DateTime(2026, 7, 22, 13, 30),
+        retryAt: retryAt,
         safeErrorCode: SafeErrorCode.keyUnavailable,
       );
 
@@ -80,7 +85,8 @@ void main() {
       expect(metadata.stateTransition, isNull);
       expect(metadata.correlationId, isNull);
       expect(metadata.safeErrorCode, SafeErrorCode.keyUnavailable);
-      expect(metadata.retryAt, DateTime.utc(2026, 7, 22, 8));
+      expect(metadata.retryAt, retryAt.toUtc());
+      expect(metadata.retryAt!.isUtc, isTrue);
     },
   );
 }
