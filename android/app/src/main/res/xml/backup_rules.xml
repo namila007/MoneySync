@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="me.namila.money_sync.secure_storage.xml" />
+    <exclude domain="root" path="no_backup/money_sync/database/money_sync.db" />
+    <exclude domain="root" path="no_backup/money_sync/database/money_sync.db-wal" />
+    <exclude domain="root" path="no_backup/money_sync/database/money_sync.db-shm" />
+    <exclude domain="root" path="no_backup/money_sync/database/tmp" />
+    <exclude domain="root" path="no_backup/money_sync/spool" />
+    <exclude domain="root" path="no_backup/money_sync/keys" />
+</full-backup-content>
