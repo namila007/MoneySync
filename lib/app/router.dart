@@ -6,6 +6,7 @@ import 'package:money_sync/features/dashboard/presentation/home_page.dart';
 import 'package:money_sync/features/mappings/presentation/mappings_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
+import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = createAppRouter();
@@ -42,6 +43,10 @@ GoRouter createAppRouter() {
             path: AppRoute.settings.path,
             builder: (context, state) => const SettingsPage(),
           ),
+          GoRoute(
+            path: AppRoute.walletConnection.path,
+            builder: (context, state) => const WalletConnectionPage(),
+          ),
         ],
       ),
     ],
@@ -53,7 +58,8 @@ enum AppRoute {
   inbox('/inbox'),
   mappings('/mappings'),
   activity('/activity'),
-  settings('/settings');
+  settings('/settings'),
+  walletConnection('/settings/wallet');
 
   const AppRoute(this.path);
 
@@ -95,7 +101,9 @@ class AppShell extends StatelessWidget {
   }
 
   int _selectedIndex(String path) {
-    final index = _primaryRoutes.indexWhere((route) => route.path == path);
+    final index = _primaryRoutes.indexWhere(
+      (route) => path == route.path || path.startsWith('${route.path}/'),
+    );
     return index < 0 ? 0 : index;
   }
 }
