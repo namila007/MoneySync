@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
@@ -18,6 +20,16 @@ class SettingsPage extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         children: [
           _ConfigurationSummary(flavor: config.flavor),
+          ListTile(
+            key: const ValueKey('open-wallet-connection'),
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('Wallet connection'),
+            subtitle: const Text(
+              'Token and Wallet account connection settings',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push(AppRoute.walletConnection.path),
+          ),
           const Divider(),
           for (final capability in AppCapability.values)
             _CapabilityTile(
