@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:money_sync/app/router.dart';
+import 'package:money_sync/app/settings_app_bar_action.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -10,14 +9,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home'),
-        actions: [
-          IconButton(
-            key: const ValueKey('open-settings'),
-            tooltip: 'Settings',
-            onPressed: () => context.push(AppRoute.settings.path),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-        ],
+        actions: [const SettingsAppBarAction()],
       ),
       body: const Center(
         child: Padding(

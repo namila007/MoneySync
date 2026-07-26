@@ -7,7 +7,6 @@ import '../../features/transaction_parser/domain/transaction_candidate.dart';
 
 part 'app_database.g.dart';
 
-/// Immutable result returned by [AppDatabase.insertSmsEventIfAbsent].
 class SmsEventInsertResult {
   const SmsEventInsertResult({required this.id, required this.inserted});
 
@@ -15,21 +14,13 @@ class SmsEventInsertResult {
   final bool inserted;
 }
 
-/// Safe failure raised when work captured before a reset attempts to commit.
 final class StalePrivacyEpochException implements Exception {
   const StalePrivacyEpochException();
 }
 
-/// Opens SQLCipher-backed executors after the key has been acquired.
-///
-/// The application supplies the platform SQLCipher opener. It must apply the
-/// supplied key before returning an executor, which prevents schema access
-/// when a key cannot be obtained.
 typedef EncryptedExecutorOpener =
     Future<QueryExecutor> Function(DatabaseKeyHandle key);
 
-/// Production database construction. There is deliberately no plaintext
-/// fallback: an unavailable key fails before an executor can be opened.
 class EncryptedDatabaseFactory {
   const EncryptedDatabaseFactory({
     required this.keyProvider,
@@ -50,6 +41,17 @@ class AppSettings extends Table {
   IntColumn get singletonId => integer().withDefault(const Constant(1))();
   IntColumn get privacyEpoch => integer().withDefault(const Constant(0))();
 
+  BoolColumn get onboardingCompleted =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get onboardingRevision => integer().nullable()();
+  BoolColumn get disclosureAccepted =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get disclosureRevision => integer().nullable()();
+  TextColumn get processingMode =>
+      text().withDefault(const Constant('review'))();
+  IntColumn get configurationRevision =>
+      integer().withDefault(const Constant(0))();
+
   @override
   Set<Column<Object>> get primaryKey => {singletonId};
 
@@ -62,6 +64,9 @@ class SenderRules extends Table {
   TextColumn get senderHash => text().unique()();
   TextColumn get parserFamily => text()();
   IntColumn get createdAtEpochMs => integer()();
+
+  TextColumn get parserVersion => text().nullable()();
+  TextColumn get parserChecksum => text().nullable()();
 
   @override
   String get tableName => 'parser_rules';
@@ -87,6 +92,12 @@ class TransactionCandidates extends Table {
   TextColumn get encryptedPayload => text()();
   IntColumn get revision => integer()();
   IntColumn get createdAtEpochMs => integer()();
+
+  TextColumn get warningCode => text().nullable()();
+  TextColumn get paymentEvidence => text().nullable()();
+  TextColumn get instrumentEvidence => text().nullable()();
+  TextColumn get originalCurrencyCode => text().nullable()();
+  TextColumn get walletCurrencyCode => text().nullable()();
 }
 
 class ActivityEvents extends Table {
@@ -116,6 +127,116 @@ class DatabaseMetadata extends Table {
   String get tableName => 'schema_metadata';
 }
 
+class AppLockState extends Table {
+  IntColumn get singletonId => integer().withDefault(const Constant(1))();
+  BoolColumn get lockEnabled => boolean().withDefault(const Constant(false))();
+  IntColumn get inactivityTimeoutSeconds =>
+      integer().withDefault(const Constant(300))();
+  TextColumn get lockMetadata => text().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {singletonId};
+
+  @override
+  String get tableName => 'app_lock_state';
+}
+
+class DeletionAuditEvents extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get privacyEpochBefore => integer()();
+  IntColumn get privacyEpochAfter => integer()();
+  IntColumn get occurredAtEpochMs => integer()();
+
+  @override
+  String get tableName => 'deletion_audit_events';
+}
+
+class WalletAccountCache extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get currencyCode => text()();
+  BoolColumn get isArchived => boolean()();
+  BoolColumn get isBankSynced => boolean()();
+  BoolColumn get isWritable => boolean()();
+  TextColumn get eligibilityReason => text()();
+  IntColumn get refreshedAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'wallet_account_cache';
+}
+
+class WalletCategoryCache extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  IntColumn get refreshedAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'wallet_category_cache';
+}
+
+class WalletConnectionStatus extends Table {
+  IntColumn get singletonId => integer().withDefault(const Constant(1))();
+  TextColumn get status => text().withDefault(const Constant('disconnected'))();
+  IntColumn get lastSyncAtEpochMs => integer().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {singletonId};
+
+  @override
+  String get tableName => 'wallet_connection_status';
+}
+
+class WalletMutations extends Table {
+  TextColumn get id => text()();
+  TextColumn get operation => text()();
+  TextColumn get payload => text()();
+  TextColumn get state => text()();
+  TextColumn get lineageKey => text()();
+  TextColumn get fingerprint => text()();
+  IntColumn get createdAtEpochMs => integer()();
+  IntColumn get updatedAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'wallet_mutations';
+}
+
+class WalletRecordLinks extends Table {
+  TextColumn get id => text()();
+  TextColumn get appId => text().unique()();
+  TextColumn get remoteId => text().nullable()();
+  IntColumn get createdAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'wallet_record_links';
+}
+
+class CapabilityLedger extends Table {
+  TextColumn get id => text()();
+  TextColumn get capability => text()();
+  TextColumn get status => text()();
+  TextColumn get evidenceReference => text().nullable()();
+  TextColumn get observedOn => text()();
+  TextColumn get reviewDate => text()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'capability_ledger';
+}
+
 @DriftDatabase(
   tables: [
     AppSettings,
@@ -125,17 +246,23 @@ class DatabaseMetadata extends Table {
     ActivityEvents,
     DecisionTraces,
     DatabaseMetadata,
+    AppLockState,
+    DeletionAuditEvents,
+    WalletAccountCache,
+    WalletCategoryCache,
+    WalletConnectionStatus,
+    WalletMutations,
+    WalletRecordLinks,
+    CapabilityLedger,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
-  /// Fast, explicitly plaintext test-only database. Production uses
-  /// [EncryptedDatabaseFactory] instead.
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -145,6 +272,67 @@ class AppDatabase extends _$AppDatabase {
         'INSERT OR IGNORE INTO app_settings (singleton_id, privacy_epoch) '
         'VALUES (1, 0)',
       );
+      await customStatement(
+        'INSERT OR IGNORE INTO app_lock_state (singleton_id) VALUES (1)',
+      );
+      await customStatement(
+        'INSERT OR IGNORE INTO wallet_connection_status '
+        '(singleton_id) VALUES (1)',
+      );
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.addColumn(appSettings, appSettings.onboardingCompleted);
+        await m.addColumn(appSettings, appSettings.onboardingRevision);
+        await m.addColumn(appSettings, appSettings.disclosureAccepted);
+        await m.addColumn(appSettings, appSettings.disclosureRevision);
+        await m.addColumn(appSettings, appSettings.processingMode);
+        await m.addColumn(appSettings, appSettings.configurationRevision);
+
+        await m.addColumn(senderRules, senderRules.parserVersion);
+        await m.addColumn(senderRules, senderRules.parserChecksum);
+
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.warningCode,
+        );
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.paymentEvidence,
+        );
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.instrumentEvidence,
+        );
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.originalCurrencyCode,
+        );
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.walletCurrencyCode,
+        );
+
+        await m.createTable(appLockState);
+        await m.createTable(deletionAuditEvents);
+
+        await customStatement(
+          'INSERT OR IGNORE INTO app_lock_state (singleton_id) VALUES (1)',
+        );
+      }
+      if (from < 3) {
+        await m.createTable(walletAccountCache);
+        await m.createTable(walletCategoryCache);
+        await m.createTable(walletConnectionStatus);
+        await m.createTable(walletMutations);
+        await m.createTable(walletRecordLinks);
+        await m.createTable(capabilityLedger);
+
+        await customStatement(
+          'INSERT OR IGNORE INTO wallet_connection_status '
+          '(singleton_id) VALUES (1)',
+        );
+      }
     },
   );
 

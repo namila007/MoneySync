@@ -5,7 +5,10 @@ enum ActivityEventCode {
   rawCopyPurged('privacy.raw_copy.purged'),
   activityRetentionApplied('privacy.activity_retention.applied'),
   candidateNeedsReview('candidate.needs_review'),
-  walletRecordCreated('wallet.record.created');
+  walletRecordCreated('wallet.record.created'),
+  logInfo('app.log.info'),
+  logWarning('app.log.warning'),
+  logError('app.log.error');
 
   const ActivityEventCode(this.wireValue);
 
@@ -51,6 +54,7 @@ enum ActivityStateTransition {
   rawCopyPurged,
   privacyEpochAdvanced,
   needsReview,
+  logEvent,
 }
 
 enum SafeErrorCode { keyUnavailable, privacyEpochStale, retentionPurgeFailed }

@@ -9,6 +9,14 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "30.0.15729638"
 
+    subprojects {
+        afterEvaluate {
+            extensions.findByName("android")?.let { ext ->
+                (ext as com.android.build.gradle.BaseExtension).ndkVersion = "30.0.15729638"
+            }
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

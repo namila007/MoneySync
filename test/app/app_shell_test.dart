@@ -1,14 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/app/app.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
+import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
+import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
+
+Widget _appWithOnboardingComplete() {
+  return ProviderScope(
+    overrides: [
+      appConfigProvider.overrideWithValue(AppConfig.playManual()),
+      onboardingStateProvider.overrideWith(
+        () => _CompletedOnboardingNotifier(),
+      ),
+    ],
+    child: const MoneySyncApp(),
+  );
+}
+
+final class _CompletedOnboardingNotifier extends OnboardingNotifier {
+  @override
+  OnboardingState build() => const OnboardingState(
+    currentStep: OnboardingStep.disclosure,
+    disclosureRevision: 1,
+    isComplete: true,
+  );
+}
 
 void main() {
   testWidgets(
-    'shell exposes five accessible destinations and returns from Settings',
+    'Settings app-bar action opens from Activity and returns to Activity',
     (tester) async {
-      await tester.pumpWidget(MoneySyncApp(config: AppConfig.playManual()));
+      await tester.pumpWidget(_appWithOnboardingComplete());
+
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Activity'));
+      await tester.pumpAndSettle();
+      expect(find.text('Activity'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('open-settings')));
+      await tester.pumpAndSettle();
+      expect(find.text('Settings'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Activity'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'shell exposes four accessible destinations and returns from Settings',
+    (tester) async {
+      await tester.pumpWidget(_appWithOnboardingComplete());
 
       final semantics = tester.ensureSemantics();
 
@@ -16,8 +60,9 @@ void main() {
       expect(find.text('Inbox'), findsOneWidget);
       expect(find.text('Mappings'), findsOneWidget);
       expect(find.text('Activity'), findsOneWidget);
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.byType(NavigationDestination), findsNWidgets(5));
+      expect(find.text('Settings'), findsNothing);
+      expect(find.byType(NavigationDestination), findsNWidgets(4));
+      expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
       expect(find.bySemanticsLabel('Primary navigation'), findsOneWidget);
 
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
@@ -35,17 +80,13 @@ void main() {
         );
       }
 
-      for (final destination in <String>[
-        'Inbox',
-        'Mappings',
-        'Activity',
-        'Settings',
-      ]) {
+      for (final destination in <String>['Inbox', 'Mappings', 'Activity']) {
         await tester.tap(
           find.widgetWithText(NavigationDestination, destination),
         );
         await tester.pumpAndSettle();
         expect(find.text(destination), findsWidgets);
+        expect(find.byKey(const ValueKey('open-settings')), findsOneWidget);
 
         await tester.tap(find.widgetWithText(NavigationDestination, 'Home'));
         await tester.pumpAndSettle();
@@ -71,7 +112,7 @@ void main() {
       tester.binding.platformDispatcher.clearTextScaleFactorTestValue,
     );
 
-    await tester.pumpWidget(MoneySyncApp(config: AppConfig.playManual()));
+    await tester.pumpWidget(_appWithOnboardingComplete());
 
     expect(find.byType(NavigationBar), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -86,7 +127,7 @@ void main() {
       tester.binding.platformDispatcher.clearPlatformBrightnessTestValue,
     );
 
-    await tester.pumpWidget(MoneySyncApp(config: AppConfig.playManual()));
+    await tester.pumpWidget(_appWithOnboardingComplete());
 
     BuildContext shellContext() => tester.element(find.byType(AppShell));
     expect(Theme.of(shellContext()).brightness, Brightness.light);
@@ -94,7 +135,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     tester.binding.platformDispatcher.platformBrightnessTestValue =
         Brightness.dark;
-    await tester.pumpWidget(MoneySyncApp(config: AppConfig.playManual()));
+    await tester.pumpWidget(_appWithOnboardingComplete());
 
     expect(Theme.of(shellContext()).brightness, Brightness.dark);
   });

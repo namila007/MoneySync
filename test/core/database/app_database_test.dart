@@ -7,7 +7,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 void main() {
-  group('AppDatabase schema v1', () {
+  group('AppDatabase schema v3', () {
     late AppDatabase database;
 
     setUp(() {
@@ -16,7 +16,7 @@ void main() {
 
     tearDown(() => database.close());
 
-    test('creates each v1 foundation table on a fresh database', () async {
+    test('creates each foundation table on a fresh database', () async {
       final tables = await database
           .customSelect(
             "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name",
@@ -27,20 +27,28 @@ void main() {
         tables.map((row) => row.read<String>('name')),
         containsAll(<String>[
           'activity_events',
+          'app_lock_state',
           'app_settings',
+          'capability_ledger',
           'decision_traces',
+          'deletion_audit_events',
           'parser_rules',
           'schema_metadata',
           'sms_events',
           'transaction_candidates',
+          'wallet_account_cache',
+          'wallet_category_cache',
+          'wallet_connection_status',
+          'wallet_mutations',
+          'wallet_record_links',
         ]),
       );
     });
 
     test(
-      'reports the frozen v1 schema and enforces foreign keys after opening',
+      'reports the frozen v3 schema and enforces foreign keys after opening',
       () async {
-        expect(database.schemaVersion, 1);
+        expect(database.schemaVersion, 3);
 
         await expectLater(
           database
@@ -228,7 +236,7 @@ void main() {
         addTearDown(database.close);
 
         expect(suppliedKey, same(key));
-        expect(database.schemaVersion, 1);
+        expect(database.schemaVersion, 3);
         expect(await database.smsEvents.count().getSingle(), 0);
       },
     );

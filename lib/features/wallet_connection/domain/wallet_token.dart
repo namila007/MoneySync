@@ -28,6 +28,10 @@ final class WalletToken {
     headers['Authorization'] = 'Bearer $_value';
   }
 
+  /// Used only by the Keystore-backed secret store for native persistence.
+  /// Never call this from presentation or application layers.
+  String toPersistenceString() => _value;
+
   @override
   String toString() => 'WalletToken(***)';
 }

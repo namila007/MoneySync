@@ -8,6 +8,8 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterFragmentActivity() {
     private lateinit var securityChannelHandler: NativeSecurityChannelHandler
+    private lateinit var wrappedKeyStore: WrappedKeyStore
+    private lateinit var databaseKeyManager: DatabaseKeyManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,6 +24,12 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        wrappedKeyStore = WrappedKeyStore()
+        val keyFileStore = WrappedKeyFileStore(noBackupFilesDir)
+        databaseKeyManager = DatabaseKeyManager(wrappedKeyStore, keyFileStore)
+        val hmacSigner = HmacSigner(wrappedKeyStore, noBackupFilesDir)
+
         securityChannelHandler = NativeSecurityChannelHandler(
             databasePathProvider = NoBackupDatabasePathProvider(noBackupFilesDir),
             secureWindowController = AndroidSecureWindowController { enabled ->
@@ -31,6 +39,10 @@ class MainActivity : FlutterFragmentActivity() {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 }
             },
+            databaseKeyManager = databaseKeyManager,
+            hmacSigner = hmacSigner,
+            noBackupFilesDirectory = noBackupFilesDir,
+            wrappedKeyStore = wrappedKeyStore,
         )
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, nativeSecurityChannelName)
