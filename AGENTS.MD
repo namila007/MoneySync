@@ -101,3 +101,61 @@ When flavors exist, also build and inspect both merged manifests. Run code gener
 - Add packages incrementally, resolve current versions with Context7 and official package documentation, and keep analysis/tests/build green after each group.
 - Source models, Drift schemas, Pigeon definitions, and configuration declarations are reviewed inputs. Generated files are outputs.
 - Update the relevant existing plan or milestone when implementation evidence changes a decision. Do not create a new top-level planning file when an existing owner exists.
+
+## Data storage architecture
+
+All configuration and app-owned data is stored in an encrypted SQLCipher database opened by Drift. Key material is wrapped with Android Keystore AES-256-GCM and stored as a blob in the no-backup directory.
+
+| Data | Storage | Backed up? |
+|------|---------|-----------|
+| Wallet bearer token | Keystore-wrapped blob in `no_backup/money_sync/database/wallet_token.blob` | No (no-backup directory + allowBackup=false) |
+| DB encryption key | Keystore-AES-GCM-wrapped blob in `no_backup/money_sync/database/db_key_wrapped.blob` | No |
+| HMAC key | Keystore-AES-GCM-wrapped blob in `no_backup/money_sync/database/hmac_key_wrapped.blob` | No |
+| App configuration | Drift `app_settings` table (singleton row), `app_lock_state` table, `database_metadata` key-value store — all inside encrypted SQLCipher DB | No (DB file is in no-backup directory) |
+| Wallet cache | Drift `wallet_account_cache`, `wallet_category_cache` tables — inside encrypted SQLCipher DB | No |
+| Schema version/metadata | Drift `schema_metadata` table — inside encrypted SQLCipher DB | No |
+
+### Startup flow
+
+```
+Cold open → BootstrapGate → appDatabaseProvider (init Keystore, open SQLCipher)
+  → DatabaseHealthRepository.check()
+  → OnboardingRepository.load() from Drift
+  → Redirect: recovery → onboarding → lock → requested route
+```
+
+### Lock flow
+
+```
+App requires lock → router guard captures intended route via _intendedRouteNotifier
+  → redirect to /lock → user authenticates via biometric/device credential
+  → lock state → unlocked → router guard reads _intendedRouteNotifier
+  → redirect to intended route (or home if null)
+```
+
+## Available skills
+
+- [moneysync-logger](.opencode/skills/moneysync-logger/SKILL.md) — logging framework usage: levels, logger naming, redaction rules, insertion points for debug/info/error logs. Load via `/skill moneysync-logger`.
+- [moneysync-onboarding-debug](.opencode/skills/moneysync-onboarding-debug/SKILL.md) — debugging patterns for onboarding persistence, Riverpod state transitions, GoRouter redirect chains, and Flutter logcat tracing. Load via `/skill moneysync-onboarding-debug`.
+
+## Reading device logs
+
+After deploying and running the app:
+
+```bash
+# List log files
+adb exec-out run-as me.namila.money_sync.playmanual sh -c "find code_cache/logs -type f"
+
+# Read app info log
+adb exec-out run-as me.namila.money_sync.playmanual sh -c "cat code_cache/logs/app/info.log"
+
+# Read app error log
+adb exec-out run-as me.namila.money_sync.playmanual sh -c "cat code_cache/logs/app/error.log"
+
+# Read debug log (only if ENABLE_DEBUG_LOG=true)
+adb exec-out run-as me.namila.money_sync.playmanual sh -c "cat code_cache/logs/debug/debug.log"
+
+# Stream live Flutter logcat (includes print() and engine messages)
+adb logcat -s flutter
+```
+

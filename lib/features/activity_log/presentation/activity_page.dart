@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_sync/app/settings_app_bar_action.dart';
 
 class ActivityPage extends StatelessWidget {
   const ActivityPage({super.key});
@@ -27,5 +28,8 @@ class _ActivityAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
-  Widget build(BuildContext context) => AppBar(title: const Text('Activity'));
+  Widget build(BuildContext context) => AppBar(
+    title: const Text('Activity'),
+    actions: const [SettingsAppBarAction()],
+  );
 }

@@ -6,6 +6,7 @@ enum DomainFailureCode {
   invalidCandidate,
   illegalStateTransition,
   invalidMutationIntent,
+  invalidInstrumentEvidence,
 }
 
 /// A failure that may cross domain boundaries without carrying sensitive input.
@@ -64,5 +65,13 @@ final class InvalidMutationIntentFailure extends DomainFailure {
     : super(
         DomainFailureCode.invalidMutationIntent,
         'The mutation intent is not valid.',
+      );
+}
+
+final class InvalidInstrumentEvidenceFailure extends DomainFailure {
+  const InvalidInstrumentEvidenceFailure()
+    : super(
+        DomainFailureCode.invalidInstrumentEvidence,
+        'The instrument evidence is not valid.',
       );
 }

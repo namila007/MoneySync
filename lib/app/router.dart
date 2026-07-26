@@ -1,23 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/bootstrap/foreground_composition.dart';
+import 'package:money_sync/bootstrap/startup_state.dart';
+import 'package:money_sync/core/security/foreground_lock.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_page.dart';
 import 'package:money_sync/features/dashboard/presentation/home_page.dart';
+import 'package:money_sync/features/data_control/presentation/data_control_page.dart';
+import 'package:money_sync/features/lock/presentation/lock_page.dart';
 import 'package:money_sync/features/mappings/presentation/mappings_page.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
+import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
+import 'package:money_sync/features/onboarding/presentation/onboarding_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
+import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
 
-final appRouterProvider = Provider<GoRouter>((ref) {
-  final router = createAppRouter();
-  ref.onDispose(router.dispose);
-  return router;
-});
+final _onboardingCompletionNotifier = ValueNotifier<bool>(false);
+final _lockStateNotifier = ValueNotifier<ForegroundLockState>(
+  ForegroundLockState.locked,
+);
+final _lockRequiredNotifier = ValueNotifier<bool>(false);
+final _intendedRouteNotifier = ValueNotifier<String?>(null);
 
 GoRouter createAppRouter() {
   return GoRouter(
-    initialLocation: AppRoute.home.path,
+    initialLocation: AppRoute.onboarding.path,
+    refreshListenable: Listenable.merge([
+      _onboardingCompletionNotifier,
+      _lockStateNotifier,
+      _lockRequiredNotifier,
+    ]),
     routes: [
+      GoRoute(
+        path: AppRoute.onboarding.path,
+        builder: (context, state) => const OnboardingPage(),
+      ),
+      GoRoute(
+        path: AppRoute.lock.path,
+        builder: (context, state) => const LockPage(),
+      ),
       ShellRoute(
         builder: (context, state, child) {
           return AppShell(location: state.uri.path, child: child);
@@ -39,27 +63,112 @@ GoRouter createAppRouter() {
             path: AppRoute.activity.path,
             builder: (context, state) => const ActivityPage(),
           ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoute.settings.path,
+        builder: (context, state) => const SettingsPage(),
+        routes: [
           GoRoute(
-            path: AppRoute.settings.path,
-            builder: (context, state) => const SettingsPage(),
+            path: 'wallet',
+            builder: (context, state) => const WalletConnectionPage(),
           ),
           GoRoute(
-            path: AppRoute.walletConnection.path,
-            builder: (context, state) => const WalletConnectionPage(),
+            path: 'security',
+            builder: (context, state) => const SecurityPrivacyPage(),
+          ),
+          GoRoute(
+            path: 'data',
+            builder: (context, state) => const DataControlPage(),
           ),
         ],
       ),
+      GoRoute(
+        path: AppRoute.onboardingReview.path,
+        builder: (context, state) => const OnboardingReviewWrapper(),
+      ),
     ],
+    redirect: (context, state) {
+      final container = ProviderScope.containerOf(context);
+      final onboarding = container.read(onboardingStateProvider);
+      final startup = container.read(startupStateProvider);
+      final lock = container.read(foregroundLockControllerProvider);
+      return _routeGuard(
+        state.matchedLocation,
+        onboarding,
+        startup,
+        lock,
+        _lockRequiredNotifier.value,
+      );
+    },
   );
 }
 
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final router = createAppRouter();
+  ref.onDispose(router.dispose);
+
+  ref.listen(onboardingStateProvider, (previous, next) {
+    if ((previous?.isComplete ?? false) != next.isComplete) {
+      _onboardingCompletionNotifier.value = next.isComplete;
+    }
+  });
+
+  ref.listen(foregroundLockControllerProvider, (_, next) {
+    _lockStateNotifier.value = next;
+  });
+
+  ref.listen(configurationRepositoryProvider, (_, next) {
+    next.whenData((repo) async {
+      final config = await repo.load();
+      _lockRequiredNotifier.value = config.appLock.enabled;
+      _lockStateNotifier.value = _lockStateNotifier.value;
+    });
+  });
+
+  return router;
+});
+
+String? _routeGuard(
+  String matchedLocation,
+  OnboardingState onboarding,
+  StartupState startup,
+  ForegroundLockState lock,
+  bool lockRequired,
+) {
+  final isOnboardingRoute = matchedLocation == AppRoute.onboarding.path;
+  final isLockRoute = matchedLocation == AppRoute.lock.path;
+
+  if (startup.status == StartupStatus.ready || onboarding.isComplete) {
+    if (isOnboardingRoute) return AppRoute.home.path;
+  } else if (!isOnboardingRoute) {
+    return AppRoute.onboarding.path;
+  }
+
+  if (lockRequired && lock == ForegroundLockState.locked && !isLockRoute) {
+    _intendedRouteNotifier.value = matchedLocation;
+    return AppRoute.lock.path;
+  }
+
+  if (lockRequired && lock == ForegroundLockState.unlocked && isLockRoute) {
+    return _intendedRouteNotifier.value ?? AppRoute.home.path;
+  }
+
+  return null;
+}
+
 enum AppRoute {
+  onboarding('/onboarding'),
+  onboardingReview('/settings/onboarding'),
+  lock('/lock'),
   home('/'),
   inbox('/inbox'),
   mappings('/mappings'),
   activity('/activity'),
-  settings('/settings'),
-  walletConnection('/settings/wallet');
+  settings(SettingsAppBarAction.routePath),
+  walletConnection('/settings/wallet'),
+  securityPrivacy('/settings/security'),
+  dataControl('/settings/data');
 
   const AppRoute(this.path);
 
@@ -122,12 +231,6 @@ const _primaryRoutes = <_PrimaryRoute>[
     'Activity',
     Icons.receipt_long_outlined,
     Icons.receipt_long,
-  ),
-  _PrimaryRoute(
-    AppRoute.settings,
-    'Settings',
-    Icons.settings_outlined,
-    Icons.settings,
   ),
 ];
 

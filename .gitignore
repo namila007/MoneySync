@@ -34,6 +34,8 @@ migrate_working_dir/
 /coverage/
 /local.properties
 /.serena/
+/.tokensave/
+/graphify-out/
 
 # Symbolication related
 app.*.symbols

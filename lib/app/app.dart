@@ -8,7 +8,6 @@ import 'package:money_sync/bootstrap/providers.dart';
 class MoneySyncApp extends StatelessWidget {
   const MoneySyncApp({super.key, this.config});
 
-  /// Tests and previews may supply a configuration without invoking bootstrap.
   final AppConfig? config;
 
   @override

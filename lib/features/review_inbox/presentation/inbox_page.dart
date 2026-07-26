@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:money_sync/app/settings_app_bar_action.dart';
 
 class InboxPage extends StatelessWidget {
   const InboxPage({super.key});
@@ -21,7 +22,10 @@ class _PlaceholderFeaturePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: Text(title),
+        actions: const [SettingsAppBarAction()],
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
