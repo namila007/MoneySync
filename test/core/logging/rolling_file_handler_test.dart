@@ -102,10 +102,7 @@ void main() {
       final logger = Logger('test');
       logger.onRecord.listen(handler.handleLogRecord);
 
-      expect(
-        () => logger.info('Your OTP is 123456'),
-        returnsNormally,
-      );
+      expect(() => logger.info('Your OTP is 123456'), returnsNormally);
 
       await Future.delayed(const Duration(milliseconds: 50));
     });

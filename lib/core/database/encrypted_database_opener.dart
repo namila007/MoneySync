@@ -23,7 +23,19 @@ final class ProductionEncryptedDatabaseOpener {
     final keyAccess = await keyProvider.acquire();
     final handle = keyAccess.requireKey();
 
-    final keyHex = handle.id;
+    // The sqlite3(+SQLCipher) package this project uses only exposes keying
+    // via `PRAGMA key` executed from Dart — there is no raw-bytes keying API,
+    // and Kotlin must never open the Drift database (AGENTS.md). Drift's
+    // NativeDatabase `setup` callback also runs lazily on first query, not at
+    // construction time, so the raw Uint8List cannot be zeroized until after
+    // `setup` runs. The minimized-exposure boundary is therefore: consume the
+    // raw bytes exactly once, right here, to build a transient hex string;
+    // zeroize the bytes immediately; capture only the hex string in the
+    // closure (same lifetime the previous implementation already had). See
+    // docs/adr/0001-native-database-key-boundary.md.
+    final keyHex = handle.useAndDispose(
+      (bytes) => bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(),
+    );
     final db = NativeDatabase(
       File(path),
       setup: (database) {

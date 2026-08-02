@@ -80,7 +80,9 @@ enum WalletTokenSubmitResult { accepted, handedOff, blocked }
 /// Riverpod composition stays in presentation; application contracts are pure
 /// Dart. Production is composed when database + native security are available;
 /// otherwise returns the fail-closed default.
-final walletConnectionActionsProvider = Provider<WalletConnectionActions>((ref) {
+final walletConnectionActionsProvider = Provider<WalletConnectionActions>((
+  ref,
+) {
   final db = ref.watch(appDatabaseProvider).asData?.value;
   final auth = ref.watch(freshAuthPortProvider).asData?.value;
   final channel = ref.watch(nativeSecurityChannelProvider);
@@ -120,8 +122,9 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
       final store = KeystoreWalletSecretStore(channel: channel);
       await store.useSecret((token) async {
         final db = await ref.read(appDatabaseProvider.future);
-        final status = await (db.select(db.walletConnectionStatus)
-          ..where((row) => row.singletonId.equals(1))).getSingleOrNull();
+        final status = await (db.select(
+          db.walletConnectionStatus,
+        )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
         if (status == null || status.status == 'disconnected') return;
 
         final cache = DriftWalletCatalogCache(database: db);

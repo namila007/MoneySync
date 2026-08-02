@@ -3,8 +3,7 @@ import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
 final class DriftWalletCatalogCache implements WalletCatalogCache {
-  DriftWalletCatalogCache({required AppDatabase database})
-    : _database = database;
+  DriftWalletCatalogCache({required this._database});
 
   final AppDatabase _database;
 
@@ -38,8 +37,13 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
   Future<void> write(WalletCatalog catalog) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _database.transaction(() async {
+      await _database.delete(_database.walletAccountCache).go();
+      await _database.delete(_database.walletCategoryCache).go();
+
       for (final account in catalog.accounts) {
-        await _database.into(_database.walletAccountCache).insertOnConflictUpdate(
+        await _database
+            .into(_database.walletAccountCache)
+            .insert(
               WalletAccountCacheCompanion.insert(
                 id: account.id,
                 name: account.name,
@@ -53,7 +57,9 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
             );
       }
       for (final category in catalog.categories) {
-        await _database.into(_database.walletCategoryCache).insertOnConflictUpdate(
+        await _database
+            .into(_database.walletCategoryCache)
+            .insert(
               WalletCategoryCacheCompanion.insert(
                 id: category.id,
                 name: category.name,
@@ -62,9 +68,8 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
             );
       }
       await (_database.update(_database.walletConnectionStatus)
-        ..where((row) => row.singletonId.equals(1))).write(
-        WalletConnectionStatusCompanion(status: Value('connected')),
-      );
+            ..where((row) => row.singletonId.equals(1)))
+          .write(WalletConnectionStatusCompanion(status: Value('connected')));
     });
   }
 
@@ -73,8 +78,9 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
     await _database.transaction(() async {
       await _database.delete(_database.walletAccountCache).go();
       await _database.delete(_database.walletCategoryCache).go();
-      await (_database.update(_database.walletConnectionStatus)
-        ..where((row) => row.singletonId.equals(1))).write(
+      await (_database.update(
+        _database.walletConnectionStatus,
+      )..where((row) => row.singletonId.equals(1))).write(
         WalletConnectionStatusCompanion(status: Value('disconnected')),
       );
     });

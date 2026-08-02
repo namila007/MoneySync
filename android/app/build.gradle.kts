@@ -55,6 +55,7 @@ android {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    implementation("com.jakewharton.timber:timber:5.0.1")
 
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

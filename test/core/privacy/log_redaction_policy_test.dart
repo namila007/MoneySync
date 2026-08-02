@@ -11,7 +11,9 @@ void main() {
 
     test('blocks bearer token pattern', () {
       expect(
-        policy.redact('Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0'),
+        policy.redact(
+          'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0',
+        ),
         isNull,
       );
     });
@@ -27,17 +29,11 @@ void main() {
     });
 
     test('allows SafeErrorCode', () {
-      expect(
-        policy.redact('SafeErrorCode: DB_KEY_INVALID'),
-        isNotNull,
-      );
+      expect(policy.redact('SafeErrorCode: DB_KEY_INVALID'), isNotNull);
     });
 
     test('allows CorrelationId', () {
-      expect(
-        policy.redact('CorrelationId: abc-123-def'),
-        isNotNull,
-      );
+      expect(policy.redact('CorrelationId: abc-123-def'), isNotNull);
     });
 
     test('allows bank labels', () {

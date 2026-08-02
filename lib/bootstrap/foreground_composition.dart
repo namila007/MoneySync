@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/app/app.dart';
@@ -9,8 +8,13 @@ import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/database/database_health.dart';
 import 'package:money_sync/core/logging/activity_event_writer.dart';
+import 'package:money_sync/core/logging/activity_writer_generation.dart';
+import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/log_redaction_policy.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
+import 'package:money_sync/features/data_control/application/clear_local_data.dart'
+    as data_control;
+import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
@@ -30,30 +34,35 @@ final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   },
 );
 
-Future<void> _initActivityEventWriter(AppDatabase db) async {
+Future<void> _initActivityEventWriter(
+  AppDatabase db,
+  ActivityWriterGeneration generation,
+) async {
   final redaction = const LogRedactionPolicy();
   final activityWriter = ActivityEventWriter(
     database: db,
     redaction: redaction,
     privacyEpochProvider: () => _loadPrivacyEpoch(db),
+    generation: generation,
   );
-  Logger('app.info').onRecord.listen(
-    (record) => activityWriter.writeFromLogRecord(record),
-  );
+  Logger(
+    'app.info',
+  ).onRecord.listen((record) => activityWriter.writeFromLogRecord(record));
   Logger.root.onRecord.listen(
     (record) => activityWriter.writeFromLogRecord(record),
   );
   Logger.root.onRecord.listen((record) {
-    const severity = '';
-    print('[${record.loggerName}] $severity${record.message}');
+    debugPrint('[${record.loggerName}] ${record.message}');
   });
 }
 
 Future<int> _loadPrivacyEpoch(AppDatabase db) async {
   try {
-    final result = await db.customSelect(
-      'SELECT privacy_epoch FROM app_settings WHERE singleton_id = 1',
-    ).get();
+    final result = await db
+        .customSelect(
+          'SELECT privacy_epoch FROM app_settings WHERE singleton_id = 1',
+        )
+        .get();
     if (result.isNotEmpty) {
       return result.first.data['privacy_epoch'] as int;
     }
@@ -97,10 +106,7 @@ class BootstrapGate extends ConsumerWidget {
         );
       },
     );
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: body,
-    );
+    return Directionality(textDirection: TextDirection.ltr, child: body);
   }
 }
 
@@ -113,6 +119,9 @@ class _AwaitingStartup extends ConsumerStatefulWidget {
 
 class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     with WidgetsBindingObserver {
+  data_control.ClearLocalDataUseCase? _useCase;
+  final _activityGeneration = ActivityWriterGeneration();
+
   @override
   void initState() {
     super.initState();
@@ -137,7 +146,7 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   Future<void> _wireActivityWriter() async {
     try {
       final db = await ref.read(appDatabaseProvider.future);
-      await _initActivityEventWriter(db);
+      await _initActivityEventWriter(db, _activityGeneration);
       Logger('bootstrap').info('ActivityEvent writer wired to DB');
     } on Exception {
       // DB not available — ActivityEvent writer deferred
@@ -151,12 +160,28 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     final db = await ref.read(appDatabaseProvider.future);
     final healthRepo = DatabaseHealthRepository(database: db);
     final onboardingRepo = DriftOnboardingRepository(database: db);
+
+    final channel = ref.read(nativeSecurityChannelProvider);
+    final databasePath = await channel.getSensitiveDatabasePath();
+    final clearService = ClearLocalDataService(
+      database: db,
+      channel: channel,
+      databasePath: databasePath,
+      activityGeneration: _activityGeneration,
+    );
+    _useCase = data_control.ClearLocalDataUseCase(
+      database: db,
+      clearLocalDataService: clearService,
+    );
+
     log.info('Health check and onboarding repo ready');
     await startupNotifier.initialize(
       healthRepo: healthRepo,
       onboardingRepo: onboardingRepo,
     );
-    log.info('Startup init done, status=${ref.read(startupStateProvider).status.name}');
+    log.info(
+      'Startup init done, status=${ref.read(startupStateProvider).status.name}',
+    );
   }
 
   @override
@@ -164,16 +189,16 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     final state = ref.watch(startupStateProvider);
 
     if (state.status == StartupStatus.onboardingRequired) {
-      return const MoneySyncApp();
+      return _appWithOverrides();
     }
     if (state.status == StartupStatus.ready) {
-      return const MoneySyncApp();
+      return _appWithOverrides();
     }
     if (state.status == StartupStatus.recoveryRequired) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Logger('startup').severe(
-          'Recovery required: ${state.health?.safeCode ?? "UNKNOWN"}',
-        );
+        Logger(
+          'startup',
+        ).severe('Recovery required: ${state.health?.safeCode ?? "UNKNOWN"}');
       });
       return Directionality(
         textDirection: TextDirection.ltr,
@@ -201,6 +226,23 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     return Directionality(
       textDirection: TextDirection.ltr,
       child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _appWithOverrides() {
+    final useCase = _useCase;
+    if (useCase == null) {
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    final overrides = [
+      clearLocalDataUseCaseProvider.overrideWithValue(useCase),
+    ];
+    return ProviderScope(
+      overrides: overrides,
+      child: const MoneySyncApp(),
     );
   }
 }

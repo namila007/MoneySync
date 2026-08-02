@@ -9,8 +9,8 @@ final class WrappedDatabaseKeyProvider implements DatabaseKeyProvider {
   Future<DatabaseKeyAccess> acquire() async {
     try {
       await channel.ensureContentKey();
-      final keyHex = await channel.acquireContentKeyHex();
-      return DatabaseKeyAvailable(DatabaseKeyHandle(keyHex));
+      final keyBytes = await channel.acquireContentKeyBytes();
+      return DatabaseKeyAvailable(DatabaseKeyHandle(keyBytes));
     } on NativeChannelKeyException {
       return const DatabaseKeyUnavailable(DatabaseKeyUnavailableReason.lost);
     } on NativeChannelUnavailableException {

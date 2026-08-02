@@ -16,12 +16,25 @@ The generated sample has been reshaped into the M0 architecture shell. Do not en
 
 ## Required workflow
 
-1. Inspect the current state and preserve unrelated user changes.
-2. Use Serena for symbol-level code navigation: find the definition first, inspect references before changing a public symbol, then review the resulting diff. Use `rg` for filenames, strings, comments, configuration, and documentation. If Serena is unavailable, state that briefly and use the Dart analyzer plus `rg` as the fallback.
-3. Use Context7 for current Flutter, Dart, Android, or package documentation. Resolve the library ID first, then query with the specific implementation question. Do not infer current APIs or versions from the planning documents.
-4. Follow test-driven development: write a failing behavioral test, implement the smallest passing change, refactor, and rerun the affected suite.
-5. After Dart or Kotlin changes, run the applicable formatter, analyzer, tests, coverage checks, and Android build. Review all changes before handoff.
-6. After code changes, request the appropriate Flutter/Dart/Kotlin review and address critical or high findings. Add a security review for permissions, SMS, storage, authentication, cryptography, network, imports, exports, or Wallet mutations.
+Before implementing any change:
+
+1. **Read the plan.** Open the relevant `plan/` document in the guides repository for product, architecture, security, or API guidance. The plan owns product and architecture decisions.
+2. **Read the milestone.** Open the current milestone spec, quality gates, traceability matrix, and configuration matrix in `milestone/`. Understand the exit criteria before coding.
+
+For every code change:
+
+3. **Inspect and plan.** Inspect the current state and preserve unrelated user changes. Use Serena for symbol-level navigation and Context7 for current API documentation.
+4. **Implement with tests.** Follow test-driven development: write a failing behavioral test, implement the smallest passing change, refactor. Unit-test domain/value objects/use cases with fakes. Widget-test rendering, navigation, and provider overrides. Integration-test Drift, platform bridges, and lifecycle boundaries.
+5. **Verify.** Run the full verification suite from `money_sync/`:
+   ```sh
+   dart format --output=none --set-exit-if-changed .
+   flutter analyze
+   flutter test --coverage --branch-coverage
+   flutter build apk --debug
+   ```
+   For both flavors, build and inspect merged manifests. Verify generated code is reproducible.
+6. **Review.** Request a Flutter/Dart/Kotlin review via the appropriate skill or subagent. Add a security review for permissions, SMS, storage, authentication, cryptography, network, imports, exports, or Wallet mutations. Address critical and high findings.
+7. **Add a worklog.** Write a dated entry in the guides `worklog/` directory describing what was done, what evidence was produced, what tests were added, what gates remain, and what milestone rows are affected. Reference the milestone, plan sections, and app commits. Do not pre-claim results — record only after tests pass and builds succeed.
 
 Do not commit, push, upload, publish, change credentials, or call a production Wallet mutation unless the user explicitly authorizes that external action.
 
@@ -159,3 +172,12 @@ adb exec-out run-as me.namila.money_sync.playmanual sh -c "cat code_cache/logs/d
 adb logcat -s flutter
 ```
 
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

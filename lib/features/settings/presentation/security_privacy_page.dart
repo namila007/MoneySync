@@ -228,34 +228,24 @@ void _showRawCopyRetentionDialog(
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: const Text('Raw app copy retention'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<int>(
-              title: const Text('Purge after processing'),
-              value: 0,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-            RadioListTile<int>(
-              title: const Text('7 days'),
-              value: 7,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-            RadioListTile<int>(
-              title: const Text('14 days'),
-              value: 14,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-            RadioListTile<int>(
-              title: const Text('30 days'),
-              value: 30,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-          ],
+        content: RadioGroup<int>(
+          groupValue: selected,
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => selected = v);
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<int>(
+                title: Text('Purge after processing'),
+                value: 0,
+              ),
+              RadioListTile<int>(title: Text('7 days'), value: 7),
+              RadioListTile<int>(title: Text('14 days'), value: 14),
+              RadioListTile<int>(title: Text('30 days'), value: 30),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -264,12 +254,15 @@ void _showRawCopyRetentionDialog(
           ),
           FilledButton(
             onPressed: () async {
-              final repo =
-                  ref.read(configurationRepositoryProvider).requireValue;
-              await repo.updateRetention(RetentionPreferences(
-                rawCopyDays: selected,
-                activityRetentionDays: config.retention.activityRetentionDays,
-              ));
+              final repo = ref
+                  .read(configurationRepositoryProvider)
+                  .requireValue;
+              await repo.updateRetention(
+                RetentionPreferences(
+                  rawCopyDays: selected,
+                  activityRetentionDays: config.retention.activityRetentionDays,
+                ),
+              );
               ref.invalidate(configurationProvider);
               if (context.mounted) Navigator.of(context).pop();
             },
@@ -292,28 +285,20 @@ void _showActivityRetentionDialog(
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: const Text('Activity retention'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<int>(
-              title: const Text('90 days'),
-              value: 90,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-            RadioListTile<int>(
-              title: const Text('180 days'),
-              value: 180,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-            RadioListTile<int>(
-              title: const Text('365 days'),
-              value: 365,
-              groupValue: selected,
-              onChanged: (v) { if (v == null) return; setState(() => selected = v); },
-            ),
-          ],
+        content: RadioGroup<int>(
+          groupValue: selected,
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => selected = v);
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<int>(title: Text('90 days'), value: 90),
+              RadioListTile<int>(title: Text('180 days'), value: 180),
+              RadioListTile<int>(title: Text('365 days'), value: 365),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -322,12 +307,15 @@ void _showActivityRetentionDialog(
           ),
           FilledButton(
             onPressed: () async {
-              final repo =
-                  ref.read(configurationRepositoryProvider).requireValue;
-              await repo.updateRetention(RetentionPreferences(
-                rawCopyDays: config.retention.rawCopyDays,
-                activityRetentionDays: selected,
-              ));
+              final repo = ref
+                  .read(configurationRepositoryProvider)
+                  .requireValue;
+              await repo.updateRetention(
+                RetentionPreferences(
+                  rawCopyDays: config.retention.rawCopyDays,
+                  activityRetentionDays: selected,
+                ),
+              );
               ref.invalidate(configurationProvider);
               if (context.mounted) Navigator.of(context).pop();
             },

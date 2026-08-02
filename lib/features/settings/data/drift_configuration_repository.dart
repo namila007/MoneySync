@@ -16,8 +16,6 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
     final lockState = await (database.select(
       database.appLockState,
     )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
-    final rawCopyDays = await _readMetadata('retention.rawCopyDays');
-    final activityDays = await _readMetadata('retention.activityRetentionDays');
     return ConfigurationState(
       configurationRevision: setting.configurationRevision,
       processingMode: setting.processingMode == 'manual'
@@ -28,8 +26,8 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
         inactivityTimeoutSeconds: lockState?.inactivityTimeoutSeconds ?? 300,
       ),
       retention: RetentionPreferences(
-        rawCopyDays: int.tryParse(rawCopyDays ?? '') ?? 0,
-        activityRetentionDays: int.tryParse(activityDays ?? '') ?? 180,
+        rawCopyDays: setting.rawCopyRetentionDays,
+        activityRetentionDays: setting.activityRetentionDays,
       ),
     );
   }
@@ -55,8 +53,15 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
   @override
   Future<void> updateRetention(RetentionPreferences prefs) async {
     await database.transaction(() async {
-      await _writeMetadata('retention.rawCopyDays', prefs.rawCopyDays.toString());
-      await _writeMetadata('retention.activityRetentionDays', prefs.activityRetentionDays.toString());
+      await (database.update(
+        database.appSettings,
+      )..where((row) => row.singletonId.equals(1))).write(
+        AppSettingsCompanion(
+          rawCopyRetentionDays: Value(prefs.rawCopyDays),
+          activityRetentionDays: Value(prefs.activityRetentionDays),
+        ),
+      );
+      await _incrementRevision();
     });
   }
 
@@ -84,18 +89,6 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
       AppSettingsCompanion(
         configurationRevision: Value(current.configurationRevision + 1),
       ),
-    );
-  }
-
-  Future<String?> _readMetadata(String key) async {
-    final row = await (database.select(database.databaseMetadata)
-      ..where((r) => r.key.equals(key))).getSingleOrNull();
-    return row?.value;
-  }
-
-  Future<void> _writeMetadata(String key, String value) async {
-    await database.into(database.databaseMetadata).insertOnConflictUpdate(
-      DatabaseMetadataCompanion.insert(key: key, value: value),
     );
   }
 }

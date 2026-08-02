@@ -52,6 +52,11 @@ class AppSettings extends Table {
   IntColumn get configurationRevision =>
       integer().withDefault(const Constant(0))();
 
+  IntColumn get rawCopyRetentionDays =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get activityRetentionDays =>
+      integer().withDefault(const Constant(180))();
+
   @override
   Set<Column<Object>> get primaryKey => {singletonId};
 
@@ -262,7 +267,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -332,6 +337,10 @@ class AppDatabase extends _$AppDatabase {
           'INSERT OR IGNORE INTO wallet_connection_status '
           '(singleton_id) VALUES (1)',
         );
+      }
+      if (from < 4) {
+        await m.addColumn(appSettings, appSettings.rawCopyRetentionDays);
+        await m.addColumn(appSettings, appSettings.activityRetentionDays);
       }
     },
   );

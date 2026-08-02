@@ -16,14 +16,17 @@ void main() {
 
     tearDown(() => database.close());
 
-    test('complete() writes onboardingCompleted and load() reads it back', () async {
-      await repo.complete(disclosureRevision: 1);
+    test(
+      'complete() writes onboardingCompleted and load() reads it back',
+      () async {
+        await repo.complete(disclosureRevision: 1);
 
-      final loaded = await repo.load();
-      expect(loaded, isNotNull);
-      expect(loaded!.isComplete, isTrue);
-      expect(loaded.disclosureRevision, 1);
-    });
+        final loaded = await repo.load();
+        expect(loaded, isNotNull);
+        expect(loaded!.isComplete, isTrue);
+        expect(loaded.disclosureRevision, 1);
+      },
+    );
 
     test('load() returns null when onboarding is not complete', () async {
       final result = await repo.load();

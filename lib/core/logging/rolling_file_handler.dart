@@ -5,13 +5,12 @@ import 'package:money_sync/core/privacy/log_redaction_policy.dart';
 
 final class RollingFileHandler {
   RollingFileHandler({
-    required Directory logDirectory,
-    required String baseName,
+    required this._logDirectory,
+    required this._baseName,
     this.maxBytes = 10 * 1024 * 1024,
     this.maxFiles = 3,
     this.redactionPolicy,
-  })  : _logDirectory = logDirectory,
-        _baseName = baseName;
+  });
 
   final Directory _logDirectory;
   final String _baseName;
@@ -73,9 +72,7 @@ final class RollingFileHandler {
         if (i == maxFiles - 1) {
           await source.delete();
         } else {
-          await source.rename(
-            '${_logDirectory.path}/$_baseName.${i + 1}',
-          );
+          await source.rename('${_logDirectory.path}/$_baseName.${i + 1}');
         }
       }
     }

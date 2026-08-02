@@ -2,6 +2,8 @@ import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/core/logging/log_config.dart';
 import 'package:money_sync/core/logging/log_directory.dart';
+import 'package:money_sync/core/logging/native_log_bridge.dart';
+import 'package:money_sync/core/logging/native_log_pigeon.g.dart';
 import 'package:money_sync/core/logging/rolling_file_handler.dart';
 import 'package:money_sync/core/privacy/log_redaction_policy.dart';
 
@@ -47,4 +49,10 @@ Future<void> initLogFileHandlers(AppConfig config) async {
     );
     debugLogger.onRecord.listen(debugHandler.handleLogRecord);
   }
+
+  final nativeLogBridge = NativeLogBridge(
+    config: logConfig,
+    redaction: redaction,
+  );
+  NativeLogFlutterApi.setUp(nativeLogBridge);
 }

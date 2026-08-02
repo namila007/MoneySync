@@ -1,15 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
-import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 
 final onboardingStateProvider =
     NotifierProvider<OnboardingNotifier, OnboardingState>(
-  OnboardingNotifier.new,
-);
+      OnboardingNotifier.new,
+    );
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
   var _loaded = false;
@@ -31,9 +30,13 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       if (persisted != null && persisted.isComplete && !_loaded) {
         _loaded = true;
         state = persisted;
-        log.info('Onboarding state restored: complete, revision=${persisted.disclosureRevision}');
+        log.info(
+          'Onboarding state restored: complete, revision=${persisted.disclosureRevision}',
+        );
       } else if (persisted == null) {
-        log.info('No persisted onboarding state found - showing onboarding flow');
+        log.info(
+          'No persisted onboarding state found - showing onboarding flow',
+        );
       } else if (_loaded) {
         log.info('Onboarding already loaded in this session');
       } else {

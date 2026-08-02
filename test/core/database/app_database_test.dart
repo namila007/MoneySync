@@ -7,7 +7,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 void main() {
-  group('AppDatabase schema v3', () {
+  group('AppDatabase schema v4', () {
     late AppDatabase database;
 
     setUp(() {
@@ -46,9 +46,9 @@ void main() {
     });
 
     test(
-      'reports the frozen v3 schema and enforces foreign keys after opening',
+      'reports the frozen v4 schema and enforces foreign keys after opening',
       () async {
-        expect(database.schemaVersion, 3);
+        expect(database.schemaVersion, 4);
 
         await expectLater(
           database
@@ -222,7 +222,7 @@ void main() {
     test(
       'delegates a fake opaque key to an in-memory executor for tests',
       () async {
-        final key = DatabaseKeyHandle('test_opaque_key');
+        final key = DatabaseKeyHandle(Uint8List.fromList([1, 2, 3, 4]));
         DatabaseKeyHandle? suppliedKey;
         final factory = EncryptedDatabaseFactory(
           keyProvider: _AvailableKeyProvider(key),
@@ -236,7 +236,7 @@ void main() {
         addTearDown(database.close);
 
         expect(suppliedKey, same(key));
-        expect(database.schemaVersion, 3);
+        expect(database.schemaVersion, 4);
         expect(await database.smsEvents.count().getSingle(), 0);
       },
     );

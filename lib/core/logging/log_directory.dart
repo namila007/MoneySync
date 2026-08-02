@@ -1,7 +1,7 @@
 import 'dart:io';
 
 final class LogDirectoryResolver {
-  LogDirectoryResolver({Directory? base}) : _base = base;
+  LogDirectoryResolver({this._base});
 
   final Directory? _base;
 

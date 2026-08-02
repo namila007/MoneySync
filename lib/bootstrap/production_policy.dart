@@ -15,16 +15,16 @@ final class WalletHttpsOrigin {
 /// Production logging permits metadata only; values, headers, and bodies stay out.
 final class SafeLogPolicy {
   const SafeLogPolicy.production()
-      : permitsSensitiveValues = false,
-        permitsRequestHeaders = false,
-        permitsRequestBodies = false,
-        permitsDebugLog = false;
+    : permitsSensitiveValues = false,
+      permitsRequestHeaders = false,
+      permitsRequestBodies = false,
+      permitsDebugLog = false;
 
   const SafeLogPolicy.debug()
-      : permitsSensitiveValues = false,
-        permitsRequestHeaders = false,
-        permitsRequestBodies = false,
-        permitsDebugLog = true;
+    : permitsSensitiveValues = false,
+      permitsRequestHeaders = false,
+      permitsRequestBodies = false,
+      permitsDebugLog = true;
 
   final bool permitsSensitiveValues;
   final bool permitsRequestHeaders;

@@ -33,7 +33,9 @@ class StartupNotifier extends Notifier<StartupState> {
     state = const StartupState(status: StartupStatus.initializing);
 
     final health = await healthRepo.check();
-    log.info('Database health check: ${health.status.name} (code=${health.safeCode})');
+    log.info(
+      'Database health check: ${health.status.name} (code=${health.safeCode})',
+    );
     if (health.status != DatabaseHealthStatus.ready) {
       state = StartupState(
         status: StartupStatus.recoveryRequired,
@@ -44,7 +46,9 @@ class StartupNotifier extends Notifier<StartupState> {
     }
 
     final onboarding = await onboardingRepo.load();
-    log.info('Onboarding load: ${onboarding != null ? "found (complete=${onboarding.isComplete})" : "null"}');
+    log.info(
+      'Onboarding load: ${onboarding != null ? "found (complete=${onboarding.isComplete})" : "null"}',
+    );
     if (onboarding == null || !onboarding.isComplete) {
       state = const StartupState(status: StartupStatus.onboardingRequired);
       log.info('Startup result: onboardingRequired');

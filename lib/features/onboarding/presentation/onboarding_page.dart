@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:money_sync/app/router.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
 
@@ -89,10 +87,9 @@ class _StepIndicator extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color:
-                index <= current
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+            color: index <= current
+                ? Theme.of(context).colorScheme.primary
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
           ),
         ),
       ),

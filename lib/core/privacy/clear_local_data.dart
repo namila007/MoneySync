@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/logging/activity_writer_generation.dart';
+import 'package:money_sync/core/privacy/reset_tombstone.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 
 final class ClearLocalDataResult {
@@ -8,11 +10,24 @@ final class ClearLocalDataResult {
     required this.epochAdvanced,
     required this.keysDeleted,
     required this.databaseRemoved,
+    this.activityCleared = false,
+    this.tombstoneCleared = false,
   });
 
   final bool epochAdvanced;
   final bool keysDeleted;
   final bool databaseRemoved;
+
+  /// True when [ClearLocalDataService.clearActivityOnly] removed activity
+  /// rows. Distinct from [epochAdvanced], which only [clearAllAppData] sets
+  /// — clearing activity never touches the global privacy epoch.
+  final bool activityCleared;
+
+  /// True when the reset tombstone was cleared after every destructive step
+  /// completed. False does not necessarily mean reset failed — it means an
+  /// interrupted-reset recovery will run on next boot to finish cleanup,
+  /// which is safe because every step is idempotent.
+  final bool tombstoneCleared;
 
   bool get success => epochAdvanced && keysDeleted && databaseRemoved;
 }
@@ -22,16 +37,20 @@ final class ClearLocalDataService {
     required this.database,
     required this.channel,
     required this.databasePath,
-  });
+    this._activityGeneration,
+  }) : _tombstone = ResetTombstone(databasePath: databasePath);
 
   final AppDatabase database;
   final NativeSecurityChannel channel;
   final String databasePath;
+  final ResetTombstone _tombstone;
+  final ActivityWriterGeneration? _activityGeneration;
 
   Future<ClearLocalDataResult> clearAllAppData() async {
     var epochAdvanced = false;
     var keysDeleted = false;
     var databaseRemoved = false;
+    var tombstoneCleared = false;
 
     final currentEpoch = (await (database.select(
       database.appSettings,
@@ -40,8 +59,18 @@ final class ClearLocalDataService {
     try {
       await database.advancePrivacyEpoch(expectedCurrent: currentEpoch);
       epochAdvanced = true;
-    } catch (_) {
+    } on Exception {
       // Epoch advance failure is not blocking
+    }
+
+    // Quiesce-then-destroy ordering: persist the tombstone before any
+    // destructive deletion begins, so an interrupted reset is detectable
+    // and resumable fail-closed on next boot (see reset_recovery.dart).
+    try {
+      await _tombstone.persist();
+    } on Exception {
+      // If the tombstone itself can't be written, proceed best-effort —
+      // an unrecorded interruption is no worse than pre-M3.7 behavior.
     }
 
     await database.close();
@@ -49,7 +78,7 @@ final class ClearLocalDataService {
     try {
       await channel.deleteKeys();
       keysDeleted = true;
-    } catch (_) {
+    } on Exception {
       // Key deletion failure is not blocking
     }
 
@@ -63,41 +92,53 @@ final class ClearLocalDataService {
       if (await shmFile.exists()) await shmFile.delete();
 
       databaseRemoved = true;
-    } catch (_) {
+    } on Exception {
       // File deletion failure is not blocking
+    }
+
+    if (keysDeleted && databaseRemoved) {
+      try {
+        await _tombstone.clear();
+        tombstoneCleared = true;
+      } on Exception {
+        // Leave the tombstone in place; next boot's recovery will retry.
+      }
     }
 
     return ClearLocalDataResult(
       epochAdvanced: epochAdvanced,
       keysDeleted: keysDeleted,
       databaseRemoved: databaseRemoved,
+      tombstoneCleared: tombstoneCleared,
     );
   }
 
+  /// Clears only the activity log and decision traces. Uses a dedicated
+  /// activity-writer generation fence instead of the global privacy epoch —
+  /// clearing activity must never invalidate other epoch-gated writes, and
+  /// must never delete diagnostic log files (only full reset does that).
   Future<ClearLocalDataResult> clearActivityOnly() async {
-    final currentEpoch = (await (database.select(
-      database.appSettings,
-    )..where((row) => row.singletonId.equals(1))).getSingle()).privacyEpoch;
+    _activityGeneration?.advance();
 
     try {
-      await database.advancePrivacyEpoch(expectedCurrent: currentEpoch);
-    } catch (_) {
+      await database.transaction(() async {
+        await database.delete(database.activityEvents).go();
+        await database.delete(database.decisionTraces).go();
+      });
+    } on Exception {
       return const ClearLocalDataResult(
         epochAdvanced: false,
         keysDeleted: false,
         databaseRemoved: false,
+        activityCleared: false,
       );
     }
 
-    await database.transaction(() async {
-      await database.delete(database.activityEvents).go();
-      await database.delete(database.decisionTraces).go();
-    });
-
     return const ClearLocalDataResult(
-      epochAdvanced: true,
+      epochAdvanced: false,
       keysDeleted: false,
       databaseRemoved: false,
+      activityCleared: true,
     );
   }
 }

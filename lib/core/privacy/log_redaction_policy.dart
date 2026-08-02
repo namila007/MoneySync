@@ -6,9 +6,7 @@ final class LogRedactionPolicy {
     caseSensitive: false,
   );
 
-  static final RegExp _otpPattern = RegExp(
-    r'\b\d{4,8}\b',
-  );
+  static final RegExp _otpPattern = RegExp(r'\b\d{4,8}\b');
 
   static final RegExp _phonePattern = RegExp(
     r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
@@ -28,7 +26,7 @@ final class LogRedactionPolicy {
     RegExp(r'code=\w+'),
     RegExp(r'PRAGMA|retry|delete|epoch|migration|schema'),
     RegExp(r'DB_KEY_INVALID|CIPHER_UNSUPPORTED|EMPTY_SCHEMA|DB_ERROR'),
-    RegExp(r'^\*{1,2}\d{1,2}'),  // instrument tail like **34
+    RegExp(r'^\*{1,2}\d{1,2}'), // instrument tail like **34
   ];
 
   String? redact(String message) {
