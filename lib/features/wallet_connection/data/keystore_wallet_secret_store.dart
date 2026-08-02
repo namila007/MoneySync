@@ -21,7 +21,9 @@ final class KeystoreWalletSecretStore implements WalletSecretStore {
   }
 
   @override
-  Future<T> useSecret<T>(Future<T> Function(WalletToken token) operation) async {
+  Future<T> useSecret<T>(
+    Future<T> Function(WalletToken token) operation,
+  ) async {
     final hex = await channel.loadWalletToken();
     final bytes = List<int>.generate(
       hex.length ~/ 2,

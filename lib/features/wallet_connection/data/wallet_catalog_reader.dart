@@ -7,8 +7,7 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
 /// Read-only Wallet metadata transport pinned to the verified public OpenAPI
 /// v1.3.0 host and response shape. It intentionally has no mutation API.
 final class WalletCatalogReader {
-  WalletCatalogReader._(HttpClientAdapter adapter)
-    : _dio = _createAuditedDio(adapter);
+  WalletCatalogReader._(this._dio);
 
   static const _baseUrl = 'https://rest.budgetbakers.com/wallet';
   static const _host = 'rest.budgetbakers.com';
@@ -19,22 +18,26 @@ final class WalletCatalogReader {
   static const _maximumResponseCharacters = 1024 * 1024;
   static const _maximumItemsPerPage = 100;
   static const _maximumTextLength = 512;
-  static const _isProductBuild = bool.fromEnvironment('dart.vm.product');
 
   final Dio _dio;
 
-  /// Contract-test construction only; production composition does not build a
-  /// reader until Keystore and fresh-auth ports are available.
-  factory WalletCatalogReader.forTesting({required HttpClientAdapter adapter}) {
-    if (_isProductBuild) {
-      throw UnsupportedError(
-        'Synthetic Wallet transports are unavailable in product builds.',
-      );
-    }
-    return WalletCatalogReader._(adapter);
+  /// Production-capable reader using real platform I/O adapter.
+  /// Uses the same audited Dio configuration with the platform's native
+  /// HTTP client. The guard interceptor enforces GET-only, HTTPS-only,
+  /// host-pinned, path-allowlisted transport.
+  factory WalletCatalogReader.production() {
+    final dio = _createAuditedDio();
+    return WalletCatalogReader._(dio);
   }
 
-  static Dio _createAuditedDio(HttpClientAdapter adapter) {
+  /// Contract-test construction using a synthetic [adapter].
+  factory WalletCatalogReader.forTesting({required HttpClientAdapter adapter}) {
+    final dio = _createAuditedDio();
+    dio.httpClientAdapter = adapter;
+    return WalletCatalogReader._(dio);
+  }
+
+  static Dio _createAuditedDio() {
     final dio = Dio(
       BaseOptions(
         baseUrl: _baseUrl,
@@ -46,7 +49,7 @@ final class WalletCatalogReader {
         maxRedirects: 0,
         validateStatus: (_) => true,
       ),
-    )..httpClientAdapter = adapter;
+    );
     dio.interceptors.add(_WalletRequestGuard());
     return dio;
   }

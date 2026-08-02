@@ -27,6 +27,7 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  pigeon: ^27.3.0
 
 hooks:
   user_defines:

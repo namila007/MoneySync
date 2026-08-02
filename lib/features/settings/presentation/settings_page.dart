@@ -70,9 +70,7 @@ class SettingsPage extends ConsumerWidget {
                 minVerticalPadding: 12,
                 leading: const Icon(Icons.account_balance_wallet_outlined),
                 title: const Text('Wallet connection'),
-                subtitle: const Text(
-                  'Open the dedicated connection screen.',
-                ),
+                subtitle: const Text('Open the dedicated connection screen.'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.walletConnection.path),
               ),

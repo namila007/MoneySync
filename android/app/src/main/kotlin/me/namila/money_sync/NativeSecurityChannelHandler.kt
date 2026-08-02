@@ -2,12 +2,15 @@ package me.namila.money_sync
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.KeyProtection
 import java.io.File
 import java.io.IOException
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
+import javax.crypto.Mac
+import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
@@ -57,6 +60,10 @@ internal class WrappedKeyStore(
     }
 
     private val wrapperKeyAlias: String = WRAP_KEY_ALIAS
+
+    // The underlying platform KeyStore, shared so other components (e.g.
+    // HmacSigner) do not open a second handle to the same store.
+    val rawKeyStore: KeyStore get() = keyStore
 
     fun ensureWrapperKey() {
         if (keyStore.containsAlias(wrapperKeyAlias)) return
@@ -145,15 +152,14 @@ internal class DatabaseKeyManager(
         return "present"
     }
 
-    fun acquireContentKeyHex(): String {
+    // Returns the raw content-key bytes. Ownership transfers to the caller,
+    // which crosses the platform channel exactly once and must zeroize the
+    // buffer immediately after keying the database — see
+    // DatabaseKeyHandle.useAndDispose on the Dart side and
+    // docs/adr/0001-native-database-key-boundary.md.
+    fun acquireContentKeyBytes(): ByteArray {
         val wrapped = keyFileStore.loadWrappedKey()
-        val raw = wrappedKeyStore.unwrapContentKey(wrapped)
-        try {
-            val hex = raw.joinToString("") { "%02x".format(it) }
-            return hex
-        } finally {
-            raw.fill(0)
-        }
+        return wrappedKeyStore.unwrapContentKey(wrapped)
     }
 
     fun deleteAllKeys() {
@@ -162,54 +168,154 @@ internal class DatabaseKeyManager(
     }
 }
 
+/**
+ * Bounded, typed fields for source-identity HMAC canonicalization, mirroring
+ * the length-prefixed canonical encoding already used by
+ * SourceMessageCanonicalizer in Dart. Every field is re-validated here —
+ * the Dart-side validation in SourceIdentityCanonicalizationRequest is
+ * defense in depth, never a trust boundary.
+ */
+internal data class SourceIdentityCanonicalizationRequest(
+    val senderAddress: String,
+    val messageFamily: String,
+    val maskedInstrumentEvidence: String,
+    val occurredAtEpochSeconds: Long,
+    val canonicalizationVersion: Int,
+) {
+    companion object {
+        const val MAX_FIELD_LENGTH = 256
+
+        fun fromChannelArguments(arguments: Map<*, *>): SourceIdentityCanonicalizationRequest {
+            val sender = requireBoundedField(arguments["senderAddress"])
+            val family = requireBoundedField(arguments["messageFamily"])
+            val evidence = requireBoundedField(arguments["maskedInstrumentEvidence"])
+            val occurredAt = (arguments["occurredAtEpochSeconds"] as? Number)?.toLong()
+                ?: throw IllegalArgumentException("occurredAtEpochSeconds is required.")
+            val version = (arguments["canonicalizationVersion"] as? Int)
+                ?: throw IllegalArgumentException("canonicalizationVersion is required.")
+            if (occurredAt < 0) {
+                throw IllegalArgumentException("occurredAtEpochSeconds must not be negative.")
+            }
+            return SourceIdentityCanonicalizationRequest(sender, family, evidence, occurredAt, version)
+        }
+
+        private fun requireBoundedField(value: Any?): String {
+            val text = value as? String
+                ?: throw IllegalArgumentException("Canonicalization fields must be strings.")
+            if (text.isEmpty() || text.length > MAX_FIELD_LENGTH) {
+                throw IllegalArgumentException(
+                    "Canonicalization fields must be 1-$MAX_FIELD_LENGTH characters."
+                )
+            }
+            if (text.any { it.code < 0x20 || it.code == 0x7f }) {
+                throw IllegalArgumentException(
+                    "Canonicalization fields must not contain control characters."
+                )
+            }
+            return text
+        }
+    }
+
+    /**
+     * Builds the canonical byte encoding natively — the caller never
+     * supplies a pre-built string to sign.
+     */
+    fun toCanonicalBytes(): ByteArray {
+        val builder = StringBuilder("v$canonicalizationVersion")
+        for (field in listOf(senderAddress, messageFamily, maskedInstrumentEvidence)) {
+            val fieldBytes = field.toByteArray(Charsets.UTF_8)
+            builder.append('|').append(fieldBytes.size).append(':').append(field)
+        }
+        builder.append('|').append(occurredAtEpochSeconds)
+        return builder.toString().toByteArray(Charsets.UTF_8)
+    }
+}
+
+/**
+ * Signs source-identity digests using a dedicated, non-exportable
+ * AndroidKeyStore `KEY_ALGORITHM_HMAC_SHA256` key. The key material never
+ * leaves the Keystore: `Mac` is initialized directly from the Keystore-held
+ * `SecretKey`, not from an app-owned `ByteArray`/`SecretKeySpec`.
+ */
 internal class HmacSigner(
     private val wrappedKeyStore: WrappedKeyStore,
     private val noBackupFilesDirectory: File,
 ) {
     companion object {
-        const val HMAC_KEY_PURPOSE = "money_sync_source_identity_hmac"
+        const val HMAC_KEY_ALIAS = "money_sync_source_identity_hmac_v2"
         const val HMAC_SUPPORTED_VERSION = 1
     }
 
-    private val hmacKeyFile: File
+    private val legacyHmacKeyFile: File
         get() = File(File(noBackupFilesDirectory, "money_sync/database"), "hmac_key_wrapped.blob")
 
-    fun ensureHmacPurposeKey(): String {
-        val blobFile = hmacKeyFile
-        if (!blobFile.exists()) {
-            val wrapped = wrappedKeyStore.generateAndWrapContentKey()
-            blobFile.writeBytes(wrapped)
+    /**
+     * Ensures a non-exportable Keystore HMAC key exists. If a legacy
+     * AES-wrapped key file exists from before this migration, its raw key
+     * material is imported once into the Keystore (preserving source-identity
+     * continuity), zeroized, and the legacy file is deleted. Fresh installs
+     * generate a new Keystore-native key directly.
+     */
+    fun ensureHmacKey() {
+        val keyStore = wrappedKeyStore.rawKeyStore
+        if (keyStore.containsAlias(HMAC_KEY_ALIAS)) return
+        if (legacyHmacKeyFile.exists()) {
+            migrateLegacyKey(keyStore)
+        } else {
+            generateFreshKey()
         }
-        return "present"
     }
 
-    fun deriveSourceIdentityDigest(
-        canonicalInput: String,
-        canonicalizationVersion: Int,
-    ): String {
-        if (canonicalizationVersion != HMAC_SUPPORTED_VERSION) {
-            throw IllegalArgumentException(
-                "Unsupported canonicalization version: $canonicalizationVersion"
-            )
-        }
-        val hmacKey = acquireHmacKey()
+    private fun generateFreshKey() {
+        val spec = KeyGenParameterSpec.Builder(HMAC_KEY_ALIAS, KeyProperties.PURPOSE_SIGN)
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .build()
+        val generator = KeyGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_HMAC_SHA256,
+            WrappedKeyStore.ANDROID_KEYSTORE,
+        )
+        generator.init(spec)
+        generator.generateKey()
+    }
+
+    private fun migrateLegacyKey(keyStore: KeyStore) {
+        val wrapped = legacyHmacKeyFile.readBytes()
+        val raw = wrappedKeyStore.unwrapContentKey(wrapped)
         try {
-            val mac = javax.crypto.Mac.getInstance("HmacSHA256")
-            mac.init(SecretKeySpec(hmacKey, "HmacSHA256"))
-            val domainPrefixed =
-                "$HMAC_KEY_PURPOSE.v$canonicalizationVersion:$canonicalInput"
-            val digest = mac.doFinal(domainPrefixed.toByteArray(Charsets.UTF_8))
-            return digest.joinToString("") { "%02x".format(it) }
+            val protection = KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .build()
+            keyStore.setEntry(
+                HMAC_KEY_ALIAS,
+                KeyStore.SecretKeyEntry(SecretKeySpec(raw, "HmacSHA256")),
+                protection,
+            )
         } finally {
-            hmacKey.fill(0)
+            raw.fill(0)
+        }
+        legacyHmacKeyFile.delete()
+    }
+
+    fun deleteHmacKey() {
+        val keyStore = wrappedKeyStore.rawKeyStore
+        if (keyStore.containsAlias(HMAC_KEY_ALIAS)) {
+            keyStore.deleteEntry(HMAC_KEY_ALIAS)
+        }
+        if (legacyHmacKeyFile.exists()) {
+            legacyHmacKeyFile.delete()
         }
     }
 
-    private fun acquireHmacKey(): ByteArray {
-        val blobFile = hmacKeyFile
-        if (!blobFile.exists()) throw IOException("HMAC key not initialized")
-        val wrapped = blobFile.readBytes()
-        return wrappedKeyStore.unwrapContentKey(wrapped)
+    fun deriveSourceIdentityDigest(request: SourceIdentityCanonicalizationRequest): String {
+        require(request.canonicalizationVersion == HMAC_SUPPORTED_VERSION) {
+            "Unsupported canonicalization version: ${request.canonicalizationVersion}"
+        }
+        ensureHmacKey()
+        val key = wrappedKeyStore.rawKeyStore.getKey(HMAC_KEY_ALIAS, null) as SecretKey
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(key)
+        val digest = mac.doFinal(request.toCanonicalBytes())
+        return digest.joinToString("") { "%02x".format(it) }
     }
 }
 
@@ -268,7 +374,7 @@ internal class NativeSecurityChannelHandler(
     fun handle(method: String, arguments: Any?): NativeChannelResponse = when (method) {
         "getSensitiveDatabasePath" -> getSensitiveDatabasePath()
         "ensureContentKey" -> ensureContentKey()
-        "acquireContentKeyHex" -> acquireContentKeyHex()
+        "acquireContentKeyBytes" -> acquireContentKeyBytes()
         "deriveSourceIdentityDigest" -> deriveSourceIdentityDigest(arguments)
         "deleteKeys" -> deleteKeys()
         "storeWalletToken" -> storeWalletToken(arguments)
@@ -296,8 +402,8 @@ internal class NativeSecurityChannelHandler(
         )
     }
 
-    private fun acquireContentKeyHex(): NativeChannelResponse = try {
-        NativeChannelResponse.Success(databaseKeyManager.acquireContentKeyHex())
+    private fun acquireContentKeyBytes(): NativeChannelResponse = try {
+        NativeChannelResponse.Success(databaseKeyManager.acquireContentKeyBytes())
     } catch (_: Exception) {
         NativeChannelResponse.Error(
             code = "KEY_UNAVAILABLE",
@@ -310,23 +416,22 @@ internal class NativeSecurityChannelHandler(
             code = "INVALID_ARGUMENT",
             message = "Arguments required.",
         )
-        val input = args["canonicalInput"] as? String ?: return NativeChannelResponse.Error(
-            code = "INVALID_ARGUMENT",
-            message = "canonicalInput string required.",
-        )
-        val version = args["canonicalizationVersion"] as? Int ?: return NativeChannelResponse.Error(
-            code = "INVALID_ARGUMENT",
-            message = "canonicalizationVersion int required.",
-        )
-        return try {
-            hmacSigner.ensureHmacPurposeKey()
-            val digest = hmacSigner.deriveSourceIdentityDigest(input, version)
-            NativeChannelResponse.Success(digest)
+        val request = try {
+            SourceIdentityCanonicalizationRequest.fromChannelArguments(args)
         } catch (_: IllegalArgumentException) {
-            NativeChannelResponse.Error(
+            return NativeChannelResponse.Error(
+                code = "INVALID_ARGUMENT",
+                message = "Canonicalization request is invalid.",
+            )
+        }
+        if (request.canonicalizationVersion != HmacSigner.HMAC_SUPPORTED_VERSION) {
+            return NativeChannelResponse.Error(
                 code = "UNSUPPORTED_VERSION",
                 message = "Unsupported canonicalization version.",
             )
+        }
+        return try {
+            NativeChannelResponse.Success(hmacSigner.deriveSourceIdentityDigest(request))
         } catch (_: Exception) {
             NativeChannelResponse.Error(
                 code = "HMAC_FAILED",
@@ -337,6 +442,7 @@ internal class NativeSecurityChannelHandler(
 
     private fun deleteKeys(): NativeChannelResponse = try {
         databaseKeyManager.deleteAllKeys()
+        hmacSigner.deleteHmacKey()
         NativeChannelResponse.Success(null)
     } catch (_: Exception) {
         NativeChannelResponse.Error(

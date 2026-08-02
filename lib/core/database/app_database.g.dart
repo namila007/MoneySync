@@ -104,6 +104,28 @@ class $AppSettingsTable extends AppSettings
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _rawCopyRetentionDaysMeta =
+      const VerificationMeta('rawCopyRetentionDays');
+  @override
+  late final GeneratedColumn<int> rawCopyRetentionDays = GeneratedColumn<int>(
+    'raw_copy_retention_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _activityRetentionDaysMeta =
+      const VerificationMeta('activityRetentionDays');
+  @override
+  late final GeneratedColumn<int> activityRetentionDays = GeneratedColumn<int>(
+    'activity_retention_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(180),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     singletonId,
@@ -114,6 +136,8 @@ class $AppSettingsTable extends AppSettings
     disclosureRevision,
     processingMode,
     configurationRevision,
+    rawCopyRetentionDays,
+    activityRetentionDays,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -199,6 +223,24 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
+    if (data.containsKey('raw_copy_retention_days')) {
+      context.handle(
+        _rawCopyRetentionDaysMeta,
+        rawCopyRetentionDays.isAcceptableOrUnknown(
+          data['raw_copy_retention_days']!,
+          _rawCopyRetentionDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('activity_retention_days')) {
+      context.handle(
+        _activityRetentionDaysMeta,
+        activityRetentionDays.isAcceptableOrUnknown(
+          data['activity_retention_days']!,
+          _activityRetentionDaysMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -240,6 +282,14 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.int,
         data['${effectivePrefix}configuration_revision'],
       )!,
+      rawCopyRetentionDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}raw_copy_retention_days'],
+      )!,
+      activityRetentionDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}activity_retention_days'],
+      )!,
     );
   }
 
@@ -258,6 +308,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final int? disclosureRevision;
   final String processingMode;
   final int configurationRevision;
+  final int rawCopyRetentionDays;
+  final int activityRetentionDays;
   const AppSetting({
     required this.singletonId,
     required this.privacyEpoch,
@@ -267,6 +319,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     this.disclosureRevision,
     required this.processingMode,
     required this.configurationRevision,
+    required this.rawCopyRetentionDays,
+    required this.activityRetentionDays,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -283,6 +337,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     }
     map['processing_mode'] = Variable<String>(processingMode);
     map['configuration_revision'] = Variable<int>(configurationRevision);
+    map['raw_copy_retention_days'] = Variable<int>(rawCopyRetentionDays);
+    map['activity_retention_days'] = Variable<int>(activityRetentionDays);
     return map;
   }
 
@@ -300,6 +356,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           : Value(disclosureRevision),
       processingMode: Value(processingMode),
       configurationRevision: Value(configurationRevision),
+      rawCopyRetentionDays: Value(rawCopyRetentionDays),
+      activityRetentionDays: Value(activityRetentionDays),
     );
   }
 
@@ -321,6 +379,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       configurationRevision: serializer.fromJson<int>(
         json['configurationRevision'],
       ),
+      rawCopyRetentionDays: serializer.fromJson<int>(
+        json['rawCopyRetentionDays'],
+      ),
+      activityRetentionDays: serializer.fromJson<int>(
+        json['activityRetentionDays'],
+      ),
     );
   }
   @override
@@ -335,6 +399,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'disclosureRevision': serializer.toJson<int?>(disclosureRevision),
       'processingMode': serializer.toJson<String>(processingMode),
       'configurationRevision': serializer.toJson<int>(configurationRevision),
+      'rawCopyRetentionDays': serializer.toJson<int>(rawCopyRetentionDays),
+      'activityRetentionDays': serializer.toJson<int>(activityRetentionDays),
     };
   }
 
@@ -347,6 +413,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     Value<int?> disclosureRevision = const Value.absent(),
     String? processingMode,
     int? configurationRevision,
+    int? rawCopyRetentionDays,
+    int? activityRetentionDays,
   }) => AppSetting(
     singletonId: singletonId ?? this.singletonId,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
@@ -360,6 +428,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
         : this.disclosureRevision,
     processingMode: processingMode ?? this.processingMode,
     configurationRevision: configurationRevision ?? this.configurationRevision,
+    rawCopyRetentionDays: rawCopyRetentionDays ?? this.rawCopyRetentionDays,
+    activityRetentionDays: activityRetentionDays ?? this.activityRetentionDays,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
@@ -387,6 +457,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       configurationRevision: data.configurationRevision.present
           ? data.configurationRevision.value
           : this.configurationRevision,
+      rawCopyRetentionDays: data.rawCopyRetentionDays.present
+          ? data.rawCopyRetentionDays.value
+          : this.rawCopyRetentionDays,
+      activityRetentionDays: data.activityRetentionDays.present
+          ? data.activityRetentionDays.value
+          : this.activityRetentionDays,
     );
   }
 
@@ -400,7 +476,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('disclosureAccepted: $disclosureAccepted, ')
           ..write('disclosureRevision: $disclosureRevision, ')
           ..write('processingMode: $processingMode, ')
-          ..write('configurationRevision: $configurationRevision')
+          ..write('configurationRevision: $configurationRevision, ')
+          ..write('rawCopyRetentionDays: $rawCopyRetentionDays, ')
+          ..write('activityRetentionDays: $activityRetentionDays')
           ..write(')'))
         .toString();
   }
@@ -415,6 +493,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     disclosureRevision,
     processingMode,
     configurationRevision,
+    rawCopyRetentionDays,
+    activityRetentionDays,
   );
   @override
   bool operator ==(Object other) =>
@@ -427,7 +507,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.disclosureAccepted == this.disclosureAccepted &&
           other.disclosureRevision == this.disclosureRevision &&
           other.processingMode == this.processingMode &&
-          other.configurationRevision == this.configurationRevision);
+          other.configurationRevision == this.configurationRevision &&
+          other.rawCopyRetentionDays == this.rawCopyRetentionDays &&
+          other.activityRetentionDays == this.activityRetentionDays);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
@@ -439,6 +521,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<int?> disclosureRevision;
   final Value<String> processingMode;
   final Value<int> configurationRevision;
+  final Value<int> rawCopyRetentionDays;
+  final Value<int> activityRetentionDays;
   const AppSettingsCompanion({
     this.singletonId = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
@@ -448,6 +532,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.disclosureRevision = const Value.absent(),
     this.processingMode = const Value.absent(),
     this.configurationRevision = const Value.absent(),
+    this.rawCopyRetentionDays = const Value.absent(),
+    this.activityRetentionDays = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.singletonId = const Value.absent(),
@@ -458,6 +544,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.disclosureRevision = const Value.absent(),
     this.processingMode = const Value.absent(),
     this.configurationRevision = const Value.absent(),
+    this.rawCopyRetentionDays = const Value.absent(),
+    this.activityRetentionDays = const Value.absent(),
   });
   static Insertable<AppSetting> custom({
     Expression<int>? singletonId,
@@ -468,6 +556,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<int>? disclosureRevision,
     Expression<String>? processingMode,
     Expression<int>? configurationRevision,
+    Expression<int>? rawCopyRetentionDays,
+    Expression<int>? activityRetentionDays,
   }) {
     return RawValuesInsertable({
       if (singletonId != null) 'singleton_id': singletonId,
@@ -480,6 +570,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (processingMode != null) 'processing_mode': processingMode,
       if (configurationRevision != null)
         'configuration_revision': configurationRevision,
+      if (rawCopyRetentionDays != null)
+        'raw_copy_retention_days': rawCopyRetentionDays,
+      if (activityRetentionDays != null)
+        'activity_retention_days': activityRetentionDays,
     });
   }
 
@@ -492,6 +586,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<int?>? disclosureRevision,
     Value<String>? processingMode,
     Value<int>? configurationRevision,
+    Value<int>? rawCopyRetentionDays,
+    Value<int>? activityRetentionDays,
   }) {
     return AppSettingsCompanion(
       singletonId: singletonId ?? this.singletonId,
@@ -503,6 +599,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       processingMode: processingMode ?? this.processingMode,
       configurationRevision:
           configurationRevision ?? this.configurationRevision,
+      rawCopyRetentionDays: rawCopyRetentionDays ?? this.rawCopyRetentionDays,
+      activityRetentionDays:
+          activityRetentionDays ?? this.activityRetentionDays,
     );
   }
 
@@ -535,6 +634,16 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
         configurationRevision.value,
       );
     }
+    if (rawCopyRetentionDays.present) {
+      map['raw_copy_retention_days'] = Variable<int>(
+        rawCopyRetentionDays.value,
+      );
+    }
+    if (activityRetentionDays.present) {
+      map['activity_retention_days'] = Variable<int>(
+        activityRetentionDays.value,
+      );
+    }
     return map;
   }
 
@@ -548,7 +657,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('disclosureAccepted: $disclosureAccepted, ')
           ..write('disclosureRevision: $disclosureRevision, ')
           ..write('processingMode: $processingMode, ')
-          ..write('configurationRevision: $configurationRevision')
+          ..write('configurationRevision: $configurationRevision, ')
+          ..write('rawCopyRetentionDays: $rawCopyRetentionDays, ')
+          ..write('activityRetentionDays: $activityRetentionDays')
           ..write(')'))
         .toString();
   }
@@ -6370,6 +6481,8 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<int?> disclosureRevision,
       Value<String> processingMode,
       Value<int> configurationRevision,
+      Value<int> rawCopyRetentionDays,
+      Value<int> activityRetentionDays,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
@@ -6381,6 +6494,8 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<int?> disclosureRevision,
       Value<String> processingMode,
       Value<int> configurationRevision,
+      Value<int> rawCopyRetentionDays,
+      Value<int> activityRetentionDays,
     });
 
 class $$AppSettingsTableFilterComposer
@@ -6429,6 +6544,16 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get configurationRevision => $composableBuilder(
     column: $table.configurationRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rawCopyRetentionDays => $composableBuilder(
+    column: $table.rawCopyRetentionDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get activityRetentionDays => $composableBuilder(
+    column: $table.activityRetentionDays,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6481,6 +6606,16 @@ class $$AppSettingsTableOrderingComposer
     column: $table.configurationRevision,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get rawCopyRetentionDays => $composableBuilder(
+    column: $table.rawCopyRetentionDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get activityRetentionDays => $composableBuilder(
+    column: $table.activityRetentionDays,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -6531,6 +6666,16 @@ class $$AppSettingsTableAnnotationComposer
     column: $table.configurationRevision,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get rawCopyRetentionDays => $composableBuilder(
+    column: $table.rawCopyRetentionDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get activityRetentionDays => $composableBuilder(
+    column: $table.activityRetentionDays,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsTableTableManager
@@ -6572,6 +6717,8 @@ class $$AppSettingsTableTableManager
                 Value<int?> disclosureRevision = const Value.absent(),
                 Value<String> processingMode = const Value.absent(),
                 Value<int> configurationRevision = const Value.absent(),
+                Value<int> rawCopyRetentionDays = const Value.absent(),
+                Value<int> activityRetentionDays = const Value.absent(),
               }) => AppSettingsCompanion(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -6581,6 +6728,8 @@ class $$AppSettingsTableTableManager
                 disclosureRevision: disclosureRevision,
                 processingMode: processingMode,
                 configurationRevision: configurationRevision,
+                rawCopyRetentionDays: rawCopyRetentionDays,
+                activityRetentionDays: activityRetentionDays,
               ),
           createCompanionCallback:
               ({
@@ -6592,6 +6741,8 @@ class $$AppSettingsTableTableManager
                 Value<int?> disclosureRevision = const Value.absent(),
                 Value<String> processingMode = const Value.absent(),
                 Value<int> configurationRevision = const Value.absent(),
+                Value<int> rawCopyRetentionDays = const Value.absent(),
+                Value<int> activityRetentionDays = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -6601,6 +6752,8 @@ class $$AppSettingsTableTableManager
                 disclosureRevision: disclosureRevision,
                 processingMode: processingMode,
                 configurationRevision: configurationRevision,
+                rawCopyRetentionDays: rawCopyRetentionDays,
+                activityRetentionDays: activityRetentionDays,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

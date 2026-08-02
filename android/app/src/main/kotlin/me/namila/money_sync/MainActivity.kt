@@ -5,11 +5,13 @@ import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import timber.log.Timber
 
 class MainActivity : FlutterFragmentActivity() {
     private lateinit var securityChannelHandler: NativeSecurityChannelHandler
     private lateinit var wrappedKeyStore: WrappedKeyStore
     private lateinit var databaseKeyManager: DatabaseKeyManager
+    private lateinit var nativeLogTree: NativeLogTree
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,5 +55,13 @@ class MainActivity : FlutterFragmentActivity() {
                     NativeChannelResponse.NotImplemented -> result.notImplemented()
                 }
             }
+
+        val nativeLogFlutterApi = NativeLogFlutterApi(flutterEngine.dartExecutor.binaryMessenger)
+        nativeLogTree = NativeLogTree(nativeLogFlutterApi)
+        Timber.plant(nativeLogTree)
+
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            Timber.plant(Timber.DebugTree())
+        }
     }
 }

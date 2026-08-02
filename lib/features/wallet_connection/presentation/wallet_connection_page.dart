@@ -19,8 +19,14 @@ class WalletConnectionPage extends ConsumerWidget {
           WalletDisconnected() => const _DisconnectedBody(),
           WalletConnectionLoading() => const _LoadingBody(),
           WalletConnected(:final catalog, :final refreshedAt, :final isStale) =>
-            _ConnectedBody(catalog: catalog, refreshedAt: refreshedAt, isStale: isStale),
-          WalletConnectionFailure(:final userMessage) => _DisconnectedBody(failureMessage: userMessage),
+            _ConnectedBody(
+              catalog: catalog,
+              refreshedAt: refreshedAt,
+              isStale: isStale,
+            ),
+          WalletConnectionFailure(:final userMessage) => _DisconnectedBody(
+            failureMessage: userMessage,
+          ),
         },
       ),
     );
@@ -35,14 +41,21 @@ class _BlockedBody extends StatelessWidget {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.account_balance_wallet_outlined, size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant),
+        Icon(
+          Icons.account_balance_wallet_outlined,
+          size: 48,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(height: 16),
-        Text('Wallet connection',
-            style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          'Wallet connection',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 8),
-        Text('Not available yet',
-            style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          'Not available yet',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
         const SizedBox(height: 8),
         Text(
           'Secure storage and device authentication must be set up first.',
@@ -112,81 +125,81 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
     });
 
     if (result == WalletTokenSubmitResult.blocked) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Token was not saved.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Token was not saved.')));
     }
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ListView(
-        children: [
-          const SizedBox(height: 16),
-          if (widget.failureMessage != null) ...[
-            Card(
-              color: Theme.of(context).colorScheme.errorContainer,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(widget.failureMessage!)),
-                  ],
-                ),
+  Widget build(BuildContext context) => ListView(
+    children: [
+      const SizedBox(height: 16),
+      if (widget.failureMessage != null) ...[
+        Card(
+          color: Theme.of(context).colorScheme.errorContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, size: 20),
+                const SizedBox(width: 8),
+                Expanded(child: Text(widget.failureMessage!)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+      Text('Connect Wallet', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 8),
+      Text(
+        'Enter your personal Wallet API token. It will be stored securely in device Keystore.',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      const SizedBox(height: 16),
+      TextField(
+        controller: _tokenController,
+        obscureText: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        enableIMEPersonalizedLearning: false,
+        autofillHints: const [],
+        contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+        decoration: InputDecoration(
+          labelText: 'API token',
+          errorText: _validationError,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 16),
+      FilledButton.icon(
+        onPressed: _submitting ? null : _connect,
+        icon: const Icon(Icons.link),
+        label: Text(_submitting ? 'Connecting...' : 'Save & connect'),
+      ),
+      const SizedBox(height: 24),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'About Wallet API',
+                style: Theme.of(context).textTheme.titleSmall,
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text('Connect Wallet',
-              style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text(
-            'Enter your personal Wallet API token. It will be stored securely in device Keystore.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _tokenController,
-            obscureText: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            enableIMEPersonalizedLearning: false,
-            autofillHints: const [],
-            contextMenuBuilder: (_, __) => const SizedBox.shrink(),
-            decoration: InputDecoration(
-              labelText: 'API token',
-              errorText: _validationError,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _submitting ? null : _connect,
-            icon: const Icon(Icons.link),
-            label: Text(_submitting ? 'Connecting...' : 'Save & connect'),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('About Wallet API',
-                      style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You need a Wallet Premium account. Generate a personal API token in your Wallet web app settings under Integrations > REST API.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              const SizedBox(height: 8),
+              Text(
+                'You need a Wallet Premium account. Generate a personal API token in your Wallet web app settings under Integrations > REST API.',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
+            ],
           ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 }
 
 class _ConnectedBody extends ConsumerWidget {
@@ -209,19 +222,22 @@ class _ConnectedBody extends ConsumerWidget {
         _InfoRow(
           icon: Icons.account_balance,
           label: 'Accounts',
-          value: '${catalog.accounts.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
+          value:
+              '${catalog.accounts.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
         ),
         const SizedBox(height: 8),
         _InfoRow(
           icon: Icons.category,
           label: 'Categories',
-          value: '${catalog.categories.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
+          value:
+              '${catalog.categories.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
         ),
         const SizedBox(height: 8),
         _InfoRow(
           icon: Icons.check_circle_outline,
           label: 'Eligible targets',
-          value: '${catalog.accounts.where((a) => a.eligibility == WalletAccountEligibility.eligible).length} accounts',
+          value:
+              '${catalog.accounts.where((a) => a.eligibility == WalletAccountEligibility.eligible).length} accounts',
         ),
         const Divider(height: 24),
         Row(
@@ -247,7 +263,9 @@ class _ConnectedBody extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.vpn_key_outlined),
           title: const Text('API token'),
-          subtitle: const Text('\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'),
+          subtitle: const Text(
+            '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+          ),
           trailing: TextButton(
             onPressed: () => _handleReplace(context, ref),
             child: const Text('Replace'),
@@ -291,9 +309,9 @@ class _ConnectedBody extends ConsumerWidget {
 
   void _handleTest(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Testing connection...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Testing connection...')));
     final controller = ref.read(walletConnectionControllerProvider.notifier);
     final result = await controller.refresh();
     if (!context.mounted) return;
@@ -302,14 +320,16 @@ class _ConnectedBody extends ConsumerWidget {
       WalletTokenSubmitResult.handedOff => 'Connection test failed.',
       WalletTokenSubmitResult.blocked => 'Test is not available right now.',
     };
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleRefresh(BuildContext context, WidgetRef ref) async {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Refreshing catalog...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Refreshing catalog...')));
     final controller = ref.read(walletConnectionControllerProvider.notifier);
     final result = await controller.refresh();
     if (!context.mounted) return;
@@ -318,7 +338,9 @@ class _ConnectedBody extends ConsumerWidget {
       WalletTokenSubmitResult.handedOff => 'Refresh failed.',
       WalletTokenSubmitResult.blocked => 'Refresh is not available.',
     };
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleReplace(BuildContext context, WidgetRef ref) {
@@ -338,9 +360,9 @@ class _ConnectedBody extends ConsumerWidget {
           FilledButton(
             onPressed: () {
               Navigator.of(ctx).pop();
-              ref.read(walletConnectionControllerProvider.notifier).submit(
-                WalletToken.parse(''),
-              );
+              ref
+                  .read(walletConnectionControllerProvider.notifier)
+                  .submit(WalletToken.parse(''));
             },
             child: const Text('Continue'),
           ),

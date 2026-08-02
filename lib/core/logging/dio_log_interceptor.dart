@@ -3,7 +3,7 @@ import 'package:logging/logging.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 
 final class DioLogInterceptor extends Interceptor {
-  DioLogInterceptor({required Logger logger}) : _logger = logger;
+  DioLogInterceptor({required this._logger});
 
   final Logger _logger;
 
@@ -25,7 +25,9 @@ final class DioLogInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final path = err.requestOptions.uri.path;
-    _logger.error('Dio error: ${err.type} on $path (${err.response?.statusCode})');
+    _logger.error(
+      'Dio error: ${err.type} on $path (${err.response?.statusCode})',
+    );
     handler.next(err);
   }
 }

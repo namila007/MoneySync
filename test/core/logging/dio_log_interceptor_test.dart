@@ -14,15 +14,15 @@ void main() {
 
       final dio = Dio();
       dio.interceptors.add(DioLogInterceptor(logger: logger));
-      dio.interceptors.add(InterceptorsWrapper(
-        onRequest: (options, handler) {
-          handler.resolve(Response(
-            requestOptions: options,
-            statusCode: 200,
-            data: 'ok',
-          ));
-        },
-      ));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.resolve(
+              Response(requestOptions: options, statusCode: 200, data: 'ok'),
+            );
+          },
+        ),
+      );
 
       await dio.get('https://rest.budgetbakers.com/api/accounts');
 
@@ -52,14 +52,18 @@ void main() {
 
       final dio = Dio();
       dio.interceptors.add(DioLogInterceptor(logger: logger));
-      dio.interceptors.add(InterceptorsWrapper(
-        onRequest: (options, handler) {
-          handler.reject(DioException(
-            requestOptions: options,
-            type: DioExceptionType.connectionTimeout,
-          ));
-        },
-      ));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionTimeout,
+              ),
+            );
+          },
+        ),
+      );
 
       try {
         await dio.get('/api/fail');
@@ -85,7 +89,9 @@ class _FakeAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
       '{"ok": true}',
       201,
-      headers: {'content-type': ['application/json']},
+      headers: {
+        'content-type': ['application/json'],
+      },
     );
   }
 
