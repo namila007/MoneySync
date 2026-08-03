@@ -170,9 +170,7 @@ void main() {
       await container
           .read(dataControlControllerProvider.notifier)
           .clearActivity();
-      container
-          .read(dataControlControllerProvider.notifier)
-          .resetToIdle();
+      container.read(dataControlControllerProvider.notifier).resetToIdle();
 
       expect(
         container.read(dataControlControllerProvider),

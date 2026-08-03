@@ -51,64 +51,50 @@ void main() {
   });
 
   group('ClearLocalDataService.clearAllAppData', () {
-    test(
-      'advances the epoch, persists then clears the tombstone, deletes '
-      'keys and files, and reports full success',
-      () async {
-        final dbDir = Directory('${tempDir.path}/database')
-          ..createSync(recursive: true);
-        File('${dbDir.path}/money_sync.db').writeAsStringSync('db-sentinel');
-        File(
-          '${dbDir.path}/money_sync.db-wal',
-        ).writeAsStringSync('wal-sentinel');
+    test('advances the epoch, persists then clears the tombstone, deletes '
+        'keys and files, and reports full success', () async {
+      final dbDir = Directory('${tempDir.path}/database')
+        ..createSync(recursive: true);
+      File('${dbDir.path}/money_sync.db').writeAsStringSync('db-sentinel');
+      File('${dbDir.path}/money_sync.db-wal').writeAsStringSync('wal-sentinel');
 
-        final service = ClearLocalDataService(
-          database: database,
-          channel: const NativeSecurityChannel(),
-          databasePath: databasePath,
-        );
+      final service = ClearLocalDataService(
+        database: database,
+        channel: const NativeSecurityChannel(),
+        databasePath: databasePath,
+      );
 
-        final result = await service.clearAllAppData();
+      final result = await service.clearAllAppData();
 
-        expect(result.epochAdvanced, isTrue);
-        expect(result.keysDeleted, isTrue);
-        expect(result.databaseRemoved, isTrue);
-        expect(result.tombstoneCleared, isTrue);
-        expect(result.success, isTrue);
-        expect(deleteKeysCalls, 1);
-        expect(
-          File('${dbDir.path}/money_sync.db').existsSync(),
-          isFalse,
-        );
-        expect(
-          await ResetTombstone(databasePath: databasePath).exists(),
-          isFalse,
-        );
-      },
-    );
+      expect(result.epochAdvanced, isTrue);
+      expect(result.keysDeleted, isTrue);
+      expect(result.databaseRemoved, isTrue);
+      expect(result.tombstoneCleared, isTrue);
+      expect(result.success, isTrue);
+      expect(deleteKeysCalls, 1);
+      expect(File('${dbDir.path}/money_sync.db').existsSync(), isFalse);
+      expect(
+        await ResetTombstone(databasePath: databasePath).exists(),
+        isFalse,
+      );
+    });
 
-    test(
-      'leaves the tombstone in place when key deletion fails, so a later '
-      'boot can resume cleanup',
-      () async {
-        deleteKeysThrows = true;
-        final service = ClearLocalDataService(
-          database: database,
-          channel: const NativeSecurityChannel(),
-          databasePath: databasePath,
-        );
+    test('leaves the tombstone in place when key deletion fails, so a later '
+        'boot can resume cleanup', () async {
+      deleteKeysThrows = true;
+      final service = ClearLocalDataService(
+        database: database,
+        channel: const NativeSecurityChannel(),
+        databasePath: databasePath,
+      );
 
-        final result = await service.clearAllAppData();
+      final result = await service.clearAllAppData();
 
-        expect(result.keysDeleted, isFalse);
-        expect(result.tombstoneCleared, isFalse);
-        expect(result.success, isFalse);
-        expect(
-          await ResetTombstone(databasePath: databasePath).exists(),
-          isTrue,
-        );
-      },
-    );
+      expect(result.keysDeleted, isFalse);
+      expect(result.tombstoneCleared, isFalse);
+      expect(result.success, isFalse);
+      expect(await ResetTombstone(databasePath: databasePath).exists(), isTrue);
+    });
   });
 
   group('ClearLocalDataService.clearActivityOnly', () {

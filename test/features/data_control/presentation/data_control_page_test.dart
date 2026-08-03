@@ -206,9 +206,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('reset button is disabled while reset is busy', (
-      tester,
-    ) async {
+    testWidgets('reset button is disabled while reset is busy', (tester) async {
       final fake = _FakeClearLocalDataUseCase(
         resetDelay: const Duration(milliseconds: 100),
       );
@@ -219,10 +217,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Reset everything'));
       await tester.pump();
 
-      final resettingButton = find.widgetWithText(
-        FilledButton,
-        'Resetting...',
-      );
+      final resettingButton = find.widgetWithText(FilledButton, 'Resetting...');
       expect(resettingButton, findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 200));

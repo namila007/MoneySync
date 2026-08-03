@@ -4,7 +4,10 @@ import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 void main() {
   group('DataClearScope', () {
     test('clearActivity and resetAllLocalData are distinct scopes', () {
-      expect(DataClearScope.clearActivity, isNot(DataClearScope.resetAllLocalData));
+      expect(
+        DataClearScope.clearActivity,
+        isNot(DataClearScope.resetAllLocalData),
+      );
     });
 
     test('all scopes are valid enum values', () {

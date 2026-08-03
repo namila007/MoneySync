@@ -53,8 +53,8 @@ final clearLocalDataUseCaseProvider = Provider<IClearLocalDataUseCase?>((ref) {
 
 final dataControlControllerProvider =
     NotifierProvider<DataControlController, DataControlState>(
-  DataControlController.new,
-);
+      DataControlController.new,
+    );
 
 class DataControlController extends Notifier<DataControlState> {
   @override
@@ -64,7 +64,8 @@ class DataControlController extends Notifier<DataControlState> {
 
   IClearLocalDataUseCase _useCase() {
     final useCase = ref.read(clearLocalDataUseCaseProvider);
-    if (useCase == null) throw StateError('IClearLocalDataUseCase not provided.');
+    if (useCase == null)
+      throw StateError('IClearLocalDataUseCase not provided.');
     return useCase;
   }
 
@@ -109,8 +110,7 @@ class DataControlController extends Notifier<DataControlState> {
       } else {
         state = DataControlFailure(
           scope: DataClearScope.resetAllLocalData,
-          errorMessage:
-              result.errorMessage ?? 'Reset did not complete.',
+          errorMessage: result.errorMessage ?? 'Reset did not complete.',
         );
       }
     } catch (e) {

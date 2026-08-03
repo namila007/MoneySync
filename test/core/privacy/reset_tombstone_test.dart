@@ -58,7 +58,9 @@ void main() {
 
       await tombstone.persist();
 
-      final markerFile = File('${tempDir.path}/database/reset_tombstone.marker');
+      final markerFile = File(
+        '${tempDir.path}/database/reset_tombstone.marker',
+      );
       expect(await markerFile.exists(), isTrue);
     });
   });

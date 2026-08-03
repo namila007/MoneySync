@@ -43,59 +43,50 @@ void main() {
       expect(source, everyElement(0));
     });
 
-    test(
-      'NativeSecurityChannel.acquireContentKeyBytes returns raw bytes, '
-      'not a hex String',
-      () {
-        // Compile-time proof: this call site only type-checks if the
-        // return type is Future<Uint8List>. A hex-returning
-        // acquireContentKeyHex() no longer exists on this class.
-        const channel = NativeSecurityChannel();
-        expect(channel.acquireContentKeyBytes, isA<Function>());
-      },
-    );
+    test('NativeSecurityChannel.acquireContentKeyBytes returns raw bytes, '
+        'not a hex String', () {
+      // Compile-time proof: this call site only type-checks if the
+      // return type is Future<Uint8List>. A hex-returning
+      // acquireContentKeyHex() no longer exists on this class.
+      const channel = NativeSecurityChannel();
+      expect(channel.acquireContentKeyBytes, isA<Function>());
+    });
 
-    test(
-      'acquireContentKeyBytes defensively copies the channel result so it '
-      'is always mutable/zeroizable, even if the platform layer returns a '
-      'read-only view',
-      () async {
-        // Regression test: on a real device the MethodChannel result was
-        // observed to be a read-only Uint8List view, which crashed
-        // DatabaseKeyHandle.useAndDispose's fillRange zeroization with
-        // "Unsupported operation: Cannot modify an unmodifiable list".
-        const channelName = 'me.namila.money_sync/security';
-        final readOnlySource = Uint8List.fromList(
-          List<int>.generate(32, (i) => i),
-        ).asUnmodifiableView();
+    test('acquireContentKeyBytes defensively copies the channel result so it '
+        'is always mutable/zeroizable, even if the platform layer returns a '
+        'read-only view', () async {
+      // Regression test: on a real device the MethodChannel result was
+      // observed to be a read-only Uint8List view, which crashed
+      // DatabaseKeyHandle.useAndDispose's fillRange zeroization with
+      // "Unsupported operation: Cannot modify an unmodifiable list".
+      const channelName = 'me.namila.money_sync/security';
+      final readOnlySource = Uint8List.fromList(
+        List<int>.generate(32, (i) => i),
+      ).asUnmodifiableView();
 
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(const MethodChannel(channelName), (
+            MethodCall call,
+          ) async {
+            if (call.method == 'acquireContentKeyBytes') {
+              return readOnlySource;
+            }
+            throw MissingPluginException();
+          });
+      addTearDown(() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(const MethodChannel(channelName), (
-              MethodCall call,
-            ) async {
-              if (call.method == 'acquireContentKeyBytes') {
-                return readOnlySource;
-              }
-              throw MissingPluginException();
-            });
-        addTearDown(() {
-          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-              .setMockMethodCallHandler(
-                const MethodChannel(channelName),
-                null,
-              );
-        });
+            .setMockMethodCallHandler(const MethodChannel(channelName), null);
+      });
 
-        const channel = NativeSecurityChannel();
-        final bytes = await channel.acquireContentKeyBytes();
-        final handle = DatabaseKeyHandle(bytes);
+      const channel = NativeSecurityChannel();
+      final bytes = await channel.acquireContentKeyBytes();
+      final handle = DatabaseKeyHandle(bytes);
 
-        expect(
-          () => handle.useAndDispose((b) => b.fillRange(0, b.length, 0)),
-          returnsNormally,
-        );
-      },
-    );
+      expect(
+        () => handle.useAndDispose((b) => b.fillRange(0, b.length, 0)),
+        returnsNormally,
+      );
+    });
   });
 
   group('HMAC boundary', () {
@@ -169,17 +160,14 @@ void main() {
       );
     });
 
-    test(
-      'deriveSourceIdentityDigest only accepts a typed request, not a '
-      'free-form canonicalInput String',
-      () {
-        // Compile-time proof: the named parameter is
-        // `SourceIdentityCanonicalizationRequest request`, not
-        // `String canonicalInput`. A caller cannot pass an arbitrary
-        // pre-built string to be signed.
-        expect(channel.deriveSourceIdentityDigest, isA<Function>());
-      },
-    );
+    test('deriveSourceIdentityDigest only accepts a typed request, not a '
+        'free-form canonicalInput String', () {
+      // Compile-time proof: the named parameter is
+      // `SourceIdentityCanonicalizationRequest request`, not
+      // `String canonicalInput`. A caller cannot pass an arbitrary
+      // pre-built string to be signed.
+      expect(channel.deriveSourceIdentityDigest, isA<Function>());
+    });
   });
 
   group('Native channel method safety', () {

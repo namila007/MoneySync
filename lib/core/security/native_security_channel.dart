@@ -115,7 +115,11 @@ final class SourceIdentityCanonicalizationRequest {
   static const _maxFieldLength = 256;
 
   Map<String, Object?> _toChannelArguments(int canonicalizationVersion) {
-    for (final field in [senderAddress, messageFamily, maskedInstrumentEvidence]) {
+    for (final field in [
+      senderAddress,
+      messageFamily,
+      maskedInstrumentEvidence,
+    ]) {
       _requireBoundedField(field);
     }
     if (occurredAtEpochSeconds < 0) {

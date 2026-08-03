@@ -17,13 +17,15 @@ class DataControlPage extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _ClearActivityCard(
-            busy: state is DataControlBusy &&
+            busy:
+                state is DataControlBusy &&
                 state.scope == DataClearScope.clearActivity,
             onClear: () => _confirmClearActivity(context, controller),
           ),
           const SizedBox(height: 16),
           _ResetLocalDataCard(
-            busy: state is DataControlBusy &&
+            busy:
+                state is DataControlBusy &&
                 state.scope == DataClearScope.resetAllLocalData,
             onReset: () => _confirmResetAll(context, controller),
           ),
@@ -255,10 +257,7 @@ class _ResultBanner extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
-            IconButton(
-              onPressed: onDismiss,
-              icon: const Icon(Icons.close),
-            ),
+            IconButton(onPressed: onDismiss, icon: const Icon(Icons.close)),
           ],
         ),
       ),
@@ -300,10 +299,7 @@ class _PartialFailureBanner extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
-                IconButton(
-                  onPressed: onDismiss,
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: onDismiss, icon: const Icon(Icons.close)),
               ],
             ),
             const SizedBox(height: 8),
@@ -317,15 +313,9 @@ class _PartialFailureBanner extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: onDismiss,
-                  child: const Text('Dismiss'),
-                ),
+                TextButton(onPressed: onDismiss, child: const Text('Dismiss')),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: onRetry,
-                  child: const Text('Retry'),
-                ),
+                FilledButton(onPressed: onRetry, child: const Text('Retry')),
               ],
             ),
           ],

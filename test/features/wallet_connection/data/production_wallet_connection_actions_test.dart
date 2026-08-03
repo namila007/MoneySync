@@ -13,37 +13,36 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart'
 
 void main() {
   group('ProductionWalletConnectionActions', () {
-    test(
-      'connect reads once, saves the token only after success, and writes '
-      'the cache from the same result',
-      () async {
-        final adapter = _QueueAdapter([
-          _json(200, {'accounts': [], 'nextOffset': null}),
-          _json(200, {'categories': [], 'nextOffset': null}),
-        ]);
-        final secretStore = _FakeSecretStore();
-        final cache = _FakeCache();
-        final actions = ProductionWalletConnectionActions(
-          secretStore: secretStore,
-          freshAuth: _FakeFreshAuth(),
-          cache: cache,
-          reader: WalletCatalogReader.forTesting(adapter: adapter),
-        );
+    test('connect reads once, saves the token only after success, and writes '
+        'the cache from the same result', () async {
+      final adapter = _QueueAdapter([
+        _json(200, {'accounts': [], 'nextOffset': null}),
+        _json(200, {'categories': [], 'nextOffset': null}),
+      ]);
+      final secretStore = _FakeSecretStore();
+      final cache = _FakeCache();
+      final actions = ProductionWalletConnectionActions(
+        secretStore: secretStore,
+        freshAuth: _FakeFreshAuth(),
+        cache: cache,
+        reader: WalletCatalogReader.forTesting(adapter: adapter),
+      );
 
-        final result = await actions.connect(
-          WalletToken.parse('synthetic-token'),
-          replacing: false,
-          lifecycleEpoch: 0,
-        );
+      final result = await actions.connect(
+        WalletToken.parse('synthetic-token'),
+        replacing: false,
+        lifecycleEpoch: 0,
+      );
 
-        expect(result, isA<WalletConnectionCatalogReady>());
-        expect(secretStore.saved, isNotNull);
-        expect(cache.written, isNotNull);
-      },
-    );
+      expect(result, isA<WalletConnectionCatalogReady>());
+      expect(secretStore.saved, isNotNull);
+      expect(cache.written, isNotNull);
+    });
 
     test('connect does not save the token when the read fails', () async {
-      final adapter = _QueueAdapter([_json(401, {'error': 'invalid'})]);
+      final adapter = _QueueAdapter([
+        _json(401, {'error': 'invalid'}),
+      ]);
       final secretStore = _FakeSecretStore();
       final actions = ProductionWalletConnectionActions(
         secretStore: secretStore,
@@ -62,30 +61,25 @@ void main() {
       expect(secretStore.saved, isNull);
     });
 
-    test(
-      'connect requires fresh authentication when replacing an existing '
-      'token',
-      () async {
-        final freshAuth = _FakeFreshAuth(
-          outcome: DeviceAuthOutcome.cancelled,
-        );
-        final actions = ProductionWalletConnectionActions(
-          secretStore: _FakeSecretStore(),
-          freshAuth: freshAuth,
-          cache: _FakeCache(),
-          reader: WalletCatalogReader.forTesting(adapter: _QueueAdapter([])),
-        );
+    test('connect requires fresh authentication when replacing an existing '
+        'token', () async {
+      final freshAuth = _FakeFreshAuth(outcome: DeviceAuthOutcome.cancelled);
+      final actions = ProductionWalletConnectionActions(
+        secretStore: _FakeSecretStore(),
+        freshAuth: freshAuth,
+        cache: _FakeCache(),
+        reader: WalletCatalogReader.forTesting(adapter: _QueueAdapter([])),
+      );
 
-        final result = await actions.connect(
-          WalletToken.parse('replacement-token'),
-          replacing: true,
-          lifecycleEpoch: 0,
-        );
+      final result = await actions.connect(
+        WalletToken.parse('replacement-token'),
+        replacing: true,
+        lifecycleEpoch: 0,
+      );
 
-        expect(result, isA<WalletConnectionFreshAuthenticationRequired>());
-        expect(freshAuth.calls, 1);
-      },
-    );
+      expect(result, isA<WalletConnectionFreshAuthenticationRequired>());
+      expect(freshAuth.calls, 1);
+    });
 
     test('refresh reads via the stored token and writes the cache', () async {
       final adapter = _QueueAdapter([
@@ -111,10 +105,8 @@ void main() {
     test('disconnect clears both the cache and the stored secret', () async {
       final secretStore = _FakeSecretStore()
         ..saved = WalletToken.parse('to-be-cleared');
-      final cache = _FakeCache()..written = WalletCatalog(
-        accounts: const [],
-        categories: const [],
-      );
+      final cache = _FakeCache()
+        ..written = WalletCatalog(accounts: const [], categories: const []);
       final actions = ProductionWalletConnectionActions(
         secretStore: secretStore,
         freshAuth: _FakeFreshAuth(),

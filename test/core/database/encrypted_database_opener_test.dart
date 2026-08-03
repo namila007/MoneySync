@@ -93,9 +93,7 @@ void main() {
 
   test('reopening with the wrong key fails closed', () async {
     final firstKey = Uint8List.fromList(List<int>.generate(32, (i) => i));
-    final wrongKey = Uint8List.fromList(
-      List<int>.generate(32, (i) => 255 - i),
-    );
+    final wrongKey = Uint8List.fromList(List<int>.generate(32, (i) => 255 - i));
 
     final first = await ProductionEncryptedDatabaseOpener(
       channel: const NativeSecurityChannel(),

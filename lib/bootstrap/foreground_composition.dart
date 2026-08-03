@@ -240,9 +240,6 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     final overrides = [
       clearLocalDataUseCaseProvider.overrideWithValue(useCase),
     ];
-    return ProviderScope(
-      overrides: overrides,
-      child: const MoneySyncApp(),
-    );
+    return ProviderScope(overrides: overrides, child: const MoneySyncApp());
   }
 }

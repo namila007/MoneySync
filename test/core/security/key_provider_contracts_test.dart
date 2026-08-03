@@ -54,10 +54,7 @@ void main() {
   });
 
   test('database key handle rejects empty byte buffers', () {
-    expect(
-      () => DatabaseKeyHandle(Uint8List(0)),
-      throwsArgumentError,
-    );
+    expect(() => DatabaseKeyHandle(Uint8List(0)), throwsArgumentError);
   });
 
   test('database key handle bytes can be consumed exactly once', () {
