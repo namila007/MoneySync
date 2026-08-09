@@ -16,6 +16,9 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
     final lockState = await (database.select(
       database.appLockState,
     )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
+    final rawCopyDays = setting.rawCopyRetentionDays > kRawCopyRetentionMaxDays
+        ? kRawCopyRetentionMaxDays
+        : setting.rawCopyRetentionDays;
     return ConfigurationState(
       configurationRevision: setting.configurationRevision,
       processingMode: setting.processingMode == 'manual'
@@ -26,8 +29,13 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
         inactivityTimeoutSeconds: lockState?.inactivityTimeoutSeconds ?? 300,
       ),
       retention: RetentionPreferences(
-        rawCopyDays: setting.rawCopyRetentionDays,
+        rawCopyDays: rawCopyDays,
         activityRetentionDays: setting.activityRetentionDays,
+      ),
+      historyImport: HistoryImportPreferences(
+        enabled: setting.historySmsEnabled,
+        windowDays: setting.historyWindowDays,
+        messageCap: setting.historyMessageCap,
       ),
     );
   }
@@ -52,13 +60,32 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
 
   @override
   Future<void> updateRetention(RetentionPreferences prefs) async {
+    final clamped = prefs.rawCopyDays > kRawCopyRetentionMaxDays
+        ? kRawCopyRetentionMaxDays
+        : prefs.rawCopyDays;
     await database.transaction(() async {
       await (database.update(
         database.appSettings,
       )..where((row) => row.singletonId.equals(1))).write(
         AppSettingsCompanion(
-          rawCopyRetentionDays: Value(prefs.rawCopyDays),
+          rawCopyRetentionDays: Value(clamped),
           activityRetentionDays: Value(prefs.activityRetentionDays),
+        ),
+      );
+      await _incrementRevision();
+    });
+  }
+
+  @override
+  Future<void> updateHistoryImport(HistoryImportPreferences prefs) async {
+    await database.transaction(() async {
+      await (database.update(
+        database.appSettings,
+      )..where((row) => row.singletonId.equals(1))).write(
+        AppSettingsCompanion(
+          historySmsEnabled: Value(prefs.enabled),
+          historyWindowDays: Value(prefs.windowDays),
+          historyMessageCap: Value(prefs.messageCap),
         ),
       );
       await _incrementRevision();

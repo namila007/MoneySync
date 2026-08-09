@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 
 final class DriftOnboardingRepository implements OnboardingRepository {
@@ -16,9 +17,10 @@ final class DriftOnboardingRepository implements OnboardingRepository {
     if (setting == null) return null;
     if (!setting.onboardingCompleted) return null;
     return OnboardingState(
-      currentStep: OnboardingStep.disclosure,
+      currentStep: OnboardingStep.smsAccessDecision,
       disclosureRevision: setting.disclosureRevision ?? 1,
       isComplete: setting.onboardingCompleted,
+      onboardingRevision: setting.onboardingRevision,
     );
   }
 
@@ -27,10 +29,11 @@ final class DriftOnboardingRepository implements OnboardingRepository {
     await (database.update(
       database.appSettings,
     )..where((row) => row.singletonId.equals(1))).write(
-      const AppSettingsCompanion(
-        onboardingCompleted: Value(true),
-        onboardingRevision: Value(1),
-        disclosureAccepted: Value(true),
+      AppSettingsCompanion(
+        onboardingCompleted: const Value(true),
+        onboardingRevision: Value(kOnboardingRevision),
+        disclosureAccepted: const Value(true),
+        disclosureRevision: Value(disclosureRevision),
       ),
     );
   }
@@ -44,6 +47,15 @@ final class DriftOnboardingRepository implements OnboardingRepository {
         disclosureAccepted: const Value(true),
         disclosureRevision: Value(disclosureRevision),
       ),
+    );
+  }
+
+  @override
+  Future<void> acceptSmsDisclosure({required int smsDisclosureRevision}) async {
+    await (database.update(
+      database.appSettings,
+    )..where((row) => row.singletonId.equals(1))).write(
+      AppSettingsCompanion(smsDisclosureRevision: Value(smsDisclosureRevision)),
     );
   }
 }

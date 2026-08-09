@@ -1,3 +1,3 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- M0 intentionally declares no SMS, write, or storage permission. -->
+    <uses-permission android:name="android.permission.READ_SMS" />
 </manifest>

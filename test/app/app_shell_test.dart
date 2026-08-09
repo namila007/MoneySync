@@ -5,6 +5,8 @@ import 'package:money_sync/app/app.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
+import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
 
@@ -15,9 +17,21 @@ Widget _appWithOnboardingComplete() {
       onboardingStateProvider.overrideWith(
         () => _CompletedOnboardingNotifier(),
       ),
+      // These are navigation tests: without this the Activity tab waits on a
+      // database that never opens under flutter_test and pumpAndSettle spins.
+      activityLogRepositoryProvider.overrideWith(
+        (ref) async => const _EmptyActivityLog(),
+      ),
     ],
     child: const MoneySyncApp(),
   );
+}
+
+final class _EmptyActivityLog implements ActivityLogRepository {
+  const _EmptyActivityLog();
+
+  @override
+  Future<List<ActivityLogEntry>> recent({int limit = 200}) async => const [];
 }
 
 final class _CompletedOnboardingNotifier extends OnboardingNotifier {

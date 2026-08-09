@@ -1,4 +1,5 @@
 enum AppCapability {
+  smsPermission,
   walletCreate,
   walletPatch,
   walletDelete,
@@ -13,14 +14,21 @@ enum AppCapability {
   modelTransfer,
 }
 
-/// A capability registry that defaults to disabled until a milestone supplies
-/// validated native and application evidence for an explicit activation.
 final class AppCapabilities {
-  const AppCapabilities.m0();
+  const AppCapabilities._(this._enabled);
 
-  bool isEnabled(AppCapability capability) => false;
+  const AppCapabilities.m0() : this._(const <AppCapability>{});
+
+  const AppCapabilities.m4PrivateFull()
+    : this._(const <AppCapability>{AppCapability.smsPermission});
+
+  final Set<AppCapability> _enabled;
+
+  bool isEnabled(AppCapability capability) => _enabled.contains(capability);
 
   String explanationFor(AppCapability capability) => switch (capability) {
+    AppCapability.smsPermission =>
+      'SMS permission boundary is active in this build.',
     AppCapability.walletCreate =>
       'Wallet creation remains disabled until the Wallet contract spike passes.',
     AppCapability.walletPatch =>

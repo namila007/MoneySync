@@ -18,7 +18,13 @@ void main() {
 
     for (final configuration in configurations) {
       for (final capability in AppCapability.values) {
-        expect(configuration.capabilities.isEnabled(capability), isFalse);
+        final enabled = configuration.capabilities.isEnabled(capability);
+        if (configuration.flavor == AppFlavor.privateFull &&
+            capability == AppCapability.smsPermission) {
+          expect(enabled, isTrue);
+        } else {
+          expect(enabled, isFalse);
+        }
       }
     }
   });

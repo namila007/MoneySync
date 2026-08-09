@@ -38,13 +38,35 @@ enum ReviewReason {
   ambiguousMapping,
   parserConflict,
   unknownKind,
+  externalShare,
 }
 
-/// Closed persistence lifecycle for a candidate record in the M1 schema.
-enum CandidateRecordState { needsReview }
+enum CandidateRecordState { needsReview, ignored, retainedLocal, superseded }
 
-/// Safe, non-diagnostic decision trace codes allowed by the M1 schema.
-enum DecisionTraceCode { initialReview }
+enum DecisionTraceCode {
+  initialReview,
+  filteredNonTransaction,
+  filteredOtp,
+  filteredPromotional,
+  ruleFamilyMatched,
+  ruleFamilyUnmatched,
+  parsedComplete,
+  parsedPartial,
+  validationRejected,
+  ambiguousDirection,
+  ambiguousCurrency,
+  reviewRequired,
+}
+
+enum DecisionStage {
+  normalize,
+  filter,
+  ruleFamilySelect,
+  parse,
+  validate,
+  classify,
+  finalize,
+}
 
 /// Confidence stored as integer basis points, never binary floating point.
 final class CandidateConfidence {

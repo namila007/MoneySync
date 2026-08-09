@@ -57,15 +57,12 @@ void main() {
       final scrollable = find.byType(Scrollable).first;
 
       expect(find.text('Security & Privacy'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('SMS & Tracking'),
-        250,
-        scrollable: scrollable,
-      );
-      expect(find.text('SMS & Tracking'), findsOneWidget);
+      // SMS controls moved to the Configuration hub in M4.4; the settings page
+      // must no longer carry a duplicate permanently-locked SMS section.
+      expect(find.text('SMS & Tracking'), findsNothing);
       expect(
         find.text('Available in M4: SMS import remains disabled.'),
-        findsOneWidget,
+        findsNothing,
       );
 
       await tester.scrollUntilVisible(

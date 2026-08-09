@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
+import 'package:money_sync/features/onboarding/presentation/steps/sms_access_decision_step.dart';
+import 'package:money_sync/features/onboarding/presentation/steps/sms_access_disclosure_step.dart';
 
 class OnboardingReviewWrapper extends StatelessWidget {
   const OnboardingReviewWrapper({super.key});
@@ -49,6 +51,10 @@ class OnboardingPage extends ConsumerWidget {
                     OnboardingStep.permissionEducation =>
                       const _PermissionEducationStep(),
                     OnboardingStep.disclosure => const _DisclosureStep(),
+                    OnboardingStep.smsAccessDisclosure =>
+                      const SmsAccessDisclosureStep(),
+                    OnboardingStep.smsAccessDecision =>
+                      const SmsAccessDecisionStep(),
                   },
                 ),
               ),
@@ -124,6 +130,13 @@ class _ForwardButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // The SMS disclosure and decision steps own their advance actions. Showing
+    // a generic Next beside them lets the user walk past the disclosure without
+    // recording consent or ever reaching the system permission dialog.
+    if (state.providesOwnAdvanceAction) {
+      return const SizedBox.shrink();
+    }
+
     return FilledButton(
       onPressed: () {
         final currentState = ref.read(onboardingStateProvider);

@@ -19,7 +19,7 @@ final class AppConfig {
   const AppConfig.privateFull()
     : this._(
         flavor: AppFlavor.privateFull,
-        capabilities: const AppCapabilities.m0(),
+        capabilities: const AppCapabilities.m4PrivateFull(),
         productionPolicy: const ProductionPolicy.m0(),
       );
 

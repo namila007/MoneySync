@@ -81,6 +81,26 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     }
   }
 
+  Future<void> grantSmsAccess() async {
+    final log = Logger('onboarding');
+    log.info('User granted SMS access consent');
+    try {
+      final db = ref.read(appDatabaseProvider).requireValue;
+      final repo = DriftOnboardingRepository(database: db);
+      await repo.acceptSmsDisclosure(smsDisclosureRevision: 1);
+      log.info('SMS disclosure revision persisted');
+    } catch (e, s) {
+      log.error('Failed to persist SMS disclosure', e, s);
+    }
+    state = state.nextStep();
+  }
+
+  Future<void> skipSmsAccess() async {
+    final log = Logger('onboarding');
+    log.info('User skipped SMS access');
+    state = state.nextStep();
+  }
+
   void goBack() {
     final steps = OnboardingStep.values;
     final currentIndex = steps.indexOf(state.currentStep);
@@ -90,6 +110,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
         currentStep: previous,
         disclosureRevision: state.disclosureRevision,
         isComplete: false,
+        onboardingRevision: state.onboardingRevision,
       );
     }
   }

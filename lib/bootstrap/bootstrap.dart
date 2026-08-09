@@ -4,12 +4,23 @@ import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/bootstrap_logging.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/features/sms_permission/data/pigeon_sms_permission_gateway.dart';
+import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
 void bootstrap(AppConfig config) {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
     ProviderScope(
-      overrides: [appConfigProvider.overrideWithValue(config)],
+      overrides: [
+        appConfigProvider.overrideWithValue(config),
+        // Must live in the ROOT scope. smsPermissionStatusProvider is not
+        // itself overridden anywhere, so Riverpod hosts it in the root
+        // container; overriding the gateway only in a nested scope leaves the
+        // notifier reading the root's throwing default.
+        smsPermissionGatewayProvider.overrideWithValue(
+          PigeonSmsPermissionGateway(),
+        ),
+      ],
       child: BootstrapGate(config: config),
     ),
   );

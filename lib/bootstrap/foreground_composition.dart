@@ -19,6 +19,7 @@ import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.
 import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
+import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
 final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
   ref,
@@ -140,6 +141,8 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       ref.read(foregroundLockControllerProvider.notifier).onAppPaused();
+    } else if (state == AppLifecycleState.resumed) {
+      ref.read(smsPermissionStatusProvider.notifier).refresh();
     }
   }
 
@@ -237,6 +240,10 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
         child: const Center(child: CircularProgressIndicator()),
       );
     }
+    // smsPermissionGatewayProvider is deliberately NOT overridden here: it must
+    // be hosted by the root container in bootstrap.dart, because the notifier
+    // that reads it is not scoped to this ProviderScope and would otherwise
+    // resolve the root's throwing default.
     final overrides = [
       clearLocalDataUseCaseProvider.overrideWithValue(useCase),
     ];

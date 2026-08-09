@@ -21,6 +21,15 @@ class SettingsPage extends ConsumerWidget {
         children: [
           _ConfigurationSummary(flavor: config.flavor),
           const SizedBox(height: 16),
+          _SectionHeader(title: 'MANAGE'),
+          ListTile(
+            leading: const Icon(Icons.tune),
+            title: const Text('Configuration hub'),
+            subtitle: const Text('All settings, permissions, and SMS controls'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/configuration'),
+          ),
+          const SizedBox(height: 16),
           _ConfigurationSection(
             title: 'Security & Privacy',
             children: [
@@ -46,22 +55,9 @@ class SettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          const _ConfigurationSection(
-            title: 'SMS & Tracking',
-            children: [
-              _GatedSettingTile(
-                key: ValueKey('settings-history-window'),
-                title: 'SMS history window',
-                explanation: 'Available in M4: SMS import remains disabled.',
-                icon: Icons.sms_outlined,
-              ),
-              _GatedSettingTile(
-                title: 'Incoming tracking',
-                explanation: 'Available in M6: tracking remains disabled.',
-                icon: Icons.notifications_off_outlined,
-              ),
-            ],
-          ),
+          // SMS controls live only in the Configuration hub (M4.4). The old
+          // gated 'SMS & Tracking' tiles here duplicated it with permanently
+          // locked copy and are gone.
           _ConfigurationSection(
             title: 'Wallet',
             children: [
@@ -162,34 +158,6 @@ class _ConfigurationSection extends StatelessWidget {
   }
 }
 
-class _GatedSettingTile extends StatelessWidget {
-  const _GatedSettingTile({
-    super.key,
-    required this.title,
-    required this.explanation,
-    required this.icon,
-  });
-
-  final String title;
-  final String explanation;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: '$title unavailable. $explanation',
-      child: ListTile(
-        enabled: false,
-        minVerticalPadding: 12,
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(explanation),
-        trailing: const Text('Unavailable'),
-      ),
-    );
-  }
-}
-
 class _ReadOnlySettingTile extends StatelessWidget {
   const _ReadOnlySettingTile({
     required this.title,
@@ -239,6 +207,7 @@ class _CapabilityTile extends StatelessWidget {
   }
 
   String _labelFor(AppCapability capability) => switch (capability) {
+    AppCapability.smsPermission => 'SMS permission',
     AppCapability.walletCreate => 'Wallet creation',
     AppCapability.walletPatch => 'Wallet updates',
     AppCapability.walletDelete => 'Wallet deletion',
@@ -252,4 +221,22 @@ class _CapabilityTile extends StatelessWidget {
     AppCapability.settingsExport => 'Settings export',
     AppCapability.modelTransfer => 'Model transfer',
   };
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+    );
+  }
 }

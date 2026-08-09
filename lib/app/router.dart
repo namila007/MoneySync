@@ -14,8 +14,10 @@ import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
+import 'package:money_sync/features/settings/presentation/configuration_hub_page.dart';
 import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
+import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
 
 final _onboardingCompletionNotifier = ValueNotifier<bool>(false);
@@ -80,6 +82,20 @@ GoRouter createAppRouter() {
           GoRoute(
             path: 'data',
             builder: (context, state) => const DataControlPage(),
+          ),
+          GoRoute(
+            path: 'configuration',
+            builder: (context, state) => const ConfigurationHubPage(),
+            routes: [
+              GoRoute(
+                path: 'message-reading',
+                builder: (context, state) => const SmsAccessPage(),
+              ),
+              GoRoute(
+                path: 'history-import',
+                builder: (context, state) => const _HistoryImportStub(),
+              ),
+            ],
           ),
         ],
       ),
@@ -243,4 +259,16 @@ final class _PrimaryRoute {
   final IconData selectedIcon;
 
   String get path => route.path;
+}
+
+class _HistoryImportStub extends StatelessWidget {
+  const _HistoryImportStub();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('History import')),
+      body: const Center(child: Text('History import settings \u2014 M4.8')),
+    );
+  }
 }

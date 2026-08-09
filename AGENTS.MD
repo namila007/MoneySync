@@ -33,8 +33,9 @@ For every code change:
    flutter build apk --debug
    ```
    For both flavors, build and inspect merged manifests. Verify generated code is reproducible.
-6. **Review.** Request a Flutter/Dart/Kotlin review via the appropriate skill or subagent. Add a security review for permissions, SMS, storage, authentication, cryptography, network, imports, exports, or Wallet mutations. Address critical and high findings.
-7. **Add a worklog.** Write a dated entry in the guides `worklog/` directory describing what was done, what evidence was produced, what tests were added, what gates remain, and what milestone rows are affected. Reference the milestone, plan sections, and app commits. Do not pre-claim results — record only after tests pass and builds succeed.
+6. **Deploy and test on a device.** Any change to UI, navigation, permissions, platform channels, or lifecycle must be exercised on a real Android device or emulator — a green test suite is not sufficient evidence for these. Follow "Device deployment and testing" below: check `adb`, ask the user to start the emulator if none is attached, install the flavor with its matching Dart entrypoint, then exercise the changed flow and capture evidence.
+7. **Review.** Request a Flutter/Dart/Kotlin review via the appropriate skill or subagent. Add a security review for permissions, SMS, storage, authentication, cryptography, network, imports, exports, or Wallet mutations. Address critical and high findings.
+8. **Add a worklog.** Write a dated entry in the guides `worklog/` directory describing what was done, what evidence was produced, what tests were added, what gates remain, and what milestone rows are affected. Reference the milestone, plan sections, and app commits. Do not pre-claim results — record only after tests pass and builds succeed.
 
 Do not commit, push, upload, publish, change credentials, or call a production Wallet mutation unless the user explicitly authorizes that external action.
 
@@ -150,6 +151,79 @@ App requires lock → router guard captures intended route via _intendedRouteNot
 
 - [moneysync-logger](.opencode/skills/moneysync-logger/SKILL.md) — logging framework usage: levels, logger naming, redaction rules, insertion points for debug/info/error logs. Load via `/skill moneysync-logger`.
 - [moneysync-onboarding-debug](.opencode/skills/moneysync-onboarding-debug/SKILL.md) — debugging patterns for onboarding persistence, Riverpod state transitions, GoRouter redirect chains, and Flutter logcat tracing. Load via `/skill moneysync-onboarding-debug`.
+
+## Device deployment and testing
+
+A passing `flutter test` run does not prove UI, navigation, permission, platform-channel, or
+lifecycle behaviour. Those must be exercised on a device. Follow this order every time.
+
+### 1. Check that a device is attached — before building anything
+
+```bash
+adb devices
+```
+
+Proceed only when a line reports state `device`:
+
+```text
+List of devices attached
+emulator-5554   device
+```
+
+**If the list is empty, or the only entries report `offline`, `unauthorized`, or `bootloader`,
+stop and ask the user to start the emulator from Android Studio** (Device Manager → ▶ on an AVD)
+or to plug in and unlock a physical device with USB debugging authorised. Do not try to start an
+emulator yourself, do not run `emulator -avd`, and do not silently skip device verification and
+report the change as complete. Wait for the user, then re-run `adb devices`.
+
+### 2. Install the flavor with its matching Dart entrypoint
+
+The Gradle flavor and the Dart `AppConfig` are selected independently. `--flavor privateFull`
+alone builds the privateFull Android flavor but defaults to `lib/main.dart`, which hardcodes
+`AppConfig.playManual()` — producing a binary with privateFull native behaviour and playManual
+capability gating. Always pass `--target`:
+
+```bash
+# privateFull — READ_SMS manifest, runtime SMS delegate
+flutter build apk --debug --flavor privateFull --target lib/main_private_full.dart
+adb install -r build/app/outputs/flutter-apk/app-privatefull-debug.apk
+
+# playManual — no SMS permission, unavailable-in-build delegate
+flutter build apk --debug --flavor playManual --target lib/main_play_manual.dart
+adb install -r build/app/outputs/flutter-apk/app-playmanual-debug.apk
+```
+
+Confirm the running build agrees with the intended flavor — Settings shows
+"Build configuration: Private full" or "Play manual".
+
+### 3. Exercise the changed flow and capture evidence
+
+```bash
+adb logcat -c
+adb shell am start -n me.namila.money_sync.privatefull/me.namila.money_sync.MainActivity
+adb shell input tap <x> <y>            # device pixels; check `adb shell wm size`
+adb exec-out screencap -p > shot.png
+adb logcat -d | grep -iE "E/flutter|RenderFlex|Exception"
+```
+
+Useful state checks that do not depend on the UI:
+
+```bash
+adb shell dumpsys package <applicationId> | grep -A4 "runtime permissions"   # permission grants
+adb shell dumpsys window | grep mCurrentFocus                                 # system dialog on top
+adb shell pm clear <applicationId>                                            # fresh-install state
+adb shell pm revoke <applicationId> android.permission.READ_SMS               # re-test the request path
+```
+
+For a clean permission or onboarding test, `pm clear` and `pm revoke` first — otherwise a
+previously granted permission hides the very path being verified.
+
+`FLAG_SECURE` blanks `adb exec-out screencap` to solid black. If screenshots are black, the
+secure window is active, not the app. Verify through `dumpsys`, `logcat`, and
+`uiautomator dump` instead, or ask the user before changing the secure-window behaviour.
+
+Record what was actually observed on the device in the worklog. Never claim device verification
+that was not run.
 
 ## Reading device logs
 

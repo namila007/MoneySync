@@ -5,6 +5,8 @@ enum OnboardingStep {
   deviceProtection,
   permissionEducation,
   disclosure,
+  smsAccessDisclosure,
+  smsAccessDecision,
 }
 
 final class OnboardingState {
@@ -12,6 +14,7 @@ final class OnboardingState {
     required this.currentStep,
     required this.disclosureRevision,
     required this.isComplete,
+    this.onboardingRevision,
   });
 
   factory OnboardingState.initial() => const OnboardingState(
@@ -23,8 +26,17 @@ final class OnboardingState {
   final OnboardingStep currentStep;
   final int disclosureRevision;
   final bool isComplete;
+  final int? onboardingRevision;
 
-  bool get isLastStep => currentStep == OnboardingStep.disclosure;
+  bool get isLastStep => currentStep == OnboardingStep.smsAccessDecision;
+
+  /// Steps that carry their own primary actions, so the page-level Next button
+  /// must not be shown beside them. Advancing past the SMS disclosure with a
+  /// generic Next would skip both the consent record and the permission
+  /// request, which is exactly what the disclosure screen exists to gate.
+  bool get providesOwnAdvanceAction =>
+      currentStep == OnboardingStep.smsAccessDisclosure ||
+      currentStep == OnboardingStep.smsAccessDecision;
 
   OnboardingState nextStep() {
     if (isComplete) return this;
@@ -35,12 +47,14 @@ final class OnboardingState {
         currentStep: currentStep,
         disclosureRevision: disclosureRevision,
         isComplete: true,
+        onboardingRevision: onboardingRevision,
       );
     }
     return OnboardingState(
       currentStep: steps[currentIndex + 1],
       disclosureRevision: disclosureRevision,
       isComplete: false,
+      onboardingRevision: onboardingRevision,
     );
   }
 

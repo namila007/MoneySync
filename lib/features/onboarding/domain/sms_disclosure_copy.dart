@@ -1,0 +1,16 @@
+const String kSmsDisclosureBody =
+    'MoneySync can read messages you select '
+    'to find transactions.\n\n'
+    '\u2713  Read-only. Your inbox is never '
+    'changed, marked read, or deleted.\n\n'
+    '\u2713  Only messages you pick, from a date '
+    'range you choose.\n\n'
+    '\u2713  Processing happens on this device. '
+    'Messages are never uploaded.\n\n'
+    '\u2713  A brief encrypted copy is kept while '
+    'processing, then removed. OTP and '
+    'unrelated messages are dropped at once.\n\n'
+    '\u2717  Never sends, writes, or deletes SMS.\n'
+    '\u2717  Never reads contacts, calls, location.\n\n'
+    'You can turn this off at any time in '
+    'Settings \u2192 Message reading.';

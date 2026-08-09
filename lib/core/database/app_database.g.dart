@@ -126,6 +126,55 @@ class $AppSettingsTable extends AppSettings
     requiredDuringInsert: false,
     defaultValue: const Constant(180),
   );
+  static const VerificationMeta _smsDisclosureRevisionMeta =
+      const VerificationMeta('smsDisclosureRevision');
+  @override
+  late final GeneratedColumn<int> smsDisclosureRevision = GeneratedColumn<int>(
+    'sms_disclosure_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _historySmsEnabledMeta = const VerificationMeta(
+    'historySmsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> historySmsEnabled = GeneratedColumn<bool>(
+    'history_sms_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("history_sms_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _historyWindowDaysMeta = const VerificationMeta(
+    'historyWindowDays',
+  );
+  @override
+  late final GeneratedColumn<int> historyWindowDays = GeneratedColumn<int>(
+    'history_window_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(7),
+  );
+  static const VerificationMeta _historyMessageCapMeta = const VerificationMeta(
+    'historyMessageCap',
+  );
+  @override
+  late final GeneratedColumn<int> historyMessageCap = GeneratedColumn<int>(
+    'history_message_cap',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(100),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     singletonId,
@@ -138,6 +187,10 @@ class $AppSettingsTable extends AppSettings
     configurationRevision,
     rawCopyRetentionDays,
     activityRetentionDays,
+    smsDisclosureRevision,
+    historySmsEnabled,
+    historyWindowDays,
+    historyMessageCap,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -241,6 +294,42 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
+    if (data.containsKey('sms_disclosure_revision')) {
+      context.handle(
+        _smsDisclosureRevisionMeta,
+        smsDisclosureRevision.isAcceptableOrUnknown(
+          data['sms_disclosure_revision']!,
+          _smsDisclosureRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('history_sms_enabled')) {
+      context.handle(
+        _historySmsEnabledMeta,
+        historySmsEnabled.isAcceptableOrUnknown(
+          data['history_sms_enabled']!,
+          _historySmsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('history_window_days')) {
+      context.handle(
+        _historyWindowDaysMeta,
+        historyWindowDays.isAcceptableOrUnknown(
+          data['history_window_days']!,
+          _historyWindowDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('history_message_cap')) {
+      context.handle(
+        _historyMessageCapMeta,
+        historyMessageCap.isAcceptableOrUnknown(
+          data['history_message_cap']!,
+          _historyMessageCapMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -290,6 +379,22 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.int,
         data['${effectivePrefix}activity_retention_days'],
       )!,
+      smsDisclosureRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sms_disclosure_revision'],
+      ),
+      historySmsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}history_sms_enabled'],
+      )!,
+      historyWindowDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}history_window_days'],
+      )!,
+      historyMessageCap: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}history_message_cap'],
+      )!,
     );
   }
 
@@ -310,6 +415,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final int configurationRevision;
   final int rawCopyRetentionDays;
   final int activityRetentionDays;
+  final int? smsDisclosureRevision;
+  final bool historySmsEnabled;
+  final int historyWindowDays;
+  final int historyMessageCap;
   const AppSetting({
     required this.singletonId,
     required this.privacyEpoch,
@@ -321,6 +430,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     required this.configurationRevision,
     required this.rawCopyRetentionDays,
     required this.activityRetentionDays,
+    this.smsDisclosureRevision,
+    required this.historySmsEnabled,
+    required this.historyWindowDays,
+    required this.historyMessageCap,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -339,6 +452,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['configuration_revision'] = Variable<int>(configurationRevision);
     map['raw_copy_retention_days'] = Variable<int>(rawCopyRetentionDays);
     map['activity_retention_days'] = Variable<int>(activityRetentionDays);
+    if (!nullToAbsent || smsDisclosureRevision != null) {
+      map['sms_disclosure_revision'] = Variable<int>(smsDisclosureRevision);
+    }
+    map['history_sms_enabled'] = Variable<bool>(historySmsEnabled);
+    map['history_window_days'] = Variable<int>(historyWindowDays);
+    map['history_message_cap'] = Variable<int>(historyMessageCap);
     return map;
   }
 
@@ -358,6 +477,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       configurationRevision: Value(configurationRevision),
       rawCopyRetentionDays: Value(rawCopyRetentionDays),
       activityRetentionDays: Value(activityRetentionDays),
+      smsDisclosureRevision: smsDisclosureRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smsDisclosureRevision),
+      historySmsEnabled: Value(historySmsEnabled),
+      historyWindowDays: Value(historyWindowDays),
+      historyMessageCap: Value(historyMessageCap),
     );
   }
 
@@ -385,6 +510,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       activityRetentionDays: serializer.fromJson<int>(
         json['activityRetentionDays'],
       ),
+      smsDisclosureRevision: serializer.fromJson<int?>(
+        json['smsDisclosureRevision'],
+      ),
+      historySmsEnabled: serializer.fromJson<bool>(json['historySmsEnabled']),
+      historyWindowDays: serializer.fromJson<int>(json['historyWindowDays']),
+      historyMessageCap: serializer.fromJson<int>(json['historyMessageCap']),
     );
   }
   @override
@@ -401,6 +532,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'configurationRevision': serializer.toJson<int>(configurationRevision),
       'rawCopyRetentionDays': serializer.toJson<int>(rawCopyRetentionDays),
       'activityRetentionDays': serializer.toJson<int>(activityRetentionDays),
+      'smsDisclosureRevision': serializer.toJson<int?>(smsDisclosureRevision),
+      'historySmsEnabled': serializer.toJson<bool>(historySmsEnabled),
+      'historyWindowDays': serializer.toJson<int>(historyWindowDays),
+      'historyMessageCap': serializer.toJson<int>(historyMessageCap),
     };
   }
 
@@ -415,6 +550,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     int? configurationRevision,
     int? rawCopyRetentionDays,
     int? activityRetentionDays,
+    Value<int?> smsDisclosureRevision = const Value.absent(),
+    bool? historySmsEnabled,
+    int? historyWindowDays,
+    int? historyMessageCap,
   }) => AppSetting(
     singletonId: singletonId ?? this.singletonId,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
@@ -430,6 +569,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     configurationRevision: configurationRevision ?? this.configurationRevision,
     rawCopyRetentionDays: rawCopyRetentionDays ?? this.rawCopyRetentionDays,
     activityRetentionDays: activityRetentionDays ?? this.activityRetentionDays,
+    smsDisclosureRevision: smsDisclosureRevision.present
+        ? smsDisclosureRevision.value
+        : this.smsDisclosureRevision,
+    historySmsEnabled: historySmsEnabled ?? this.historySmsEnabled,
+    historyWindowDays: historyWindowDays ?? this.historyWindowDays,
+    historyMessageCap: historyMessageCap ?? this.historyMessageCap,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
@@ -463,6 +608,18 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       activityRetentionDays: data.activityRetentionDays.present
           ? data.activityRetentionDays.value
           : this.activityRetentionDays,
+      smsDisclosureRevision: data.smsDisclosureRevision.present
+          ? data.smsDisclosureRevision.value
+          : this.smsDisclosureRevision,
+      historySmsEnabled: data.historySmsEnabled.present
+          ? data.historySmsEnabled.value
+          : this.historySmsEnabled,
+      historyWindowDays: data.historyWindowDays.present
+          ? data.historyWindowDays.value
+          : this.historyWindowDays,
+      historyMessageCap: data.historyMessageCap.present
+          ? data.historyMessageCap.value
+          : this.historyMessageCap,
     );
   }
 
@@ -478,7 +635,11 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('processingMode: $processingMode, ')
           ..write('configurationRevision: $configurationRevision, ')
           ..write('rawCopyRetentionDays: $rawCopyRetentionDays, ')
-          ..write('activityRetentionDays: $activityRetentionDays')
+          ..write('activityRetentionDays: $activityRetentionDays, ')
+          ..write('smsDisclosureRevision: $smsDisclosureRevision, ')
+          ..write('historySmsEnabled: $historySmsEnabled, ')
+          ..write('historyWindowDays: $historyWindowDays, ')
+          ..write('historyMessageCap: $historyMessageCap')
           ..write(')'))
         .toString();
   }
@@ -495,6 +656,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     configurationRevision,
     rawCopyRetentionDays,
     activityRetentionDays,
+    smsDisclosureRevision,
+    historySmsEnabled,
+    historyWindowDays,
+    historyMessageCap,
   );
   @override
   bool operator ==(Object other) =>
@@ -509,7 +674,11 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.processingMode == this.processingMode &&
           other.configurationRevision == this.configurationRevision &&
           other.rawCopyRetentionDays == this.rawCopyRetentionDays &&
-          other.activityRetentionDays == this.activityRetentionDays);
+          other.activityRetentionDays == this.activityRetentionDays &&
+          other.smsDisclosureRevision == this.smsDisclosureRevision &&
+          other.historySmsEnabled == this.historySmsEnabled &&
+          other.historyWindowDays == this.historyWindowDays &&
+          other.historyMessageCap == this.historyMessageCap);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
@@ -523,6 +692,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<int> configurationRevision;
   final Value<int> rawCopyRetentionDays;
   final Value<int> activityRetentionDays;
+  final Value<int?> smsDisclosureRevision;
+  final Value<bool> historySmsEnabled;
+  final Value<int> historyWindowDays;
+  final Value<int> historyMessageCap;
   const AppSettingsCompanion({
     this.singletonId = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
@@ -534,6 +707,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.configurationRevision = const Value.absent(),
     this.rawCopyRetentionDays = const Value.absent(),
     this.activityRetentionDays = const Value.absent(),
+    this.smsDisclosureRevision = const Value.absent(),
+    this.historySmsEnabled = const Value.absent(),
+    this.historyWindowDays = const Value.absent(),
+    this.historyMessageCap = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.singletonId = const Value.absent(),
@@ -546,6 +723,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.configurationRevision = const Value.absent(),
     this.rawCopyRetentionDays = const Value.absent(),
     this.activityRetentionDays = const Value.absent(),
+    this.smsDisclosureRevision = const Value.absent(),
+    this.historySmsEnabled = const Value.absent(),
+    this.historyWindowDays = const Value.absent(),
+    this.historyMessageCap = const Value.absent(),
   });
   static Insertable<AppSetting> custom({
     Expression<int>? singletonId,
@@ -558,6 +739,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<int>? configurationRevision,
     Expression<int>? rawCopyRetentionDays,
     Expression<int>? activityRetentionDays,
+    Expression<int>? smsDisclosureRevision,
+    Expression<bool>? historySmsEnabled,
+    Expression<int>? historyWindowDays,
+    Expression<int>? historyMessageCap,
   }) {
     return RawValuesInsertable({
       if (singletonId != null) 'singleton_id': singletonId,
@@ -574,6 +759,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
         'raw_copy_retention_days': rawCopyRetentionDays,
       if (activityRetentionDays != null)
         'activity_retention_days': activityRetentionDays,
+      if (smsDisclosureRevision != null)
+        'sms_disclosure_revision': smsDisclosureRevision,
+      if (historySmsEnabled != null) 'history_sms_enabled': historySmsEnabled,
+      if (historyWindowDays != null) 'history_window_days': historyWindowDays,
+      if (historyMessageCap != null) 'history_message_cap': historyMessageCap,
     });
   }
 
@@ -588,6 +778,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<int>? configurationRevision,
     Value<int>? rawCopyRetentionDays,
     Value<int>? activityRetentionDays,
+    Value<int?>? smsDisclosureRevision,
+    Value<bool>? historySmsEnabled,
+    Value<int>? historyWindowDays,
+    Value<int>? historyMessageCap,
   }) {
     return AppSettingsCompanion(
       singletonId: singletonId ?? this.singletonId,
@@ -602,6 +796,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       rawCopyRetentionDays: rawCopyRetentionDays ?? this.rawCopyRetentionDays,
       activityRetentionDays:
           activityRetentionDays ?? this.activityRetentionDays,
+      smsDisclosureRevision:
+          smsDisclosureRevision ?? this.smsDisclosureRevision,
+      historySmsEnabled: historySmsEnabled ?? this.historySmsEnabled,
+      historyWindowDays: historyWindowDays ?? this.historyWindowDays,
+      historyMessageCap: historyMessageCap ?? this.historyMessageCap,
     );
   }
 
@@ -644,6 +843,20 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
         activityRetentionDays.value,
       );
     }
+    if (smsDisclosureRevision.present) {
+      map['sms_disclosure_revision'] = Variable<int>(
+        smsDisclosureRevision.value,
+      );
+    }
+    if (historySmsEnabled.present) {
+      map['history_sms_enabled'] = Variable<bool>(historySmsEnabled.value);
+    }
+    if (historyWindowDays.present) {
+      map['history_window_days'] = Variable<int>(historyWindowDays.value);
+    }
+    if (historyMessageCap.present) {
+      map['history_message_cap'] = Variable<int>(historyMessageCap.value);
+    }
     return map;
   }
 
@@ -659,7 +872,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('processingMode: $processingMode, ')
           ..write('configurationRevision: $configurationRevision, ')
           ..write('rawCopyRetentionDays: $rawCopyRetentionDays, ')
-          ..write('activityRetentionDays: $activityRetentionDays')
+          ..write('activityRetentionDays: $activityRetentionDays, ')
+          ..write('smsDisclosureRevision: $smsDisclosureRevision, ')
+          ..write('historySmsEnabled: $historySmsEnabled, ')
+          ..write('historyWindowDays: $historyWindowDays, ')
+          ..write('historyMessageCap: $historyMessageCap')
           ..write(')'))
         .toString();
   }
@@ -1217,6 +1434,51 @@ class $SmsEventsTable extends SmsEvents
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _providerRowIdMeta = const VerificationMeta(
+    'providerRowId',
+  );
+  @override
+  late final GeneratedColumn<int> providerRowId = GeneratedColumn<int>(
+    'provider_row_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _captureCanonicalizationVersionMeta =
+      const VerificationMeta('captureCanonicalizationVersion');
+  @override
+  late final GeneratedColumn<int> captureCanonicalizationVersion =
+      GeneratedColumn<int>(
+        'capture_canonicalization_version',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1),
+      );
+  static const VerificationMeta _redactionVersionMeta = const VerificationMeta(
+    'redactionVersion',
+  );
+  @override
+  late final GeneratedColumn<int> redactionVersion = GeneratedColumn<int>(
+    'redaction_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<RawPurgeState, String>
+  rawPurgeState = GeneratedColumn<String>(
+    'raw_purge_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  ).withConverter<RawPurgeState>($SmsEventsTable.$converterrawPurgeState);
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1229,6 +1491,10 @@ class $SmsEventsTable extends SmsEvents
     expiresAtEpochMs,
     status,
     privacyEpoch,
+    providerRowId,
+    captureCanonicalizationVersion,
+    redactionVersion,
+    rawPurgeState,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1329,6 +1595,33 @@ class $SmsEventsTable extends SmsEvents
     } else if (isInserting) {
       context.missing(_privacyEpochMeta);
     }
+    if (data.containsKey('provider_row_id')) {
+      context.handle(
+        _providerRowIdMeta,
+        providerRowId.isAcceptableOrUnknown(
+          data['provider_row_id']!,
+          _providerRowIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('capture_canonicalization_version')) {
+      context.handle(
+        _captureCanonicalizationVersionMeta,
+        captureCanonicalizationVersion.isAcceptableOrUnknown(
+          data['capture_canonicalization_version']!,
+          _captureCanonicalizationVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('redaction_version')) {
+      context.handle(
+        _redactionVersionMeta,
+        redactionVersion.isAcceptableOrUnknown(
+          data['redaction_version']!,
+          _redactionVersionMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1378,6 +1671,24 @@ class $SmsEventsTable extends SmsEvents
         DriftSqlType.int,
         data['${effectivePrefix}privacy_epoch'],
       )!,
+      providerRowId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}provider_row_id'],
+      ),
+      captureCanonicalizationVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}capture_canonicalization_version'],
+      )!,
+      redactionVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}redaction_version'],
+      )!,
+      rawPurgeState: $SmsEventsTable.$converterrawPurgeState.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}raw_purge_state'],
+        )!,
+      ),
     );
   }
 
@@ -1385,6 +1696,11 @@ class $SmsEventsTable extends SmsEvents
   $SmsEventsTable createAlias(String alias) {
     return $SmsEventsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<RawPurgeState, String, String>
+  $converterrawPurgeState = const EnumNameConverter<RawPurgeState>(
+    RawPurgeState.values,
+  );
 }
 
 class SmsEvent extends DataClass implements Insertable<SmsEvent> {
@@ -1398,6 +1714,10 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
   final int? expiresAtEpochMs;
   final String status;
   final int privacyEpoch;
+  final int? providerRowId;
+  final int captureCanonicalizationVersion;
+  final int redactionVersion;
+  final RawPurgeState rawPurgeState;
   const SmsEvent({
     required this.id,
     required this.sourceKey,
@@ -1409,6 +1729,10 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     this.expiresAtEpochMs,
     required this.status,
     required this.privacyEpoch,
+    this.providerRowId,
+    required this.captureCanonicalizationVersion,
+    required this.redactionVersion,
+    required this.rawPurgeState,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1429,6 +1753,18 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     }
     map['status'] = Variable<String>(status);
     map['privacy_epoch'] = Variable<int>(privacyEpoch);
+    if (!nullToAbsent || providerRowId != null) {
+      map['provider_row_id'] = Variable<int>(providerRowId);
+    }
+    map['capture_canonicalization_version'] = Variable<int>(
+      captureCanonicalizationVersion,
+    );
+    map['redaction_version'] = Variable<int>(redactionVersion);
+    {
+      map['raw_purge_state'] = Variable<String>(
+        $SmsEventsTable.$converterrawPurgeState.toSql(rawPurgeState),
+      );
+    }
     return map;
   }
 
@@ -1450,6 +1786,12 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
           : Value(expiresAtEpochMs),
       status: Value(status),
       privacyEpoch: Value(privacyEpoch),
+      providerRowId: providerRowId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(providerRowId),
+      captureCanonicalizationVersion: Value(captureCanonicalizationVersion),
+      redactionVersion: Value(redactionVersion),
+      rawPurgeState: Value(rawPurgeState),
     );
   }
 
@@ -1469,6 +1811,14 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       expiresAtEpochMs: serializer.fromJson<int?>(json['expiresAtEpochMs']),
       status: serializer.fromJson<String>(json['status']),
       privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
+      providerRowId: serializer.fromJson<int?>(json['providerRowId']),
+      captureCanonicalizationVersion: serializer.fromJson<int>(
+        json['captureCanonicalizationVersion'],
+      ),
+      redactionVersion: serializer.fromJson<int>(json['redactionVersion']),
+      rawPurgeState: $SmsEventsTable.$converterrawPurgeState.fromJson(
+        serializer.fromJson<String>(json['rawPurgeState']),
+      ),
     );
   }
   @override
@@ -1485,6 +1835,14 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       'expiresAtEpochMs': serializer.toJson<int?>(expiresAtEpochMs),
       'status': serializer.toJson<String>(status),
       'privacyEpoch': serializer.toJson<int>(privacyEpoch),
+      'providerRowId': serializer.toJson<int?>(providerRowId),
+      'captureCanonicalizationVersion': serializer.toJson<int>(
+        captureCanonicalizationVersion,
+      ),
+      'redactionVersion': serializer.toJson<int>(redactionVersion),
+      'rawPurgeState': serializer.toJson<String>(
+        $SmsEventsTable.$converterrawPurgeState.toJson(rawPurgeState),
+      ),
     };
   }
 
@@ -1499,6 +1857,10 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     Value<int?> expiresAtEpochMs = const Value.absent(),
     String? status,
     int? privacyEpoch,
+    Value<int?> providerRowId = const Value.absent(),
+    int? captureCanonicalizationVersion,
+    int? redactionVersion,
+    RawPurgeState? rawPurgeState,
   }) => SmsEvent(
     id: id ?? this.id,
     sourceKey: sourceKey ?? this.sourceKey,
@@ -1514,6 +1876,13 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
         : this.expiresAtEpochMs,
     status: status ?? this.status,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+    providerRowId: providerRowId.present
+        ? providerRowId.value
+        : this.providerRowId,
+    captureCanonicalizationVersion:
+        captureCanonicalizationVersion ?? this.captureCanonicalizationVersion,
+    redactionVersion: redactionVersion ?? this.redactionVersion,
+    rawPurgeState: rawPurgeState ?? this.rawPurgeState,
   );
   SmsEvent copyWithCompanion(SmsEventsCompanion data) {
     return SmsEvent(
@@ -1541,6 +1910,19 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       privacyEpoch: data.privacyEpoch.present
           ? data.privacyEpoch.value
           : this.privacyEpoch,
+      providerRowId: data.providerRowId.present
+          ? data.providerRowId.value
+          : this.providerRowId,
+      captureCanonicalizationVersion:
+          data.captureCanonicalizationVersion.present
+          ? data.captureCanonicalizationVersion.value
+          : this.captureCanonicalizationVersion,
+      redactionVersion: data.redactionVersion.present
+          ? data.redactionVersion.value
+          : this.redactionVersion,
+      rawPurgeState: data.rawPurgeState.present
+          ? data.rawPurgeState.value
+          : this.rawPurgeState,
     );
   }
 
@@ -1556,7 +1938,13 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
           ..write('receivedAtEpochMs: $receivedAtEpochMs, ')
           ..write('expiresAtEpochMs: $expiresAtEpochMs, ')
           ..write('status: $status, ')
-          ..write('privacyEpoch: $privacyEpoch')
+          ..write('privacyEpoch: $privacyEpoch, ')
+          ..write('providerRowId: $providerRowId, ')
+          ..write(
+            'captureCanonicalizationVersion: $captureCanonicalizationVersion, ',
+          )
+          ..write('redactionVersion: $redactionVersion, ')
+          ..write('rawPurgeState: $rawPurgeState')
           ..write(')'))
         .toString();
   }
@@ -1573,6 +1961,10 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     expiresAtEpochMs,
     status,
     privacyEpoch,
+    providerRowId,
+    captureCanonicalizationVersion,
+    redactionVersion,
+    rawPurgeState,
   );
   @override
   bool operator ==(Object other) =>
@@ -1587,7 +1979,12 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
           other.receivedAtEpochMs == this.receivedAtEpochMs &&
           other.expiresAtEpochMs == this.expiresAtEpochMs &&
           other.status == this.status &&
-          other.privacyEpoch == this.privacyEpoch);
+          other.privacyEpoch == this.privacyEpoch &&
+          other.providerRowId == this.providerRowId &&
+          other.captureCanonicalizationVersion ==
+              this.captureCanonicalizationVersion &&
+          other.redactionVersion == this.redactionVersion &&
+          other.rawPurgeState == this.rawPurgeState);
 }
 
 class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
@@ -1601,6 +1998,10 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
   final Value<int?> expiresAtEpochMs;
   final Value<String> status;
   final Value<int> privacyEpoch;
+  final Value<int?> providerRowId;
+  final Value<int> captureCanonicalizationVersion;
+  final Value<int> redactionVersion;
+  final Value<RawPurgeState> rawPurgeState;
   const SmsEventsCompanion({
     this.id = const Value.absent(),
     this.sourceKey = const Value.absent(),
@@ -1612,6 +2013,10 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     this.expiresAtEpochMs = const Value.absent(),
     this.status = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
+    this.providerRowId = const Value.absent(),
+    this.captureCanonicalizationVersion = const Value.absent(),
+    this.redactionVersion = const Value.absent(),
+    this.rawPurgeState = const Value.absent(),
   });
   SmsEventsCompanion.insert({
     this.id = const Value.absent(),
@@ -1624,6 +2029,10 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     this.expiresAtEpochMs = const Value.absent(),
     required String status,
     required int privacyEpoch,
+    this.providerRowId = const Value.absent(),
+    this.captureCanonicalizationVersion = const Value.absent(),
+    this.redactionVersion = const Value.absent(),
+    this.rawPurgeState = const Value.absent(),
   }) : sourceKey = Value(sourceKey),
        senderHash = Value(senderHash),
        ingestionSource = Value(ingestionSource),
@@ -1641,6 +2050,10 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     Expression<int>? expiresAtEpochMs,
     Expression<String>? status,
     Expression<int>? privacyEpoch,
+    Expression<int>? providerRowId,
+    Expression<int>? captureCanonicalizationVersion,
+    Expression<int>? redactionVersion,
+    Expression<String>? rawPurgeState,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1653,6 +2066,11 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
       if (expiresAtEpochMs != null) 'expires_at_epoch_ms': expiresAtEpochMs,
       if (status != null) 'status': status,
       if (privacyEpoch != null) 'privacy_epoch': privacyEpoch,
+      if (providerRowId != null) 'provider_row_id': providerRowId,
+      if (captureCanonicalizationVersion != null)
+        'capture_canonicalization_version': captureCanonicalizationVersion,
+      if (redactionVersion != null) 'redaction_version': redactionVersion,
+      if (rawPurgeState != null) 'raw_purge_state': rawPurgeState,
     });
   }
 
@@ -1667,6 +2085,10 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     Value<int?>? expiresAtEpochMs,
     Value<String>? status,
     Value<int>? privacyEpoch,
+    Value<int?>? providerRowId,
+    Value<int>? captureCanonicalizationVersion,
+    Value<int>? redactionVersion,
+    Value<RawPurgeState>? rawPurgeState,
   }) {
     return SmsEventsCompanion(
       id: id ?? this.id,
@@ -1679,6 +2101,11 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
       expiresAtEpochMs: expiresAtEpochMs ?? this.expiresAtEpochMs,
       status: status ?? this.status,
       privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+      providerRowId: providerRowId ?? this.providerRowId,
+      captureCanonicalizationVersion:
+          captureCanonicalizationVersion ?? this.captureCanonicalizationVersion,
+      redactionVersion: redactionVersion ?? this.redactionVersion,
+      rawPurgeState: rawPurgeState ?? this.rawPurgeState,
     );
   }
 
@@ -1715,6 +2142,22 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     if (privacyEpoch.present) {
       map['privacy_epoch'] = Variable<int>(privacyEpoch.value);
     }
+    if (providerRowId.present) {
+      map['provider_row_id'] = Variable<int>(providerRowId.value);
+    }
+    if (captureCanonicalizationVersion.present) {
+      map['capture_canonicalization_version'] = Variable<int>(
+        captureCanonicalizationVersion.value,
+      );
+    }
+    if (redactionVersion.present) {
+      map['redaction_version'] = Variable<int>(redactionVersion.value);
+    }
+    if (rawPurgeState.present) {
+      map['raw_purge_state'] = Variable<String>(
+        $SmsEventsTable.$converterrawPurgeState.toSql(rawPurgeState.value),
+      );
+    }
     return map;
   }
 
@@ -1730,7 +2173,13 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
           ..write('receivedAtEpochMs: $receivedAtEpochMs, ')
           ..write('expiresAtEpochMs: $expiresAtEpochMs, ')
           ..write('status: $status, ')
-          ..write('privacyEpoch: $privacyEpoch')
+          ..write('privacyEpoch: $privacyEpoch, ')
+          ..write('providerRowId: $providerRowId, ')
+          ..write(
+            'captureCanonicalizationVersion: $captureCanonicalizationVersion, ',
+          )
+          ..write('redactionVersion: $redactionVersion, ')
+          ..write('rawPurgeState: $rawPurgeState')
           ..write(')'))
         .toString();
   }
@@ -1870,6 +2319,203 @@ class $TransactionCandidatesTable extends TransactionCandidates
         requiredDuringInsert: false,
       );
   @override
+  late final GeneratedColumnWithTypeConverter<TransactionKind?, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<TransactionKind?>(
+        $TransactionCandidatesTable.$converterkindn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<TransactionDirection?, String>
+  direction =
+      GeneratedColumn<String>(
+        'direction',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<TransactionDirection?>(
+        $TransactionCandidatesTable.$converterdirectionn,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<FinancialLifecycle?, String>
+  lifecycle =
+      GeneratedColumn<String>(
+        'lifecycle',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<FinancialLifecycle?>(
+        $TransactionCandidatesTable.$converterlifecyclen,
+      );
+  static const VerificationMeta _originalAmountMinorMeta =
+      const VerificationMeta('originalAmountMinor');
+  @override
+  late final GeneratedColumn<int> originalAmountMinor = GeneratedColumn<int>(
+    'original_amount_minor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _walletAmountMinorMeta = const VerificationMeta(
+    'walletAmountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> walletAmountMinor = GeneratedColumn<int>(
+    'wallet_amount_minor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _transactionAtEpochMsMeta =
+      const VerificationMeta('transactionAtEpochMs');
+  @override
+  late final GeneratedColumn<int> transactionAtEpochMs = GeneratedColumn<int>(
+    'transaction_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateEvidenceMeta = const VerificationMeta(
+    'dateEvidence',
+  );
+  @override
+  late final GeneratedColumn<String> dateEvidence = GeneratedColumn<String>(
+    'date_evidence',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _counterpartyRedactedMeta =
+      const VerificationMeta('counterpartyRedacted');
+  @override
+  late final GeneratedColumn<String> counterpartyRedacted =
+      GeneratedColumn<String>(
+        'counterparty_redacted',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _instrumentSuffixHashMeta =
+      const VerificationMeta('instrumentSuffixHash');
+  @override
+  late final GeneratedColumn<String> instrumentSuffixHash =
+      GeneratedColumn<String>(
+        'instrument_suffix_hash',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _availableBalanceMinorMeta =
+      const VerificationMeta('availableBalanceMinor');
+  @override
+  late final GeneratedColumn<int> availableBalanceMinor = GeneratedColumn<int>(
+    'available_balance_minor',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _paymentTypeMeta = const VerificationMeta(
+    'paymentType',
+  );
+  @override
+  late final GeneratedColumn<String> paymentType = GeneratedColumn<String>(
+    'payment_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _confidenceBasisPointsMeta =
+      const VerificationMeta('confidenceBasisPoints');
+  @override
+  late final GeneratedColumn<int> confidenceBasisPoints = GeneratedColumn<int>(
+    'confidence_basis_points',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parserRuleIdMeta = const VerificationMeta(
+    'parserRuleId',
+  );
+  @override
+  late final GeneratedColumn<String> parserRuleId = GeneratedColumn<String>(
+    'parser_rule_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parserRuleVersionMeta = const VerificationMeta(
+    'parserRuleVersion',
+  );
+  @override
+  late final GeneratedColumn<String> parserRuleVersion =
+      GeneratedColumn<String>(
+        'parser_rule_version',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _rulePackIdMeta = const VerificationMeta(
+    'rulePackId',
+  );
+  @override
+  late final GeneratedColumn<String> rulePackId = GeneratedColumn<String>(
+    'rule_pack_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rulePackVersionMeta = const VerificationMeta(
+    'rulePackVersion',
+  );
+  @override
+  late final GeneratedColumn<String> rulePackVersion = GeneratedColumn<String>(
+    'rule_pack_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reviewReasonsMeta = const VerificationMeta(
+    'reviewReasons',
+  );
+  @override
+  late final GeneratedColumn<String> reviewReasons = GeneratedColumn<String>(
+    'review_reasons',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _transactionFingerprintMeta =
+      const VerificationMeta('transactionFingerprint');
+  @override
+  late final GeneratedColumn<String> transactionFingerprint =
+      GeneratedColumn<String>(
+        'transaction_fingerprint',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     smsEventId,
@@ -1882,6 +2528,24 @@ class $TransactionCandidatesTable extends TransactionCandidates
     instrumentEvidence,
     originalCurrencyCode,
     walletCurrencyCode,
+    kind,
+    direction,
+    lifecycle,
+    originalAmountMinor,
+    walletAmountMinor,
+    transactionAtEpochMs,
+    dateEvidence,
+    counterpartyRedacted,
+    instrumentSuffixHash,
+    availableBalanceMinor,
+    paymentType,
+    confidenceBasisPoints,
+    parserRuleId,
+    parserRuleVersion,
+    rulePackId,
+    rulePackVersion,
+    reviewReasons,
+    transactionFingerprint,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1984,6 +2648,141 @@ class $TransactionCandidatesTable extends TransactionCandidates
         ),
       );
     }
+    if (data.containsKey('original_amount_minor')) {
+      context.handle(
+        _originalAmountMinorMeta,
+        originalAmountMinor.isAcceptableOrUnknown(
+          data['original_amount_minor']!,
+          _originalAmountMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wallet_amount_minor')) {
+      context.handle(
+        _walletAmountMinorMeta,
+        walletAmountMinor.isAcceptableOrUnknown(
+          data['wallet_amount_minor']!,
+          _walletAmountMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transaction_at_epoch_ms')) {
+      context.handle(
+        _transactionAtEpochMsMeta,
+        transactionAtEpochMs.isAcceptableOrUnknown(
+          data['transaction_at_epoch_ms']!,
+          _transactionAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('date_evidence')) {
+      context.handle(
+        _dateEvidenceMeta,
+        dateEvidence.isAcceptableOrUnknown(
+          data['date_evidence']!,
+          _dateEvidenceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('counterparty_redacted')) {
+      context.handle(
+        _counterpartyRedactedMeta,
+        counterpartyRedacted.isAcceptableOrUnknown(
+          data['counterparty_redacted']!,
+          _counterpartyRedactedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('instrument_suffix_hash')) {
+      context.handle(
+        _instrumentSuffixHashMeta,
+        instrumentSuffixHash.isAcceptableOrUnknown(
+          data['instrument_suffix_hash']!,
+          _instrumentSuffixHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('available_balance_minor')) {
+      context.handle(
+        _availableBalanceMinorMeta,
+        availableBalanceMinor.isAcceptableOrUnknown(
+          data['available_balance_minor']!,
+          _availableBalanceMinorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payment_type')) {
+      context.handle(
+        _paymentTypeMeta,
+        paymentType.isAcceptableOrUnknown(
+          data['payment_type']!,
+          _paymentTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('confidence_basis_points')) {
+      context.handle(
+        _confidenceBasisPointsMeta,
+        confidenceBasisPoints.isAcceptableOrUnknown(
+          data['confidence_basis_points']!,
+          _confidenceBasisPointsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parser_rule_id')) {
+      context.handle(
+        _parserRuleIdMeta,
+        parserRuleId.isAcceptableOrUnknown(
+          data['parser_rule_id']!,
+          _parserRuleIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parser_rule_version')) {
+      context.handle(
+        _parserRuleVersionMeta,
+        parserRuleVersion.isAcceptableOrUnknown(
+          data['parser_rule_version']!,
+          _parserRuleVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rule_pack_id')) {
+      context.handle(
+        _rulePackIdMeta,
+        rulePackId.isAcceptableOrUnknown(
+          data['rule_pack_id']!,
+          _rulePackIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rule_pack_version')) {
+      context.handle(
+        _rulePackVersionMeta,
+        rulePackVersion.isAcceptableOrUnknown(
+          data['rule_pack_version']!,
+          _rulePackVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('review_reasons')) {
+      context.handle(
+        _reviewReasonsMeta,
+        reviewReasons.isAcceptableOrUnknown(
+          data['review_reasons']!,
+          _reviewReasonsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transaction_fingerprint')) {
+      context.handle(
+        _transactionFingerprintMeta,
+        transactionFingerprint.isAcceptableOrUnknown(
+          data['transaction_fingerprint']!,
+          _transactionFingerprintMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2039,6 +2838,84 @@ class $TransactionCandidatesTable extends TransactionCandidates
         DriftSqlType.string,
         data['${effectivePrefix}wallet_currency_code'],
       ),
+      kind: $TransactionCandidatesTable.$converterkindn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        ),
+      ),
+      direction: $TransactionCandidatesTable.$converterdirectionn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}direction'],
+        ),
+      ),
+      lifecycle: $TransactionCandidatesTable.$converterlifecyclen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}lifecycle'],
+        ),
+      ),
+      originalAmountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}original_amount_minor'],
+      ),
+      walletAmountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wallet_amount_minor'],
+      ),
+      transactionAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}transaction_at_epoch_ms'],
+      ),
+      dateEvidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}date_evidence'],
+      ),
+      counterpartyRedacted: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}counterparty_redacted'],
+      ),
+      instrumentSuffixHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instrument_suffix_hash'],
+      ),
+      availableBalanceMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}available_balance_minor'],
+      ),
+      paymentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_type'],
+      ),
+      confidenceBasisPoints: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}confidence_basis_points'],
+      ),
+      parserRuleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parser_rule_id'],
+      ),
+      parserRuleVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parser_rule_version'],
+      ),
+      rulePackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rule_pack_id'],
+      ),
+      rulePackVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rule_pack_version'],
+      ),
+      reviewReasons: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}review_reasons'],
+      ),
+      transactionFingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_fingerprint'],
+      ),
     );
   }
 
@@ -2051,6 +2928,22 @@ class $TransactionCandidatesTable extends TransactionCandidates
   $converterstate = const EnumNameConverter<CandidateRecordState>(
     CandidateRecordState.values,
   );
+  static JsonTypeConverter2<TransactionKind, String, String> $converterkind =
+      const EnumNameConverter<TransactionKind>(TransactionKind.values);
+  static JsonTypeConverter2<TransactionKind?, String?, String?>
+  $converterkindn = JsonTypeConverter2.asNullable($converterkind);
+  static JsonTypeConverter2<TransactionDirection, String, String>
+  $converterdirection = const EnumNameConverter<TransactionDirection>(
+    TransactionDirection.values,
+  );
+  static JsonTypeConverter2<TransactionDirection?, String?, String?>
+  $converterdirectionn = JsonTypeConverter2.asNullable($converterdirection);
+  static JsonTypeConverter2<FinancialLifecycle, String, String>
+  $converterlifecycle = const EnumNameConverter<FinancialLifecycle>(
+    FinancialLifecycle.values,
+  );
+  static JsonTypeConverter2<FinancialLifecycle?, String?, String?>
+  $converterlifecyclen = JsonTypeConverter2.asNullable($converterlifecycle);
 }
 
 class TransactionCandidate extends DataClass
@@ -2066,6 +2959,24 @@ class TransactionCandidate extends DataClass
   final String? instrumentEvidence;
   final String? originalCurrencyCode;
   final String? walletCurrencyCode;
+  final TransactionKind? kind;
+  final TransactionDirection? direction;
+  final FinancialLifecycle? lifecycle;
+  final int? originalAmountMinor;
+  final int? walletAmountMinor;
+  final int? transactionAtEpochMs;
+  final String? dateEvidence;
+  final String? counterpartyRedacted;
+  final String? instrumentSuffixHash;
+  final int? availableBalanceMinor;
+  final String? paymentType;
+  final int? confidenceBasisPoints;
+  final String? parserRuleId;
+  final String? parserRuleVersion;
+  final String? rulePackId;
+  final String? rulePackVersion;
+  final String? reviewReasons;
+  final String? transactionFingerprint;
   const TransactionCandidate({
     required this.id,
     required this.smsEventId,
@@ -2078,6 +2989,24 @@ class TransactionCandidate extends DataClass
     this.instrumentEvidence,
     this.originalCurrencyCode,
     this.walletCurrencyCode,
+    this.kind,
+    this.direction,
+    this.lifecycle,
+    this.originalAmountMinor,
+    this.walletAmountMinor,
+    this.transactionAtEpochMs,
+    this.dateEvidence,
+    this.counterpartyRedacted,
+    this.instrumentSuffixHash,
+    this.availableBalanceMinor,
+    this.paymentType,
+    this.confidenceBasisPoints,
+    this.parserRuleId,
+    this.parserRuleVersion,
+    this.rulePackId,
+    this.rulePackVersion,
+    this.reviewReasons,
+    this.transactionFingerprint,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2107,6 +3036,66 @@ class TransactionCandidate extends DataClass
     if (!nullToAbsent || walletCurrencyCode != null) {
       map['wallet_currency_code'] = Variable<String>(walletCurrencyCode);
     }
+    if (!nullToAbsent || kind != null) {
+      map['kind'] = Variable<String>(
+        $TransactionCandidatesTable.$converterkindn.toSql(kind),
+      );
+    }
+    if (!nullToAbsent || direction != null) {
+      map['direction'] = Variable<String>(
+        $TransactionCandidatesTable.$converterdirectionn.toSql(direction),
+      );
+    }
+    if (!nullToAbsent || lifecycle != null) {
+      map['lifecycle'] = Variable<String>(
+        $TransactionCandidatesTable.$converterlifecyclen.toSql(lifecycle),
+      );
+    }
+    if (!nullToAbsent || originalAmountMinor != null) {
+      map['original_amount_minor'] = Variable<int>(originalAmountMinor);
+    }
+    if (!nullToAbsent || walletAmountMinor != null) {
+      map['wallet_amount_minor'] = Variable<int>(walletAmountMinor);
+    }
+    if (!nullToAbsent || transactionAtEpochMs != null) {
+      map['transaction_at_epoch_ms'] = Variable<int>(transactionAtEpochMs);
+    }
+    if (!nullToAbsent || dateEvidence != null) {
+      map['date_evidence'] = Variable<String>(dateEvidence);
+    }
+    if (!nullToAbsent || counterpartyRedacted != null) {
+      map['counterparty_redacted'] = Variable<String>(counterpartyRedacted);
+    }
+    if (!nullToAbsent || instrumentSuffixHash != null) {
+      map['instrument_suffix_hash'] = Variable<String>(instrumentSuffixHash);
+    }
+    if (!nullToAbsent || availableBalanceMinor != null) {
+      map['available_balance_minor'] = Variable<int>(availableBalanceMinor);
+    }
+    if (!nullToAbsent || paymentType != null) {
+      map['payment_type'] = Variable<String>(paymentType);
+    }
+    if (!nullToAbsent || confidenceBasisPoints != null) {
+      map['confidence_basis_points'] = Variable<int>(confidenceBasisPoints);
+    }
+    if (!nullToAbsent || parserRuleId != null) {
+      map['parser_rule_id'] = Variable<String>(parserRuleId);
+    }
+    if (!nullToAbsent || parserRuleVersion != null) {
+      map['parser_rule_version'] = Variable<String>(parserRuleVersion);
+    }
+    if (!nullToAbsent || rulePackId != null) {
+      map['rule_pack_id'] = Variable<String>(rulePackId);
+    }
+    if (!nullToAbsent || rulePackVersion != null) {
+      map['rule_pack_version'] = Variable<String>(rulePackVersion);
+    }
+    if (!nullToAbsent || reviewReasons != null) {
+      map['review_reasons'] = Variable<String>(reviewReasons);
+    }
+    if (!nullToAbsent || transactionFingerprint != null) {
+      map['transaction_fingerprint'] = Variable<String>(transactionFingerprint);
+    }
     return map;
   }
 
@@ -2133,6 +3122,58 @@ class TransactionCandidate extends DataClass
       walletCurrencyCode: walletCurrencyCode == null && nullToAbsent
           ? const Value.absent()
           : Value(walletCurrencyCode),
+      kind: kind == null && nullToAbsent ? const Value.absent() : Value(kind),
+      direction: direction == null && nullToAbsent
+          ? const Value.absent()
+          : Value(direction),
+      lifecycle: lifecycle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lifecycle),
+      originalAmountMinor: originalAmountMinor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(originalAmountMinor),
+      walletAmountMinor: walletAmountMinor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(walletAmountMinor),
+      transactionAtEpochMs: transactionAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transactionAtEpochMs),
+      dateEvidence: dateEvidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateEvidence),
+      counterpartyRedacted: counterpartyRedacted == null && nullToAbsent
+          ? const Value.absent()
+          : Value(counterpartyRedacted),
+      instrumentSuffixHash: instrumentSuffixHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instrumentSuffixHash),
+      availableBalanceMinor: availableBalanceMinor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(availableBalanceMinor),
+      paymentType: paymentType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(paymentType),
+      confidenceBasisPoints: confidenceBasisPoints == null && nullToAbsent
+          ? const Value.absent()
+          : Value(confidenceBasisPoints),
+      parserRuleId: parserRuleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parserRuleId),
+      parserRuleVersion: parserRuleVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parserRuleVersion),
+      rulePackId: rulePackId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rulePackId),
+      rulePackVersion: rulePackVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rulePackVersion),
+      reviewReasons: reviewReasons == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reviewReasons),
+      transactionFingerprint: transactionFingerprint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transactionFingerprint),
     );
   }
 
@@ -2161,6 +3202,46 @@ class TransactionCandidate extends DataClass
       walletCurrencyCode: serializer.fromJson<String?>(
         json['walletCurrencyCode'],
       ),
+      kind: $TransactionCandidatesTable.$converterkindn.fromJson(
+        serializer.fromJson<String?>(json['kind']),
+      ),
+      direction: $TransactionCandidatesTable.$converterdirectionn.fromJson(
+        serializer.fromJson<String?>(json['direction']),
+      ),
+      lifecycle: $TransactionCandidatesTable.$converterlifecyclen.fromJson(
+        serializer.fromJson<String?>(json['lifecycle']),
+      ),
+      originalAmountMinor: serializer.fromJson<int?>(
+        json['originalAmountMinor'],
+      ),
+      walletAmountMinor: serializer.fromJson<int?>(json['walletAmountMinor']),
+      transactionAtEpochMs: serializer.fromJson<int?>(
+        json['transactionAtEpochMs'],
+      ),
+      dateEvidence: serializer.fromJson<String?>(json['dateEvidence']),
+      counterpartyRedacted: serializer.fromJson<String?>(
+        json['counterpartyRedacted'],
+      ),
+      instrumentSuffixHash: serializer.fromJson<String?>(
+        json['instrumentSuffixHash'],
+      ),
+      availableBalanceMinor: serializer.fromJson<int?>(
+        json['availableBalanceMinor'],
+      ),
+      paymentType: serializer.fromJson<String?>(json['paymentType']),
+      confidenceBasisPoints: serializer.fromJson<int?>(
+        json['confidenceBasisPoints'],
+      ),
+      parserRuleId: serializer.fromJson<String?>(json['parserRuleId']),
+      parserRuleVersion: serializer.fromJson<String?>(
+        json['parserRuleVersion'],
+      ),
+      rulePackId: serializer.fromJson<String?>(json['rulePackId']),
+      rulePackVersion: serializer.fromJson<String?>(json['rulePackVersion']),
+      reviewReasons: serializer.fromJson<String?>(json['reviewReasons']),
+      transactionFingerprint: serializer.fromJson<String?>(
+        json['transactionFingerprint'],
+      ),
     );
   }
   @override
@@ -2180,6 +3261,32 @@ class TransactionCandidate extends DataClass
       'instrumentEvidence': serializer.toJson<String?>(instrumentEvidence),
       'originalCurrencyCode': serializer.toJson<String?>(originalCurrencyCode),
       'walletCurrencyCode': serializer.toJson<String?>(walletCurrencyCode),
+      'kind': serializer.toJson<String?>(
+        $TransactionCandidatesTable.$converterkindn.toJson(kind),
+      ),
+      'direction': serializer.toJson<String?>(
+        $TransactionCandidatesTable.$converterdirectionn.toJson(direction),
+      ),
+      'lifecycle': serializer.toJson<String?>(
+        $TransactionCandidatesTable.$converterlifecyclen.toJson(lifecycle),
+      ),
+      'originalAmountMinor': serializer.toJson<int?>(originalAmountMinor),
+      'walletAmountMinor': serializer.toJson<int?>(walletAmountMinor),
+      'transactionAtEpochMs': serializer.toJson<int?>(transactionAtEpochMs),
+      'dateEvidence': serializer.toJson<String?>(dateEvidence),
+      'counterpartyRedacted': serializer.toJson<String?>(counterpartyRedacted),
+      'instrumentSuffixHash': serializer.toJson<String?>(instrumentSuffixHash),
+      'availableBalanceMinor': serializer.toJson<int?>(availableBalanceMinor),
+      'paymentType': serializer.toJson<String?>(paymentType),
+      'confidenceBasisPoints': serializer.toJson<int?>(confidenceBasisPoints),
+      'parserRuleId': serializer.toJson<String?>(parserRuleId),
+      'parserRuleVersion': serializer.toJson<String?>(parserRuleVersion),
+      'rulePackId': serializer.toJson<String?>(rulePackId),
+      'rulePackVersion': serializer.toJson<String?>(rulePackVersion),
+      'reviewReasons': serializer.toJson<String?>(reviewReasons),
+      'transactionFingerprint': serializer.toJson<String?>(
+        transactionFingerprint,
+      ),
     };
   }
 
@@ -2195,6 +3302,24 @@ class TransactionCandidate extends DataClass
     Value<String?> instrumentEvidence = const Value.absent(),
     Value<String?> originalCurrencyCode = const Value.absent(),
     Value<String?> walletCurrencyCode = const Value.absent(),
+    Value<TransactionKind?> kind = const Value.absent(),
+    Value<TransactionDirection?> direction = const Value.absent(),
+    Value<FinancialLifecycle?> lifecycle = const Value.absent(),
+    Value<int?> originalAmountMinor = const Value.absent(),
+    Value<int?> walletAmountMinor = const Value.absent(),
+    Value<int?> transactionAtEpochMs = const Value.absent(),
+    Value<String?> dateEvidence = const Value.absent(),
+    Value<String?> counterpartyRedacted = const Value.absent(),
+    Value<String?> instrumentSuffixHash = const Value.absent(),
+    Value<int?> availableBalanceMinor = const Value.absent(),
+    Value<String?> paymentType = const Value.absent(),
+    Value<int?> confidenceBasisPoints = const Value.absent(),
+    Value<String?> parserRuleId = const Value.absent(),
+    Value<String?> parserRuleVersion = const Value.absent(),
+    Value<String?> rulePackId = const Value.absent(),
+    Value<String?> rulePackVersion = const Value.absent(),
+    Value<String?> reviewReasons = const Value.absent(),
+    Value<String?> transactionFingerprint = const Value.absent(),
   }) => TransactionCandidate(
     id: id ?? this.id,
     smsEventId: smsEventId ?? this.smsEventId,
@@ -2215,6 +3340,46 @@ class TransactionCandidate extends DataClass
     walletCurrencyCode: walletCurrencyCode.present
         ? walletCurrencyCode.value
         : this.walletCurrencyCode,
+    kind: kind.present ? kind.value : this.kind,
+    direction: direction.present ? direction.value : this.direction,
+    lifecycle: lifecycle.present ? lifecycle.value : this.lifecycle,
+    originalAmountMinor: originalAmountMinor.present
+        ? originalAmountMinor.value
+        : this.originalAmountMinor,
+    walletAmountMinor: walletAmountMinor.present
+        ? walletAmountMinor.value
+        : this.walletAmountMinor,
+    transactionAtEpochMs: transactionAtEpochMs.present
+        ? transactionAtEpochMs.value
+        : this.transactionAtEpochMs,
+    dateEvidence: dateEvidence.present ? dateEvidence.value : this.dateEvidence,
+    counterpartyRedacted: counterpartyRedacted.present
+        ? counterpartyRedacted.value
+        : this.counterpartyRedacted,
+    instrumentSuffixHash: instrumentSuffixHash.present
+        ? instrumentSuffixHash.value
+        : this.instrumentSuffixHash,
+    availableBalanceMinor: availableBalanceMinor.present
+        ? availableBalanceMinor.value
+        : this.availableBalanceMinor,
+    paymentType: paymentType.present ? paymentType.value : this.paymentType,
+    confidenceBasisPoints: confidenceBasisPoints.present
+        ? confidenceBasisPoints.value
+        : this.confidenceBasisPoints,
+    parserRuleId: parserRuleId.present ? parserRuleId.value : this.parserRuleId,
+    parserRuleVersion: parserRuleVersion.present
+        ? parserRuleVersion.value
+        : this.parserRuleVersion,
+    rulePackId: rulePackId.present ? rulePackId.value : this.rulePackId,
+    rulePackVersion: rulePackVersion.present
+        ? rulePackVersion.value
+        : this.rulePackVersion,
+    reviewReasons: reviewReasons.present
+        ? reviewReasons.value
+        : this.reviewReasons,
+    transactionFingerprint: transactionFingerprint.present
+        ? transactionFingerprint.value
+        : this.transactionFingerprint,
   );
   TransactionCandidate copyWithCompanion(TransactionCandidatesCompanion data) {
     return TransactionCandidate(
@@ -2245,6 +3410,54 @@ class TransactionCandidate extends DataClass
       walletCurrencyCode: data.walletCurrencyCode.present
           ? data.walletCurrencyCode.value
           : this.walletCurrencyCode,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      direction: data.direction.present ? data.direction.value : this.direction,
+      lifecycle: data.lifecycle.present ? data.lifecycle.value : this.lifecycle,
+      originalAmountMinor: data.originalAmountMinor.present
+          ? data.originalAmountMinor.value
+          : this.originalAmountMinor,
+      walletAmountMinor: data.walletAmountMinor.present
+          ? data.walletAmountMinor.value
+          : this.walletAmountMinor,
+      transactionAtEpochMs: data.transactionAtEpochMs.present
+          ? data.transactionAtEpochMs.value
+          : this.transactionAtEpochMs,
+      dateEvidence: data.dateEvidence.present
+          ? data.dateEvidence.value
+          : this.dateEvidence,
+      counterpartyRedacted: data.counterpartyRedacted.present
+          ? data.counterpartyRedacted.value
+          : this.counterpartyRedacted,
+      instrumentSuffixHash: data.instrumentSuffixHash.present
+          ? data.instrumentSuffixHash.value
+          : this.instrumentSuffixHash,
+      availableBalanceMinor: data.availableBalanceMinor.present
+          ? data.availableBalanceMinor.value
+          : this.availableBalanceMinor,
+      paymentType: data.paymentType.present
+          ? data.paymentType.value
+          : this.paymentType,
+      confidenceBasisPoints: data.confidenceBasisPoints.present
+          ? data.confidenceBasisPoints.value
+          : this.confidenceBasisPoints,
+      parserRuleId: data.parserRuleId.present
+          ? data.parserRuleId.value
+          : this.parserRuleId,
+      parserRuleVersion: data.parserRuleVersion.present
+          ? data.parserRuleVersion.value
+          : this.parserRuleVersion,
+      rulePackId: data.rulePackId.present
+          ? data.rulePackId.value
+          : this.rulePackId,
+      rulePackVersion: data.rulePackVersion.present
+          ? data.rulePackVersion.value
+          : this.rulePackVersion,
+      reviewReasons: data.reviewReasons.present
+          ? data.reviewReasons.value
+          : this.reviewReasons,
+      transactionFingerprint: data.transactionFingerprint.present
+          ? data.transactionFingerprint.value
+          : this.transactionFingerprint,
     );
   }
 
@@ -2261,13 +3474,31 @@ class TransactionCandidate extends DataClass
           ..write('paymentEvidence: $paymentEvidence, ')
           ..write('instrumentEvidence: $instrumentEvidence, ')
           ..write('originalCurrencyCode: $originalCurrencyCode, ')
-          ..write('walletCurrencyCode: $walletCurrencyCode')
+          ..write('walletCurrencyCode: $walletCurrencyCode, ')
+          ..write('kind: $kind, ')
+          ..write('direction: $direction, ')
+          ..write('lifecycle: $lifecycle, ')
+          ..write('originalAmountMinor: $originalAmountMinor, ')
+          ..write('walletAmountMinor: $walletAmountMinor, ')
+          ..write('transactionAtEpochMs: $transactionAtEpochMs, ')
+          ..write('dateEvidence: $dateEvidence, ')
+          ..write('counterpartyRedacted: $counterpartyRedacted, ')
+          ..write('instrumentSuffixHash: $instrumentSuffixHash, ')
+          ..write('availableBalanceMinor: $availableBalanceMinor, ')
+          ..write('paymentType: $paymentType, ')
+          ..write('confidenceBasisPoints: $confidenceBasisPoints, ')
+          ..write('parserRuleId: $parserRuleId, ')
+          ..write('parserRuleVersion: $parserRuleVersion, ')
+          ..write('rulePackId: $rulePackId, ')
+          ..write('rulePackVersion: $rulePackVersion, ')
+          ..write('reviewReasons: $reviewReasons, ')
+          ..write('transactionFingerprint: $transactionFingerprint')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     smsEventId,
     state,
@@ -2279,7 +3510,25 @@ class TransactionCandidate extends DataClass
     instrumentEvidence,
     originalCurrencyCode,
     walletCurrencyCode,
-  );
+    kind,
+    direction,
+    lifecycle,
+    originalAmountMinor,
+    walletAmountMinor,
+    transactionAtEpochMs,
+    dateEvidence,
+    counterpartyRedacted,
+    instrumentSuffixHash,
+    availableBalanceMinor,
+    paymentType,
+    confidenceBasisPoints,
+    parserRuleId,
+    parserRuleVersion,
+    rulePackId,
+    rulePackVersion,
+    reviewReasons,
+    transactionFingerprint,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2294,7 +3543,25 @@ class TransactionCandidate extends DataClass
           other.paymentEvidence == this.paymentEvidence &&
           other.instrumentEvidence == this.instrumentEvidence &&
           other.originalCurrencyCode == this.originalCurrencyCode &&
-          other.walletCurrencyCode == this.walletCurrencyCode);
+          other.walletCurrencyCode == this.walletCurrencyCode &&
+          other.kind == this.kind &&
+          other.direction == this.direction &&
+          other.lifecycle == this.lifecycle &&
+          other.originalAmountMinor == this.originalAmountMinor &&
+          other.walletAmountMinor == this.walletAmountMinor &&
+          other.transactionAtEpochMs == this.transactionAtEpochMs &&
+          other.dateEvidence == this.dateEvidence &&
+          other.counterpartyRedacted == this.counterpartyRedacted &&
+          other.instrumentSuffixHash == this.instrumentSuffixHash &&
+          other.availableBalanceMinor == this.availableBalanceMinor &&
+          other.paymentType == this.paymentType &&
+          other.confidenceBasisPoints == this.confidenceBasisPoints &&
+          other.parserRuleId == this.parserRuleId &&
+          other.parserRuleVersion == this.parserRuleVersion &&
+          other.rulePackId == this.rulePackId &&
+          other.rulePackVersion == this.rulePackVersion &&
+          other.reviewReasons == this.reviewReasons &&
+          other.transactionFingerprint == this.transactionFingerprint);
 }
 
 class TransactionCandidatesCompanion
@@ -2310,6 +3577,24 @@ class TransactionCandidatesCompanion
   final Value<String?> instrumentEvidence;
   final Value<String?> originalCurrencyCode;
   final Value<String?> walletCurrencyCode;
+  final Value<TransactionKind?> kind;
+  final Value<TransactionDirection?> direction;
+  final Value<FinancialLifecycle?> lifecycle;
+  final Value<int?> originalAmountMinor;
+  final Value<int?> walletAmountMinor;
+  final Value<int?> transactionAtEpochMs;
+  final Value<String?> dateEvidence;
+  final Value<String?> counterpartyRedacted;
+  final Value<String?> instrumentSuffixHash;
+  final Value<int?> availableBalanceMinor;
+  final Value<String?> paymentType;
+  final Value<int?> confidenceBasisPoints;
+  final Value<String?> parserRuleId;
+  final Value<String?> parserRuleVersion;
+  final Value<String?> rulePackId;
+  final Value<String?> rulePackVersion;
+  final Value<String?> reviewReasons;
+  final Value<String?> transactionFingerprint;
   const TransactionCandidatesCompanion({
     this.id = const Value.absent(),
     this.smsEventId = const Value.absent(),
@@ -2322,6 +3607,24 @@ class TransactionCandidatesCompanion
     this.instrumentEvidence = const Value.absent(),
     this.originalCurrencyCode = const Value.absent(),
     this.walletCurrencyCode = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.lifecycle = const Value.absent(),
+    this.originalAmountMinor = const Value.absent(),
+    this.walletAmountMinor = const Value.absent(),
+    this.transactionAtEpochMs = const Value.absent(),
+    this.dateEvidence = const Value.absent(),
+    this.counterpartyRedacted = const Value.absent(),
+    this.instrumentSuffixHash = const Value.absent(),
+    this.availableBalanceMinor = const Value.absent(),
+    this.paymentType = const Value.absent(),
+    this.confidenceBasisPoints = const Value.absent(),
+    this.parserRuleId = const Value.absent(),
+    this.parserRuleVersion = const Value.absent(),
+    this.rulePackId = const Value.absent(),
+    this.rulePackVersion = const Value.absent(),
+    this.reviewReasons = const Value.absent(),
+    this.transactionFingerprint = const Value.absent(),
   });
   TransactionCandidatesCompanion.insert({
     this.id = const Value.absent(),
@@ -2335,6 +3638,24 @@ class TransactionCandidatesCompanion
     this.instrumentEvidence = const Value.absent(),
     this.originalCurrencyCode = const Value.absent(),
     this.walletCurrencyCode = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.lifecycle = const Value.absent(),
+    this.originalAmountMinor = const Value.absent(),
+    this.walletAmountMinor = const Value.absent(),
+    this.transactionAtEpochMs = const Value.absent(),
+    this.dateEvidence = const Value.absent(),
+    this.counterpartyRedacted = const Value.absent(),
+    this.instrumentSuffixHash = const Value.absent(),
+    this.availableBalanceMinor = const Value.absent(),
+    this.paymentType = const Value.absent(),
+    this.confidenceBasisPoints = const Value.absent(),
+    this.parserRuleId = const Value.absent(),
+    this.parserRuleVersion = const Value.absent(),
+    this.rulePackId = const Value.absent(),
+    this.rulePackVersion = const Value.absent(),
+    this.reviewReasons = const Value.absent(),
+    this.transactionFingerprint = const Value.absent(),
   }) : smsEventId = Value(smsEventId),
        state = Value(state),
        encryptedPayload = Value(encryptedPayload),
@@ -2352,6 +3673,24 @@ class TransactionCandidatesCompanion
     Expression<String>? instrumentEvidence,
     Expression<String>? originalCurrencyCode,
     Expression<String>? walletCurrencyCode,
+    Expression<String>? kind,
+    Expression<String>? direction,
+    Expression<String>? lifecycle,
+    Expression<int>? originalAmountMinor,
+    Expression<int>? walletAmountMinor,
+    Expression<int>? transactionAtEpochMs,
+    Expression<String>? dateEvidence,
+    Expression<String>? counterpartyRedacted,
+    Expression<String>? instrumentSuffixHash,
+    Expression<int>? availableBalanceMinor,
+    Expression<String>? paymentType,
+    Expression<int>? confidenceBasisPoints,
+    Expression<String>? parserRuleId,
+    Expression<String>? parserRuleVersion,
+    Expression<String>? rulePackId,
+    Expression<String>? rulePackVersion,
+    Expression<String>? reviewReasons,
+    Expression<String>? transactionFingerprint,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2367,6 +3706,31 @@ class TransactionCandidatesCompanion
         'original_currency_code': originalCurrencyCode,
       if (walletCurrencyCode != null)
         'wallet_currency_code': walletCurrencyCode,
+      if (kind != null) 'kind': kind,
+      if (direction != null) 'direction': direction,
+      if (lifecycle != null) 'lifecycle': lifecycle,
+      if (originalAmountMinor != null)
+        'original_amount_minor': originalAmountMinor,
+      if (walletAmountMinor != null) 'wallet_amount_minor': walletAmountMinor,
+      if (transactionAtEpochMs != null)
+        'transaction_at_epoch_ms': transactionAtEpochMs,
+      if (dateEvidence != null) 'date_evidence': dateEvidence,
+      if (counterpartyRedacted != null)
+        'counterparty_redacted': counterpartyRedacted,
+      if (instrumentSuffixHash != null)
+        'instrument_suffix_hash': instrumentSuffixHash,
+      if (availableBalanceMinor != null)
+        'available_balance_minor': availableBalanceMinor,
+      if (paymentType != null) 'payment_type': paymentType,
+      if (confidenceBasisPoints != null)
+        'confidence_basis_points': confidenceBasisPoints,
+      if (parserRuleId != null) 'parser_rule_id': parserRuleId,
+      if (parserRuleVersion != null) 'parser_rule_version': parserRuleVersion,
+      if (rulePackId != null) 'rule_pack_id': rulePackId,
+      if (rulePackVersion != null) 'rule_pack_version': rulePackVersion,
+      if (reviewReasons != null) 'review_reasons': reviewReasons,
+      if (transactionFingerprint != null)
+        'transaction_fingerprint': transactionFingerprint,
     });
   }
 
@@ -2382,6 +3746,24 @@ class TransactionCandidatesCompanion
     Value<String?>? instrumentEvidence,
     Value<String?>? originalCurrencyCode,
     Value<String?>? walletCurrencyCode,
+    Value<TransactionKind?>? kind,
+    Value<TransactionDirection?>? direction,
+    Value<FinancialLifecycle?>? lifecycle,
+    Value<int?>? originalAmountMinor,
+    Value<int?>? walletAmountMinor,
+    Value<int?>? transactionAtEpochMs,
+    Value<String?>? dateEvidence,
+    Value<String?>? counterpartyRedacted,
+    Value<String?>? instrumentSuffixHash,
+    Value<int?>? availableBalanceMinor,
+    Value<String?>? paymentType,
+    Value<int?>? confidenceBasisPoints,
+    Value<String?>? parserRuleId,
+    Value<String?>? parserRuleVersion,
+    Value<String?>? rulePackId,
+    Value<String?>? rulePackVersion,
+    Value<String?>? reviewReasons,
+    Value<String?>? transactionFingerprint,
   }) {
     return TransactionCandidatesCompanion(
       id: id ?? this.id,
@@ -2395,6 +3777,27 @@ class TransactionCandidatesCompanion
       instrumentEvidence: instrumentEvidence ?? this.instrumentEvidence,
       originalCurrencyCode: originalCurrencyCode ?? this.originalCurrencyCode,
       walletCurrencyCode: walletCurrencyCode ?? this.walletCurrencyCode,
+      kind: kind ?? this.kind,
+      direction: direction ?? this.direction,
+      lifecycle: lifecycle ?? this.lifecycle,
+      originalAmountMinor: originalAmountMinor ?? this.originalAmountMinor,
+      walletAmountMinor: walletAmountMinor ?? this.walletAmountMinor,
+      transactionAtEpochMs: transactionAtEpochMs ?? this.transactionAtEpochMs,
+      dateEvidence: dateEvidence ?? this.dateEvidence,
+      counterpartyRedacted: counterpartyRedacted ?? this.counterpartyRedacted,
+      instrumentSuffixHash: instrumentSuffixHash ?? this.instrumentSuffixHash,
+      availableBalanceMinor:
+          availableBalanceMinor ?? this.availableBalanceMinor,
+      paymentType: paymentType ?? this.paymentType,
+      confidenceBasisPoints:
+          confidenceBasisPoints ?? this.confidenceBasisPoints,
+      parserRuleId: parserRuleId ?? this.parserRuleId,
+      parserRuleVersion: parserRuleVersion ?? this.parserRuleVersion,
+      rulePackId: rulePackId ?? this.rulePackId,
+      rulePackVersion: rulePackVersion ?? this.rulePackVersion,
+      reviewReasons: reviewReasons ?? this.reviewReasons,
+      transactionFingerprint:
+          transactionFingerprint ?? this.transactionFingerprint,
     );
   }
 
@@ -2438,6 +3841,78 @@ class TransactionCandidatesCompanion
     if (walletCurrencyCode.present) {
       map['wallet_currency_code'] = Variable<String>(walletCurrencyCode.value);
     }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $TransactionCandidatesTable.$converterkindn.toSql(kind.value),
+      );
+    }
+    if (direction.present) {
+      map['direction'] = Variable<String>(
+        $TransactionCandidatesTable.$converterdirectionn.toSql(direction.value),
+      );
+    }
+    if (lifecycle.present) {
+      map['lifecycle'] = Variable<String>(
+        $TransactionCandidatesTable.$converterlifecyclen.toSql(lifecycle.value),
+      );
+    }
+    if (originalAmountMinor.present) {
+      map['original_amount_minor'] = Variable<int>(originalAmountMinor.value);
+    }
+    if (walletAmountMinor.present) {
+      map['wallet_amount_minor'] = Variable<int>(walletAmountMinor.value);
+    }
+    if (transactionAtEpochMs.present) {
+      map['transaction_at_epoch_ms'] = Variable<int>(
+        transactionAtEpochMs.value,
+      );
+    }
+    if (dateEvidence.present) {
+      map['date_evidence'] = Variable<String>(dateEvidence.value);
+    }
+    if (counterpartyRedacted.present) {
+      map['counterparty_redacted'] = Variable<String>(
+        counterpartyRedacted.value,
+      );
+    }
+    if (instrumentSuffixHash.present) {
+      map['instrument_suffix_hash'] = Variable<String>(
+        instrumentSuffixHash.value,
+      );
+    }
+    if (availableBalanceMinor.present) {
+      map['available_balance_minor'] = Variable<int>(
+        availableBalanceMinor.value,
+      );
+    }
+    if (paymentType.present) {
+      map['payment_type'] = Variable<String>(paymentType.value);
+    }
+    if (confidenceBasisPoints.present) {
+      map['confidence_basis_points'] = Variable<int>(
+        confidenceBasisPoints.value,
+      );
+    }
+    if (parserRuleId.present) {
+      map['parser_rule_id'] = Variable<String>(parserRuleId.value);
+    }
+    if (parserRuleVersion.present) {
+      map['parser_rule_version'] = Variable<String>(parserRuleVersion.value);
+    }
+    if (rulePackId.present) {
+      map['rule_pack_id'] = Variable<String>(rulePackId.value);
+    }
+    if (rulePackVersion.present) {
+      map['rule_pack_version'] = Variable<String>(rulePackVersion.value);
+    }
+    if (reviewReasons.present) {
+      map['review_reasons'] = Variable<String>(reviewReasons.value);
+    }
+    if (transactionFingerprint.present) {
+      map['transaction_fingerprint'] = Variable<String>(
+        transactionFingerprint.value,
+      );
+    }
     return map;
   }
 
@@ -2454,7 +3929,25 @@ class TransactionCandidatesCompanion
           ..write('paymentEvidence: $paymentEvidence, ')
           ..write('instrumentEvidence: $instrumentEvidence, ')
           ..write('originalCurrencyCode: $originalCurrencyCode, ')
-          ..write('walletCurrencyCode: $walletCurrencyCode')
+          ..write('walletCurrencyCode: $walletCurrencyCode, ')
+          ..write('kind: $kind, ')
+          ..write('direction: $direction, ')
+          ..write('lifecycle: $lifecycle, ')
+          ..write('originalAmountMinor: $originalAmountMinor, ')
+          ..write('walletAmountMinor: $walletAmountMinor, ')
+          ..write('transactionAtEpochMs: $transactionAtEpochMs, ')
+          ..write('dateEvidence: $dateEvidence, ')
+          ..write('counterpartyRedacted: $counterpartyRedacted, ')
+          ..write('instrumentSuffixHash: $instrumentSuffixHash, ')
+          ..write('availableBalanceMinor: $availableBalanceMinor, ')
+          ..write('paymentType: $paymentType, ')
+          ..write('confidenceBasisPoints: $confidenceBasisPoints, ')
+          ..write('parserRuleId: $parserRuleId, ')
+          ..write('parserRuleVersion: $parserRuleVersion, ')
+          ..write('rulePackId: $rulePackId, ')
+          ..write('rulePackVersion: $rulePackVersion, ')
+          ..write('reviewReasons: $reviewReasons, ')
+          ..write('transactionFingerprint: $transactionFingerprint')
           ..write(')'))
         .toString();
   }
@@ -2902,11 +4395,45 @@ class $DecisionTracesTable extends DecisionTraces
     requiredDuringInsert: true,
   );
   @override
+  late final GeneratedColumnWithTypeConverter<DecisionStage?, String> stage =
+      GeneratedColumn<String>(
+        'stage',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<DecisionStage?>($DecisionTracesTable.$converterstagen);
+  static const VerificationMeta _rulePackVersionMeta = const VerificationMeta(
+    'rulePackVersion',
+  );
+  @override
+  late final GeneratedColumn<String> rulePackVersion = GeneratedColumn<String>(
+    'rule_pack_version',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _outcomeCodeMeta = const VerificationMeta(
+    'outcomeCode',
+  );
+  @override
+  late final GeneratedColumn<String> outcomeCode = GeneratedColumn<String>(
+    'outcome_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
   List<GeneratedColumn> get $columns => [
     id,
     candidateId,
     traceCode,
     createdAtEpochMs,
+    stage,
+    rulePackVersion,
+    outcomeCode,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2943,6 +4470,24 @@ class $DecisionTracesTable extends DecisionTraces
     } else if (isInserting) {
       context.missing(_createdAtEpochMsMeta);
     }
+    if (data.containsKey('rule_pack_version')) {
+      context.handle(
+        _rulePackVersionMeta,
+        rulePackVersion.isAcceptableOrUnknown(
+          data['rule_pack_version']!,
+          _rulePackVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('outcome_code')) {
+      context.handle(
+        _outcomeCodeMeta,
+        outcomeCode.isAcceptableOrUnknown(
+          data['outcome_code']!,
+          _outcomeCodeMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2970,6 +4515,20 @@ class $DecisionTracesTable extends DecisionTraces
         DriftSqlType.int,
         data['${effectivePrefix}created_at_epoch_ms'],
       )!,
+      stage: $DecisionTracesTable.$converterstagen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}stage'],
+        ),
+      ),
+      rulePackVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}rule_pack_version'],
+      ),
+      outcomeCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}outcome_code'],
+      ),
     );
   }
 
@@ -2982,6 +4541,10 @@ class $DecisionTracesTable extends DecisionTraces
   $convertertraceCode = const EnumNameConverter<DecisionTraceCode>(
     DecisionTraceCode.values,
   );
+  static JsonTypeConverter2<DecisionStage, String, String> $converterstage =
+      const EnumNameConverter<DecisionStage>(DecisionStage.values);
+  static JsonTypeConverter2<DecisionStage?, String?, String?> $converterstagen =
+      JsonTypeConverter2.asNullable($converterstage);
 }
 
 class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
@@ -2989,11 +4552,17 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
   final int? candidateId;
   final DecisionTraceCode traceCode;
   final int createdAtEpochMs;
+  final DecisionStage? stage;
+  final String? rulePackVersion;
+  final String? outcomeCode;
   const DecisionTrace({
     required this.id,
     this.candidateId,
     required this.traceCode,
     required this.createdAtEpochMs,
+    this.stage,
+    this.rulePackVersion,
+    this.outcomeCode,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3008,6 +4577,17 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
       );
     }
     map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
+    if (!nullToAbsent || stage != null) {
+      map['stage'] = Variable<String>(
+        $DecisionTracesTable.$converterstagen.toSql(stage),
+      );
+    }
+    if (!nullToAbsent || rulePackVersion != null) {
+      map['rule_pack_version'] = Variable<String>(rulePackVersion);
+    }
+    if (!nullToAbsent || outcomeCode != null) {
+      map['outcome_code'] = Variable<String>(outcomeCode);
+    }
     return map;
   }
 
@@ -3019,6 +4599,15 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
           : Value(candidateId),
       traceCode: Value(traceCode),
       createdAtEpochMs: Value(createdAtEpochMs),
+      stage: stage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stage),
+      rulePackVersion: rulePackVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rulePackVersion),
+      outcomeCode: outcomeCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outcomeCode),
     );
   }
 
@@ -3034,6 +4623,11 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
         serializer.fromJson<String>(json['traceCode']),
       ),
       createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
+      stage: $DecisionTracesTable.$converterstagen.fromJson(
+        serializer.fromJson<String?>(json['stage']),
+      ),
+      rulePackVersion: serializer.fromJson<String?>(json['rulePackVersion']),
+      outcomeCode: serializer.fromJson<String?>(json['outcomeCode']),
     );
   }
   @override
@@ -3046,6 +4640,11 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
         $DecisionTracesTable.$convertertraceCode.toJson(traceCode),
       ),
       'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
+      'stage': serializer.toJson<String?>(
+        $DecisionTracesTable.$converterstagen.toJson(stage),
+      ),
+      'rulePackVersion': serializer.toJson<String?>(rulePackVersion),
+      'outcomeCode': serializer.toJson<String?>(outcomeCode),
     };
   }
 
@@ -3054,11 +4653,19 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
     Value<int?> candidateId = const Value.absent(),
     DecisionTraceCode? traceCode,
     int? createdAtEpochMs,
+    Value<DecisionStage?> stage = const Value.absent(),
+    Value<String?> rulePackVersion = const Value.absent(),
+    Value<String?> outcomeCode = const Value.absent(),
   }) => DecisionTrace(
     id: id ?? this.id,
     candidateId: candidateId.present ? candidateId.value : this.candidateId,
     traceCode: traceCode ?? this.traceCode,
     createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    stage: stage.present ? stage.value : this.stage,
+    rulePackVersion: rulePackVersion.present
+        ? rulePackVersion.value
+        : this.rulePackVersion,
+    outcomeCode: outcomeCode.present ? outcomeCode.value : this.outcomeCode,
   );
   DecisionTrace copyWithCompanion(DecisionTracesCompanion data) {
     return DecisionTrace(
@@ -3070,6 +4677,13 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
       createdAtEpochMs: data.createdAtEpochMs.present
           ? data.createdAtEpochMs.value
           : this.createdAtEpochMs,
+      stage: data.stage.present ? data.stage.value : this.stage,
+      rulePackVersion: data.rulePackVersion.present
+          ? data.rulePackVersion.value
+          : this.rulePackVersion,
+      outcomeCode: data.outcomeCode.present
+          ? data.outcomeCode.value
+          : this.outcomeCode,
     );
   }
 
@@ -3079,13 +4693,24 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
           ..write('id: $id, ')
           ..write('candidateId: $candidateId, ')
           ..write('traceCode: $traceCode, ')
-          ..write('createdAtEpochMs: $createdAtEpochMs')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('stage: $stage, ')
+          ..write('rulePackVersion: $rulePackVersion, ')
+          ..write('outcomeCode: $outcomeCode')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, candidateId, traceCode, createdAtEpochMs);
+  int get hashCode => Object.hash(
+    id,
+    candidateId,
+    traceCode,
+    createdAtEpochMs,
+    stage,
+    rulePackVersion,
+    outcomeCode,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3093,7 +4718,10 @@ class DecisionTrace extends DataClass implements Insertable<DecisionTrace> {
           other.id == this.id &&
           other.candidateId == this.candidateId &&
           other.traceCode == this.traceCode &&
-          other.createdAtEpochMs == this.createdAtEpochMs);
+          other.createdAtEpochMs == this.createdAtEpochMs &&
+          other.stage == this.stage &&
+          other.rulePackVersion == this.rulePackVersion &&
+          other.outcomeCode == this.outcomeCode);
 }
 
 class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
@@ -3101,17 +4729,26 @@ class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
   final Value<int?> candidateId;
   final Value<DecisionTraceCode> traceCode;
   final Value<int> createdAtEpochMs;
+  final Value<DecisionStage?> stage;
+  final Value<String?> rulePackVersion;
+  final Value<String?> outcomeCode;
   const DecisionTracesCompanion({
     this.id = const Value.absent(),
     this.candidateId = const Value.absent(),
     this.traceCode = const Value.absent(),
     this.createdAtEpochMs = const Value.absent(),
+    this.stage = const Value.absent(),
+    this.rulePackVersion = const Value.absent(),
+    this.outcomeCode = const Value.absent(),
   });
   DecisionTracesCompanion.insert({
     this.id = const Value.absent(),
     this.candidateId = const Value.absent(),
     required DecisionTraceCode traceCode,
     required int createdAtEpochMs,
+    this.stage = const Value.absent(),
+    this.rulePackVersion = const Value.absent(),
+    this.outcomeCode = const Value.absent(),
   }) : traceCode = Value(traceCode),
        createdAtEpochMs = Value(createdAtEpochMs);
   static Insertable<DecisionTrace> custom({
@@ -3119,12 +4756,18 @@ class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
     Expression<int>? candidateId,
     Expression<String>? traceCode,
     Expression<int>? createdAtEpochMs,
+    Expression<String>? stage,
+    Expression<String>? rulePackVersion,
+    Expression<String>? outcomeCode,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (candidateId != null) 'candidate_id': candidateId,
       if (traceCode != null) 'trace_code': traceCode,
       if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
+      if (stage != null) 'stage': stage,
+      if (rulePackVersion != null) 'rule_pack_version': rulePackVersion,
+      if (outcomeCode != null) 'outcome_code': outcomeCode,
     });
   }
 
@@ -3133,12 +4776,18 @@ class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
     Value<int?>? candidateId,
     Value<DecisionTraceCode>? traceCode,
     Value<int>? createdAtEpochMs,
+    Value<DecisionStage?>? stage,
+    Value<String?>? rulePackVersion,
+    Value<String?>? outcomeCode,
   }) {
     return DecisionTracesCompanion(
       id: id ?? this.id,
       candidateId: candidateId ?? this.candidateId,
       traceCode: traceCode ?? this.traceCode,
       createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+      stage: stage ?? this.stage,
+      rulePackVersion: rulePackVersion ?? this.rulePackVersion,
+      outcomeCode: outcomeCode ?? this.outcomeCode,
     );
   }
 
@@ -3159,6 +4808,17 @@ class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
     if (createdAtEpochMs.present) {
       map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs.value);
     }
+    if (stage.present) {
+      map['stage'] = Variable<String>(
+        $DecisionTracesTable.$converterstagen.toSql(stage.value),
+      );
+    }
+    if (rulePackVersion.present) {
+      map['rule_pack_version'] = Variable<String>(rulePackVersion.value);
+    }
+    if (outcomeCode.present) {
+      map['outcome_code'] = Variable<String>(outcomeCode.value);
+    }
     return map;
   }
 
@@ -3168,7 +4828,10 @@ class DecisionTracesCompanion extends UpdateCompanion<DecisionTrace> {
           ..write('id: $id, ')
           ..write('candidateId: $candidateId, ')
           ..write('traceCode: $traceCode, ')
-          ..write('createdAtEpochMs: $createdAtEpochMs')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('stage: $stage, ')
+          ..write('rulePackVersion: $rulePackVersion, ')
+          ..write('outcomeCode: $outcomeCode')
           ..write(')'))
         .toString();
   }
@@ -6418,6 +8081,1407 @@ class CapabilityLedgerCompanion extends UpdateCompanion<CapabilityLedgerData> {
   }
 }
 
+class $RulePacksTable extends RulePacks
+    with TableInfo<$RulePacksTable, RulePack> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RulePacksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta(
+    'version',
+  );
+  @override
+  late final GeneratedColumn<String> version = GeneratedColumn<String>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _checksumMeta = const VerificationMeta(
+    'checksum',
+  );
+  @override
+  late final GeneratedColumn<String> checksum = GeneratedColumn<String>(
+    'checksum',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _marketMeta = const VerificationMeta('market');
+  @override
+  late final GeneratedColumn<String> market = GeneratedColumn<String>(
+    'market',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _installedAtEpochMsMeta =
+      const VerificationMeta('installedAtEpochMs');
+  @override
+  late final GeneratedColumn<int> installedAtEpochMs = GeneratedColumn<int>(
+    'installed_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    version,
+    checksum,
+    market,
+    enabled,
+    installedAtEpochMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'rule_packs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RulePack> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(
+        _versionMeta,
+        version.isAcceptableOrUnknown(data['version']!, _versionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_versionMeta);
+    }
+    if (data.containsKey('checksum')) {
+      context.handle(
+        _checksumMeta,
+        checksum.isAcceptableOrUnknown(data['checksum']!, _checksumMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_checksumMeta);
+    }
+    if (data.containsKey('market')) {
+      context.handle(
+        _marketMeta,
+        market.isAcceptableOrUnknown(data['market']!, _marketMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_marketMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('installed_at_epoch_ms')) {
+      context.handle(
+        _installedAtEpochMsMeta,
+        installedAtEpochMs.isAcceptableOrUnknown(
+          data['installed_at_epoch_ms']!,
+          _installedAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_installedAtEpochMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id, version};
+  @override
+  RulePack map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RulePack(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      version: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}version'],
+      )!,
+      checksum: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}checksum'],
+      )!,
+      market: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}market'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      installedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}installed_at_epoch_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $RulePacksTable createAlias(String alias) {
+    return $RulePacksTable(attachedDatabase, alias);
+  }
+}
+
+class RulePack extends DataClass implements Insertable<RulePack> {
+  final String id;
+  final String version;
+  final String checksum;
+  final String market;
+  final bool enabled;
+  final int installedAtEpochMs;
+  const RulePack({
+    required this.id,
+    required this.version,
+    required this.checksum,
+    required this.market,
+    required this.enabled,
+    required this.installedAtEpochMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['version'] = Variable<String>(version);
+    map['checksum'] = Variable<String>(checksum);
+    map['market'] = Variable<String>(market);
+    map['enabled'] = Variable<bool>(enabled);
+    map['installed_at_epoch_ms'] = Variable<int>(installedAtEpochMs);
+    return map;
+  }
+
+  RulePacksCompanion toCompanion(bool nullToAbsent) {
+    return RulePacksCompanion(
+      id: Value(id),
+      version: Value(version),
+      checksum: Value(checksum),
+      market: Value(market),
+      enabled: Value(enabled),
+      installedAtEpochMs: Value(installedAtEpochMs),
+    );
+  }
+
+  factory RulePack.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RulePack(
+      id: serializer.fromJson<String>(json['id']),
+      version: serializer.fromJson<String>(json['version']),
+      checksum: serializer.fromJson<String>(json['checksum']),
+      market: serializer.fromJson<String>(json['market']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      installedAtEpochMs: serializer.fromJson<int>(json['installedAtEpochMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'version': serializer.toJson<String>(version),
+      'checksum': serializer.toJson<String>(checksum),
+      'market': serializer.toJson<String>(market),
+      'enabled': serializer.toJson<bool>(enabled),
+      'installedAtEpochMs': serializer.toJson<int>(installedAtEpochMs),
+    };
+  }
+
+  RulePack copyWith({
+    String? id,
+    String? version,
+    String? checksum,
+    String? market,
+    bool? enabled,
+    int? installedAtEpochMs,
+  }) => RulePack(
+    id: id ?? this.id,
+    version: version ?? this.version,
+    checksum: checksum ?? this.checksum,
+    market: market ?? this.market,
+    enabled: enabled ?? this.enabled,
+    installedAtEpochMs: installedAtEpochMs ?? this.installedAtEpochMs,
+  );
+  RulePack copyWithCompanion(RulePacksCompanion data) {
+    return RulePack(
+      id: data.id.present ? data.id.value : this.id,
+      version: data.version.present ? data.version.value : this.version,
+      checksum: data.checksum.present ? data.checksum.value : this.checksum,
+      market: data.market.present ? data.market.value : this.market,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      installedAtEpochMs: data.installedAtEpochMs.present
+          ? data.installedAtEpochMs.value
+          : this.installedAtEpochMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RulePack(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('checksum: $checksum, ')
+          ..write('market: $market, ')
+          ..write('enabled: $enabled, ')
+          ..write('installedAtEpochMs: $installedAtEpochMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, version, checksum, market, enabled, installedAtEpochMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RulePack &&
+          other.id == this.id &&
+          other.version == this.version &&
+          other.checksum == this.checksum &&
+          other.market == this.market &&
+          other.enabled == this.enabled &&
+          other.installedAtEpochMs == this.installedAtEpochMs);
+}
+
+class RulePacksCompanion extends UpdateCompanion<RulePack> {
+  final Value<String> id;
+  final Value<String> version;
+  final Value<String> checksum;
+  final Value<String> market;
+  final Value<bool> enabled;
+  final Value<int> installedAtEpochMs;
+  final Value<int> rowid;
+  const RulePacksCompanion({
+    this.id = const Value.absent(),
+    this.version = const Value.absent(),
+    this.checksum = const Value.absent(),
+    this.market = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.installedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RulePacksCompanion.insert({
+    required String id,
+    required String version,
+    required String checksum,
+    required String market,
+    this.enabled = const Value.absent(),
+    required int installedAtEpochMs,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       version = Value(version),
+       checksum = Value(checksum),
+       market = Value(market),
+       installedAtEpochMs = Value(installedAtEpochMs);
+  static Insertable<RulePack> custom({
+    Expression<String>? id,
+    Expression<String>? version,
+    Expression<String>? checksum,
+    Expression<String>? market,
+    Expression<bool>? enabled,
+    Expression<int>? installedAtEpochMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (version != null) 'version': version,
+      if (checksum != null) 'checksum': checksum,
+      if (market != null) 'market': market,
+      if (enabled != null) 'enabled': enabled,
+      if (installedAtEpochMs != null)
+        'installed_at_epoch_ms': installedAtEpochMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RulePacksCompanion copyWith({
+    Value<String>? id,
+    Value<String>? version,
+    Value<String>? checksum,
+    Value<String>? market,
+    Value<bool>? enabled,
+    Value<int>? installedAtEpochMs,
+    Value<int>? rowid,
+  }) {
+    return RulePacksCompanion(
+      id: id ?? this.id,
+      version: version ?? this.version,
+      checksum: checksum ?? this.checksum,
+      market: market ?? this.market,
+      enabled: enabled ?? this.enabled,
+      installedAtEpochMs: installedAtEpochMs ?? this.installedAtEpochMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<String>(version.value);
+    }
+    if (checksum.present) {
+      map['checksum'] = Variable<String>(checksum.value);
+    }
+    if (market.present) {
+      map['market'] = Variable<String>(market.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (installedAtEpochMs.present) {
+      map['installed_at_epoch_ms'] = Variable<int>(installedAtEpochMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RulePacksCompanion(')
+          ..write('id: $id, ')
+          ..write('version: $version, ')
+          ..write('checksum: $checksum, ')
+          ..write('market: $market, ')
+          ..write('enabled: $enabled, ')
+          ..write('installedAtEpochMs: $installedAtEpochMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $IngestionCheckpointsTable extends IngestionCheckpoints
+    with TableInfo<$IngestionCheckpointsTable, IngestionCheckpoint> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $IngestionCheckpointsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _ingestionSourceMeta = const VerificationMeta(
+    'ingestionSource',
+  );
+  @override
+  late final GeneratedColumn<String> ingestionSource = GeneratedColumn<String>(
+    'ingestion_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _selectedFromEpochMsMeta =
+      const VerificationMeta('selectedFromEpochMs');
+  @override
+  late final GeneratedColumn<int> selectedFromEpochMs = GeneratedColumn<int>(
+    'selected_from_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _selectedUntilEpochMsMeta =
+      const VerificationMeta('selectedUntilEpochMs');
+  @override
+  late final GeneratedColumn<int> selectedUntilEpochMs = GeneratedColumn<int>(
+    'selected_until_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _selectedRangeDaysMeta = const VerificationMeta(
+    'selectedRangeDays',
+  );
+  @override
+  late final GeneratedColumn<int> selectedRangeDays = GeneratedColumn<int>(
+    'selected_range_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _senderCursorHashMeta = const VerificationMeta(
+    'senderCursorHash',
+  );
+  @override
+  late final GeneratedColumn<String> senderCursorHash = GeneratedColumn<String>(
+    'sender_cursor_hash',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateCursorEpochMsMeta = const VerificationMeta(
+    'dateCursorEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> dateCursorEpochMs = GeneratedColumn<int>(
+    'date_cursor_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _configuredCapMeta = const VerificationMeta(
+    'configuredCap',
+  );
+  @override
+  late final GeneratedColumn<int> configuredCap = GeneratedColumn<int>(
+    'configured_cap',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _processedCountMeta = const VerificationMeta(
+    'processedCount',
+  );
+  @override
+  late final GeneratedColumn<int> processedCount = GeneratedColumn<int>(
+    'processed_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _acceptedCountMeta = const VerificationMeta(
+    'acceptedCount',
+  );
+  @override
+  late final GeneratedColumn<int> acceptedCount = GeneratedColumn<int>(
+    'accepted_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _filteredCountMeta = const VerificationMeta(
+    'filteredCount',
+  );
+  @override
+  late final GeneratedColumn<int> filteredCount = GeneratedColumn<int>(
+    'filtered_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _duplicateCountMeta = const VerificationMeta(
+    'duplicateCount',
+  );
+  @override
+  late final GeneratedColumn<int> duplicateCount = GeneratedColumn<int>(
+    'duplicate_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<IngestionOutcome?, String>
+  outcome =
+      GeneratedColumn<String>(
+        'outcome',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<IngestionOutcome?>(
+        $IngestionCheckpointsTable.$converteroutcomen,
+      );
+  static const VerificationMeta _startedAtEpochMsMeta = const VerificationMeta(
+    'startedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> startedAtEpochMs = GeneratedColumn<int>(
+    'started_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedAtEpochMsMeta =
+      const VerificationMeta('completedAtEpochMs');
+  @override
+  late final GeneratedColumn<int> completedAtEpochMs = GeneratedColumn<int>(
+    'completed_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _privacyEpochMeta = const VerificationMeta(
+    'privacyEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> privacyEpoch = GeneratedColumn<int>(
+    'privacy_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    ingestionSource,
+    selectedFromEpochMs,
+    selectedUntilEpochMs,
+    selectedRangeDays,
+    senderCursorHash,
+    dateCursorEpochMs,
+    configuredCap,
+    processedCount,
+    acceptedCount,
+    filteredCount,
+    duplicateCount,
+    outcome,
+    startedAtEpochMs,
+    completedAtEpochMs,
+    privacyEpoch,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ingestion_checkpoint';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<IngestionCheckpoint> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('ingestion_source')) {
+      context.handle(
+        _ingestionSourceMeta,
+        ingestionSource.isAcceptableOrUnknown(
+          data['ingestion_source']!,
+          _ingestionSourceMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ingestionSourceMeta);
+    }
+    if (data.containsKey('selected_from_epoch_ms')) {
+      context.handle(
+        _selectedFromEpochMsMeta,
+        selectedFromEpochMs.isAcceptableOrUnknown(
+          data['selected_from_epoch_ms']!,
+          _selectedFromEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('selected_until_epoch_ms')) {
+      context.handle(
+        _selectedUntilEpochMsMeta,
+        selectedUntilEpochMs.isAcceptableOrUnknown(
+          data['selected_until_epoch_ms']!,
+          _selectedUntilEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('selected_range_days')) {
+      context.handle(
+        _selectedRangeDaysMeta,
+        selectedRangeDays.isAcceptableOrUnknown(
+          data['selected_range_days']!,
+          _selectedRangeDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sender_cursor_hash')) {
+      context.handle(
+        _senderCursorHashMeta,
+        senderCursorHash.isAcceptableOrUnknown(
+          data['sender_cursor_hash']!,
+          _senderCursorHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('date_cursor_epoch_ms')) {
+      context.handle(
+        _dateCursorEpochMsMeta,
+        dateCursorEpochMs.isAcceptableOrUnknown(
+          data['date_cursor_epoch_ms']!,
+          _dateCursorEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('configured_cap')) {
+      context.handle(
+        _configuredCapMeta,
+        configuredCap.isAcceptableOrUnknown(
+          data['configured_cap']!,
+          _configuredCapMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_configuredCapMeta);
+    }
+    if (data.containsKey('processed_count')) {
+      context.handle(
+        _processedCountMeta,
+        processedCount.isAcceptableOrUnknown(
+          data['processed_count']!,
+          _processedCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('accepted_count')) {
+      context.handle(
+        _acceptedCountMeta,
+        acceptedCount.isAcceptableOrUnknown(
+          data['accepted_count']!,
+          _acceptedCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('filtered_count')) {
+      context.handle(
+        _filteredCountMeta,
+        filteredCount.isAcceptableOrUnknown(
+          data['filtered_count']!,
+          _filteredCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('duplicate_count')) {
+      context.handle(
+        _duplicateCountMeta,
+        duplicateCount.isAcceptableOrUnknown(
+          data['duplicate_count']!,
+          _duplicateCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('started_at_epoch_ms')) {
+      context.handle(
+        _startedAtEpochMsMeta,
+        startedAtEpochMs.isAcceptableOrUnknown(
+          data['started_at_epoch_ms']!,
+          _startedAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_startedAtEpochMsMeta);
+    }
+    if (data.containsKey('completed_at_epoch_ms')) {
+      context.handle(
+        _completedAtEpochMsMeta,
+        completedAtEpochMs.isAcceptableOrUnknown(
+          data['completed_at_epoch_ms']!,
+          _completedAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('privacy_epoch')) {
+      context.handle(
+        _privacyEpochMeta,
+        privacyEpoch.isAcceptableOrUnknown(
+          data['privacy_epoch']!,
+          _privacyEpochMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_privacyEpochMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  IngestionCheckpoint map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return IngestionCheckpoint(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      ingestionSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ingestion_source'],
+      )!,
+      selectedFromEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}selected_from_epoch_ms'],
+      ),
+      selectedUntilEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}selected_until_epoch_ms'],
+      ),
+      selectedRangeDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}selected_range_days'],
+      ),
+      senderCursorHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_cursor_hash'],
+      ),
+      dateCursorEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}date_cursor_epoch_ms'],
+      ),
+      configuredCap: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}configured_cap'],
+      )!,
+      processedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}processed_count'],
+      )!,
+      acceptedCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}accepted_count'],
+      )!,
+      filteredCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}filtered_count'],
+      )!,
+      duplicateCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duplicate_count'],
+      )!,
+      outcome: $IngestionCheckpointsTable.$converteroutcomen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}outcome'],
+        ),
+      ),
+      startedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}started_at_epoch_ms'],
+      )!,
+      completedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}completed_at_epoch_ms'],
+      ),
+      privacyEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}privacy_epoch'],
+      )!,
+    );
+  }
+
+  @override
+  $IngestionCheckpointsTable createAlias(String alias) {
+    return $IngestionCheckpointsTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<IngestionOutcome, String, String>
+  $converteroutcome = const EnumNameConverter<IngestionOutcome>(
+    IngestionOutcome.values,
+  );
+  static JsonTypeConverter2<IngestionOutcome?, String?, String?>
+  $converteroutcomen = JsonTypeConverter2.asNullable($converteroutcome);
+}
+
+class IngestionCheckpoint extends DataClass
+    implements Insertable<IngestionCheckpoint> {
+  final int id;
+  final String ingestionSource;
+  final int? selectedFromEpochMs;
+  final int? selectedUntilEpochMs;
+  final int? selectedRangeDays;
+  final String? senderCursorHash;
+  final int? dateCursorEpochMs;
+  final int configuredCap;
+  final int processedCount;
+  final int acceptedCount;
+  final int filteredCount;
+  final int duplicateCount;
+  final IngestionOutcome? outcome;
+  final int startedAtEpochMs;
+  final int? completedAtEpochMs;
+  final int privacyEpoch;
+  const IngestionCheckpoint({
+    required this.id,
+    required this.ingestionSource,
+    this.selectedFromEpochMs,
+    this.selectedUntilEpochMs,
+    this.selectedRangeDays,
+    this.senderCursorHash,
+    this.dateCursorEpochMs,
+    required this.configuredCap,
+    required this.processedCount,
+    required this.acceptedCount,
+    required this.filteredCount,
+    required this.duplicateCount,
+    this.outcome,
+    required this.startedAtEpochMs,
+    this.completedAtEpochMs,
+    required this.privacyEpoch,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['ingestion_source'] = Variable<String>(ingestionSource);
+    if (!nullToAbsent || selectedFromEpochMs != null) {
+      map['selected_from_epoch_ms'] = Variable<int>(selectedFromEpochMs);
+    }
+    if (!nullToAbsent || selectedUntilEpochMs != null) {
+      map['selected_until_epoch_ms'] = Variable<int>(selectedUntilEpochMs);
+    }
+    if (!nullToAbsent || selectedRangeDays != null) {
+      map['selected_range_days'] = Variable<int>(selectedRangeDays);
+    }
+    if (!nullToAbsent || senderCursorHash != null) {
+      map['sender_cursor_hash'] = Variable<String>(senderCursorHash);
+    }
+    if (!nullToAbsent || dateCursorEpochMs != null) {
+      map['date_cursor_epoch_ms'] = Variable<int>(dateCursorEpochMs);
+    }
+    map['configured_cap'] = Variable<int>(configuredCap);
+    map['processed_count'] = Variable<int>(processedCount);
+    map['accepted_count'] = Variable<int>(acceptedCount);
+    map['filtered_count'] = Variable<int>(filteredCount);
+    map['duplicate_count'] = Variable<int>(duplicateCount);
+    if (!nullToAbsent || outcome != null) {
+      map['outcome'] = Variable<String>(
+        $IngestionCheckpointsTable.$converteroutcomen.toSql(outcome),
+      );
+    }
+    map['started_at_epoch_ms'] = Variable<int>(startedAtEpochMs);
+    if (!nullToAbsent || completedAtEpochMs != null) {
+      map['completed_at_epoch_ms'] = Variable<int>(completedAtEpochMs);
+    }
+    map['privacy_epoch'] = Variable<int>(privacyEpoch);
+    return map;
+  }
+
+  IngestionCheckpointsCompanion toCompanion(bool nullToAbsent) {
+    return IngestionCheckpointsCompanion(
+      id: Value(id),
+      ingestionSource: Value(ingestionSource),
+      selectedFromEpochMs: selectedFromEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedFromEpochMs),
+      selectedUntilEpochMs: selectedUntilEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedUntilEpochMs),
+      selectedRangeDays: selectedRangeDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(selectedRangeDays),
+      senderCursorHash: senderCursorHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderCursorHash),
+      dateCursorEpochMs: dateCursorEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateCursorEpochMs),
+      configuredCap: Value(configuredCap),
+      processedCount: Value(processedCount),
+      acceptedCount: Value(acceptedCount),
+      filteredCount: Value(filteredCount),
+      duplicateCount: Value(duplicateCount),
+      outcome: outcome == null && nullToAbsent
+          ? const Value.absent()
+          : Value(outcome),
+      startedAtEpochMs: Value(startedAtEpochMs),
+      completedAtEpochMs: completedAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedAtEpochMs),
+      privacyEpoch: Value(privacyEpoch),
+    );
+  }
+
+  factory IngestionCheckpoint.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return IngestionCheckpoint(
+      id: serializer.fromJson<int>(json['id']),
+      ingestionSource: serializer.fromJson<String>(json['ingestionSource']),
+      selectedFromEpochMs: serializer.fromJson<int?>(
+        json['selectedFromEpochMs'],
+      ),
+      selectedUntilEpochMs: serializer.fromJson<int?>(
+        json['selectedUntilEpochMs'],
+      ),
+      selectedRangeDays: serializer.fromJson<int?>(json['selectedRangeDays']),
+      senderCursorHash: serializer.fromJson<String?>(json['senderCursorHash']),
+      dateCursorEpochMs: serializer.fromJson<int?>(json['dateCursorEpochMs']),
+      configuredCap: serializer.fromJson<int>(json['configuredCap']),
+      processedCount: serializer.fromJson<int>(json['processedCount']),
+      acceptedCount: serializer.fromJson<int>(json['acceptedCount']),
+      filteredCount: serializer.fromJson<int>(json['filteredCount']),
+      duplicateCount: serializer.fromJson<int>(json['duplicateCount']),
+      outcome: $IngestionCheckpointsTable.$converteroutcomen.fromJson(
+        serializer.fromJson<String?>(json['outcome']),
+      ),
+      startedAtEpochMs: serializer.fromJson<int>(json['startedAtEpochMs']),
+      completedAtEpochMs: serializer.fromJson<int?>(json['completedAtEpochMs']),
+      privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'ingestionSource': serializer.toJson<String>(ingestionSource),
+      'selectedFromEpochMs': serializer.toJson<int?>(selectedFromEpochMs),
+      'selectedUntilEpochMs': serializer.toJson<int?>(selectedUntilEpochMs),
+      'selectedRangeDays': serializer.toJson<int?>(selectedRangeDays),
+      'senderCursorHash': serializer.toJson<String?>(senderCursorHash),
+      'dateCursorEpochMs': serializer.toJson<int?>(dateCursorEpochMs),
+      'configuredCap': serializer.toJson<int>(configuredCap),
+      'processedCount': serializer.toJson<int>(processedCount),
+      'acceptedCount': serializer.toJson<int>(acceptedCount),
+      'filteredCount': serializer.toJson<int>(filteredCount),
+      'duplicateCount': serializer.toJson<int>(duplicateCount),
+      'outcome': serializer.toJson<String?>(
+        $IngestionCheckpointsTable.$converteroutcomen.toJson(outcome),
+      ),
+      'startedAtEpochMs': serializer.toJson<int>(startedAtEpochMs),
+      'completedAtEpochMs': serializer.toJson<int?>(completedAtEpochMs),
+      'privacyEpoch': serializer.toJson<int>(privacyEpoch),
+    };
+  }
+
+  IngestionCheckpoint copyWith({
+    int? id,
+    String? ingestionSource,
+    Value<int?> selectedFromEpochMs = const Value.absent(),
+    Value<int?> selectedUntilEpochMs = const Value.absent(),
+    Value<int?> selectedRangeDays = const Value.absent(),
+    Value<String?> senderCursorHash = const Value.absent(),
+    Value<int?> dateCursorEpochMs = const Value.absent(),
+    int? configuredCap,
+    int? processedCount,
+    int? acceptedCount,
+    int? filteredCount,
+    int? duplicateCount,
+    Value<IngestionOutcome?> outcome = const Value.absent(),
+    int? startedAtEpochMs,
+    Value<int?> completedAtEpochMs = const Value.absent(),
+    int? privacyEpoch,
+  }) => IngestionCheckpoint(
+    id: id ?? this.id,
+    ingestionSource: ingestionSource ?? this.ingestionSource,
+    selectedFromEpochMs: selectedFromEpochMs.present
+        ? selectedFromEpochMs.value
+        : this.selectedFromEpochMs,
+    selectedUntilEpochMs: selectedUntilEpochMs.present
+        ? selectedUntilEpochMs.value
+        : this.selectedUntilEpochMs,
+    selectedRangeDays: selectedRangeDays.present
+        ? selectedRangeDays.value
+        : this.selectedRangeDays,
+    senderCursorHash: senderCursorHash.present
+        ? senderCursorHash.value
+        : this.senderCursorHash,
+    dateCursorEpochMs: dateCursorEpochMs.present
+        ? dateCursorEpochMs.value
+        : this.dateCursorEpochMs,
+    configuredCap: configuredCap ?? this.configuredCap,
+    processedCount: processedCount ?? this.processedCount,
+    acceptedCount: acceptedCount ?? this.acceptedCount,
+    filteredCount: filteredCount ?? this.filteredCount,
+    duplicateCount: duplicateCount ?? this.duplicateCount,
+    outcome: outcome.present ? outcome.value : this.outcome,
+    startedAtEpochMs: startedAtEpochMs ?? this.startedAtEpochMs,
+    completedAtEpochMs: completedAtEpochMs.present
+        ? completedAtEpochMs.value
+        : this.completedAtEpochMs,
+    privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+  );
+  IngestionCheckpoint copyWithCompanion(IngestionCheckpointsCompanion data) {
+    return IngestionCheckpoint(
+      id: data.id.present ? data.id.value : this.id,
+      ingestionSource: data.ingestionSource.present
+          ? data.ingestionSource.value
+          : this.ingestionSource,
+      selectedFromEpochMs: data.selectedFromEpochMs.present
+          ? data.selectedFromEpochMs.value
+          : this.selectedFromEpochMs,
+      selectedUntilEpochMs: data.selectedUntilEpochMs.present
+          ? data.selectedUntilEpochMs.value
+          : this.selectedUntilEpochMs,
+      selectedRangeDays: data.selectedRangeDays.present
+          ? data.selectedRangeDays.value
+          : this.selectedRangeDays,
+      senderCursorHash: data.senderCursorHash.present
+          ? data.senderCursorHash.value
+          : this.senderCursorHash,
+      dateCursorEpochMs: data.dateCursorEpochMs.present
+          ? data.dateCursorEpochMs.value
+          : this.dateCursorEpochMs,
+      configuredCap: data.configuredCap.present
+          ? data.configuredCap.value
+          : this.configuredCap,
+      processedCount: data.processedCount.present
+          ? data.processedCount.value
+          : this.processedCount,
+      acceptedCount: data.acceptedCount.present
+          ? data.acceptedCount.value
+          : this.acceptedCount,
+      filteredCount: data.filteredCount.present
+          ? data.filteredCount.value
+          : this.filteredCount,
+      duplicateCount: data.duplicateCount.present
+          ? data.duplicateCount.value
+          : this.duplicateCount,
+      outcome: data.outcome.present ? data.outcome.value : this.outcome,
+      startedAtEpochMs: data.startedAtEpochMs.present
+          ? data.startedAtEpochMs.value
+          : this.startedAtEpochMs,
+      completedAtEpochMs: data.completedAtEpochMs.present
+          ? data.completedAtEpochMs.value
+          : this.completedAtEpochMs,
+      privacyEpoch: data.privacyEpoch.present
+          ? data.privacyEpoch.value
+          : this.privacyEpoch,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IngestionCheckpoint(')
+          ..write('id: $id, ')
+          ..write('ingestionSource: $ingestionSource, ')
+          ..write('selectedFromEpochMs: $selectedFromEpochMs, ')
+          ..write('selectedUntilEpochMs: $selectedUntilEpochMs, ')
+          ..write('selectedRangeDays: $selectedRangeDays, ')
+          ..write('senderCursorHash: $senderCursorHash, ')
+          ..write('dateCursorEpochMs: $dateCursorEpochMs, ')
+          ..write('configuredCap: $configuredCap, ')
+          ..write('processedCount: $processedCount, ')
+          ..write('acceptedCount: $acceptedCount, ')
+          ..write('filteredCount: $filteredCount, ')
+          ..write('duplicateCount: $duplicateCount, ')
+          ..write('outcome: $outcome, ')
+          ..write('startedAtEpochMs: $startedAtEpochMs, ')
+          ..write('completedAtEpochMs: $completedAtEpochMs, ')
+          ..write('privacyEpoch: $privacyEpoch')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    ingestionSource,
+    selectedFromEpochMs,
+    selectedUntilEpochMs,
+    selectedRangeDays,
+    senderCursorHash,
+    dateCursorEpochMs,
+    configuredCap,
+    processedCount,
+    acceptedCount,
+    filteredCount,
+    duplicateCount,
+    outcome,
+    startedAtEpochMs,
+    completedAtEpochMs,
+    privacyEpoch,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is IngestionCheckpoint &&
+          other.id == this.id &&
+          other.ingestionSource == this.ingestionSource &&
+          other.selectedFromEpochMs == this.selectedFromEpochMs &&
+          other.selectedUntilEpochMs == this.selectedUntilEpochMs &&
+          other.selectedRangeDays == this.selectedRangeDays &&
+          other.senderCursorHash == this.senderCursorHash &&
+          other.dateCursorEpochMs == this.dateCursorEpochMs &&
+          other.configuredCap == this.configuredCap &&
+          other.processedCount == this.processedCount &&
+          other.acceptedCount == this.acceptedCount &&
+          other.filteredCount == this.filteredCount &&
+          other.duplicateCount == this.duplicateCount &&
+          other.outcome == this.outcome &&
+          other.startedAtEpochMs == this.startedAtEpochMs &&
+          other.completedAtEpochMs == this.completedAtEpochMs &&
+          other.privacyEpoch == this.privacyEpoch);
+}
+
+class IngestionCheckpointsCompanion
+    extends UpdateCompanion<IngestionCheckpoint> {
+  final Value<int> id;
+  final Value<String> ingestionSource;
+  final Value<int?> selectedFromEpochMs;
+  final Value<int?> selectedUntilEpochMs;
+  final Value<int?> selectedRangeDays;
+  final Value<String?> senderCursorHash;
+  final Value<int?> dateCursorEpochMs;
+  final Value<int> configuredCap;
+  final Value<int> processedCount;
+  final Value<int> acceptedCount;
+  final Value<int> filteredCount;
+  final Value<int> duplicateCount;
+  final Value<IngestionOutcome?> outcome;
+  final Value<int> startedAtEpochMs;
+  final Value<int?> completedAtEpochMs;
+  final Value<int> privacyEpoch;
+  const IngestionCheckpointsCompanion({
+    this.id = const Value.absent(),
+    this.ingestionSource = const Value.absent(),
+    this.selectedFromEpochMs = const Value.absent(),
+    this.selectedUntilEpochMs = const Value.absent(),
+    this.selectedRangeDays = const Value.absent(),
+    this.senderCursorHash = const Value.absent(),
+    this.dateCursorEpochMs = const Value.absent(),
+    this.configuredCap = const Value.absent(),
+    this.processedCount = const Value.absent(),
+    this.acceptedCount = const Value.absent(),
+    this.filteredCount = const Value.absent(),
+    this.duplicateCount = const Value.absent(),
+    this.outcome = const Value.absent(),
+    this.startedAtEpochMs = const Value.absent(),
+    this.completedAtEpochMs = const Value.absent(),
+    this.privacyEpoch = const Value.absent(),
+  });
+  IngestionCheckpointsCompanion.insert({
+    this.id = const Value.absent(),
+    required String ingestionSource,
+    this.selectedFromEpochMs = const Value.absent(),
+    this.selectedUntilEpochMs = const Value.absent(),
+    this.selectedRangeDays = const Value.absent(),
+    this.senderCursorHash = const Value.absent(),
+    this.dateCursorEpochMs = const Value.absent(),
+    required int configuredCap,
+    this.processedCount = const Value.absent(),
+    this.acceptedCount = const Value.absent(),
+    this.filteredCount = const Value.absent(),
+    this.duplicateCount = const Value.absent(),
+    this.outcome = const Value.absent(),
+    required int startedAtEpochMs,
+    this.completedAtEpochMs = const Value.absent(),
+    required int privacyEpoch,
+  }) : ingestionSource = Value(ingestionSource),
+       configuredCap = Value(configuredCap),
+       startedAtEpochMs = Value(startedAtEpochMs),
+       privacyEpoch = Value(privacyEpoch);
+  static Insertable<IngestionCheckpoint> custom({
+    Expression<int>? id,
+    Expression<String>? ingestionSource,
+    Expression<int>? selectedFromEpochMs,
+    Expression<int>? selectedUntilEpochMs,
+    Expression<int>? selectedRangeDays,
+    Expression<String>? senderCursorHash,
+    Expression<int>? dateCursorEpochMs,
+    Expression<int>? configuredCap,
+    Expression<int>? processedCount,
+    Expression<int>? acceptedCount,
+    Expression<int>? filteredCount,
+    Expression<int>? duplicateCount,
+    Expression<String>? outcome,
+    Expression<int>? startedAtEpochMs,
+    Expression<int>? completedAtEpochMs,
+    Expression<int>? privacyEpoch,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (ingestionSource != null) 'ingestion_source': ingestionSource,
+      if (selectedFromEpochMs != null)
+        'selected_from_epoch_ms': selectedFromEpochMs,
+      if (selectedUntilEpochMs != null)
+        'selected_until_epoch_ms': selectedUntilEpochMs,
+      if (selectedRangeDays != null) 'selected_range_days': selectedRangeDays,
+      if (senderCursorHash != null) 'sender_cursor_hash': senderCursorHash,
+      if (dateCursorEpochMs != null) 'date_cursor_epoch_ms': dateCursorEpochMs,
+      if (configuredCap != null) 'configured_cap': configuredCap,
+      if (processedCount != null) 'processed_count': processedCount,
+      if (acceptedCount != null) 'accepted_count': acceptedCount,
+      if (filteredCount != null) 'filtered_count': filteredCount,
+      if (duplicateCount != null) 'duplicate_count': duplicateCount,
+      if (outcome != null) 'outcome': outcome,
+      if (startedAtEpochMs != null) 'started_at_epoch_ms': startedAtEpochMs,
+      if (completedAtEpochMs != null)
+        'completed_at_epoch_ms': completedAtEpochMs,
+      if (privacyEpoch != null) 'privacy_epoch': privacyEpoch,
+    });
+  }
+
+  IngestionCheckpointsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? ingestionSource,
+    Value<int?>? selectedFromEpochMs,
+    Value<int?>? selectedUntilEpochMs,
+    Value<int?>? selectedRangeDays,
+    Value<String?>? senderCursorHash,
+    Value<int?>? dateCursorEpochMs,
+    Value<int>? configuredCap,
+    Value<int>? processedCount,
+    Value<int>? acceptedCount,
+    Value<int>? filteredCount,
+    Value<int>? duplicateCount,
+    Value<IngestionOutcome?>? outcome,
+    Value<int>? startedAtEpochMs,
+    Value<int?>? completedAtEpochMs,
+    Value<int>? privacyEpoch,
+  }) {
+    return IngestionCheckpointsCompanion(
+      id: id ?? this.id,
+      ingestionSource: ingestionSource ?? this.ingestionSource,
+      selectedFromEpochMs: selectedFromEpochMs ?? this.selectedFromEpochMs,
+      selectedUntilEpochMs: selectedUntilEpochMs ?? this.selectedUntilEpochMs,
+      selectedRangeDays: selectedRangeDays ?? this.selectedRangeDays,
+      senderCursorHash: senderCursorHash ?? this.senderCursorHash,
+      dateCursorEpochMs: dateCursorEpochMs ?? this.dateCursorEpochMs,
+      configuredCap: configuredCap ?? this.configuredCap,
+      processedCount: processedCount ?? this.processedCount,
+      acceptedCount: acceptedCount ?? this.acceptedCount,
+      filteredCount: filteredCount ?? this.filteredCount,
+      duplicateCount: duplicateCount ?? this.duplicateCount,
+      outcome: outcome ?? this.outcome,
+      startedAtEpochMs: startedAtEpochMs ?? this.startedAtEpochMs,
+      completedAtEpochMs: completedAtEpochMs ?? this.completedAtEpochMs,
+      privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (ingestionSource.present) {
+      map['ingestion_source'] = Variable<String>(ingestionSource.value);
+    }
+    if (selectedFromEpochMs.present) {
+      map['selected_from_epoch_ms'] = Variable<int>(selectedFromEpochMs.value);
+    }
+    if (selectedUntilEpochMs.present) {
+      map['selected_until_epoch_ms'] = Variable<int>(
+        selectedUntilEpochMs.value,
+      );
+    }
+    if (selectedRangeDays.present) {
+      map['selected_range_days'] = Variable<int>(selectedRangeDays.value);
+    }
+    if (senderCursorHash.present) {
+      map['sender_cursor_hash'] = Variable<String>(senderCursorHash.value);
+    }
+    if (dateCursorEpochMs.present) {
+      map['date_cursor_epoch_ms'] = Variable<int>(dateCursorEpochMs.value);
+    }
+    if (configuredCap.present) {
+      map['configured_cap'] = Variable<int>(configuredCap.value);
+    }
+    if (processedCount.present) {
+      map['processed_count'] = Variable<int>(processedCount.value);
+    }
+    if (acceptedCount.present) {
+      map['accepted_count'] = Variable<int>(acceptedCount.value);
+    }
+    if (filteredCount.present) {
+      map['filtered_count'] = Variable<int>(filteredCount.value);
+    }
+    if (duplicateCount.present) {
+      map['duplicate_count'] = Variable<int>(duplicateCount.value);
+    }
+    if (outcome.present) {
+      map['outcome'] = Variable<String>(
+        $IngestionCheckpointsTable.$converteroutcomen.toSql(outcome.value),
+      );
+    }
+    if (startedAtEpochMs.present) {
+      map['started_at_epoch_ms'] = Variable<int>(startedAtEpochMs.value);
+    }
+    if (completedAtEpochMs.present) {
+      map['completed_at_epoch_ms'] = Variable<int>(completedAtEpochMs.value);
+    }
+    if (privacyEpoch.present) {
+      map['privacy_epoch'] = Variable<int>(privacyEpoch.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('IngestionCheckpointsCompanion(')
+          ..write('id: $id, ')
+          ..write('ingestionSource: $ingestionSource, ')
+          ..write('selectedFromEpochMs: $selectedFromEpochMs, ')
+          ..write('selectedUntilEpochMs: $selectedUntilEpochMs, ')
+          ..write('selectedRangeDays: $selectedRangeDays, ')
+          ..write('senderCursorHash: $senderCursorHash, ')
+          ..write('dateCursorEpochMs: $dateCursorEpochMs, ')
+          ..write('configuredCap: $configuredCap, ')
+          ..write('processedCount: $processedCount, ')
+          ..write('acceptedCount: $acceptedCount, ')
+          ..write('filteredCount: $filteredCount, ')
+          ..write('duplicateCount: $duplicateCount, ')
+          ..write('outcome: $outcome, ')
+          ..write('startedAtEpochMs: $startedAtEpochMs, ')
+          ..write('completedAtEpochMs: $completedAtEpochMs, ')
+          ..write('privacyEpoch: $privacyEpoch')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6448,6 +9512,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CapabilityLedgerTable capabilityLedger = $CapabilityLedgerTable(
     this,
   );
+  late final $RulePacksTable rulePacks = $RulePacksTable(this);
+  late final $IngestionCheckpointsTable ingestionCheckpoints =
+      $IngestionCheckpointsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6468,6 +9535,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     walletMutations,
     walletRecordLinks,
     capabilityLedger,
+    rulePacks,
+    ingestionCheckpoints,
   ];
 }
 
@@ -6483,6 +9552,10 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<int> configurationRevision,
       Value<int> rawCopyRetentionDays,
       Value<int> activityRetentionDays,
+      Value<int?> smsDisclosureRevision,
+      Value<bool> historySmsEnabled,
+      Value<int> historyWindowDays,
+      Value<int> historyMessageCap,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
@@ -6496,6 +9569,10 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<int> configurationRevision,
       Value<int> rawCopyRetentionDays,
       Value<int> activityRetentionDays,
+      Value<int?> smsDisclosureRevision,
+      Value<bool> historySmsEnabled,
+      Value<int> historyWindowDays,
+      Value<int> historyMessageCap,
     });
 
 class $$AppSettingsTableFilterComposer
@@ -6554,6 +9631,26 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get activityRetentionDays => $composableBuilder(
     column: $table.activityRetentionDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get smsDisclosureRevision => $composableBuilder(
+    column: $table.smsDisclosureRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get historySmsEnabled => $composableBuilder(
+    column: $table.historySmsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get historyWindowDays => $composableBuilder(
+    column: $table.historyWindowDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get historyMessageCap => $composableBuilder(
+    column: $table.historyMessageCap,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6616,6 +9713,26 @@ class $$AppSettingsTableOrderingComposer
     column: $table.activityRetentionDays,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get smsDisclosureRevision => $composableBuilder(
+    column: $table.smsDisclosureRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get historySmsEnabled => $composableBuilder(
+    column: $table.historySmsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get historyWindowDays => $composableBuilder(
+    column: $table.historyWindowDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get historyMessageCap => $composableBuilder(
+    column: $table.historyMessageCap,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -6676,6 +9793,26 @@ class $$AppSettingsTableAnnotationComposer
     column: $table.activityRetentionDays,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get smsDisclosureRevision => $composableBuilder(
+    column: $table.smsDisclosureRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get historySmsEnabled => $composableBuilder(
+    column: $table.historySmsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get historyWindowDays => $composableBuilder(
+    column: $table.historyWindowDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get historyMessageCap => $composableBuilder(
+    column: $table.historyMessageCap,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsTableTableManager
@@ -6719,6 +9856,10 @@ class $$AppSettingsTableTableManager
                 Value<int> configurationRevision = const Value.absent(),
                 Value<int> rawCopyRetentionDays = const Value.absent(),
                 Value<int> activityRetentionDays = const Value.absent(),
+                Value<int?> smsDisclosureRevision = const Value.absent(),
+                Value<bool> historySmsEnabled = const Value.absent(),
+                Value<int> historyWindowDays = const Value.absent(),
+                Value<int> historyMessageCap = const Value.absent(),
               }) => AppSettingsCompanion(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -6730,6 +9871,10 @@ class $$AppSettingsTableTableManager
                 configurationRevision: configurationRevision,
                 rawCopyRetentionDays: rawCopyRetentionDays,
                 activityRetentionDays: activityRetentionDays,
+                smsDisclosureRevision: smsDisclosureRevision,
+                historySmsEnabled: historySmsEnabled,
+                historyWindowDays: historyWindowDays,
+                historyMessageCap: historyMessageCap,
               ),
           createCompanionCallback:
               ({
@@ -6743,6 +9888,10 @@ class $$AppSettingsTableTableManager
                 Value<int> configurationRevision = const Value.absent(),
                 Value<int> rawCopyRetentionDays = const Value.absent(),
                 Value<int> activityRetentionDays = const Value.absent(),
+                Value<int?> smsDisclosureRevision = const Value.absent(),
+                Value<bool> historySmsEnabled = const Value.absent(),
+                Value<int> historyWindowDays = const Value.absent(),
+                Value<int> historyMessageCap = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -6754,6 +9903,10 @@ class $$AppSettingsTableTableManager
                 configurationRevision: configurationRevision,
                 rawCopyRetentionDays: rawCopyRetentionDays,
                 activityRetentionDays: activityRetentionDays,
+                smsDisclosureRevision: smsDisclosureRevision,
+                historySmsEnabled: historySmsEnabled,
+                historyWindowDays: historyWindowDays,
+                historyMessageCap: historyMessageCap,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -7015,6 +10168,10 @@ typedef $$SmsEventsTableCreateCompanionBuilder =
       Value<int?> expiresAtEpochMs,
       required String status,
       required int privacyEpoch,
+      Value<int?> providerRowId,
+      Value<int> captureCanonicalizationVersion,
+      Value<int> redactionVersion,
+      Value<RawPurgeState> rawPurgeState,
     });
 typedef $$SmsEventsTableUpdateCompanionBuilder =
     SmsEventsCompanion Function({
@@ -7028,6 +10185,10 @@ typedef $$SmsEventsTableUpdateCompanionBuilder =
       Value<int?> expiresAtEpochMs,
       Value<String> status,
       Value<int> privacyEpoch,
+      Value<int?> providerRowId,
+      Value<int> captureCanonicalizationVersion,
+      Value<int> redactionVersion,
+      Value<RawPurgeState> rawPurgeState,
     });
 
 final class $$SmsEventsTableReferences
@@ -7119,6 +10280,27 @@ class $$SmsEventsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get providerRowId => $composableBuilder(
+    column: $table.providerRowId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get captureCanonicalizationVersion => $composableBuilder(
+    column: $table.captureCanonicalizationVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get redactionVersion => $composableBuilder(
+    column: $table.redactionVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<RawPurgeState, RawPurgeState, String>
+  get rawPurgeState => $composableBuilder(
+    column: $table.rawPurgeState,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
   Expression<bool> transactionCandidatesRefs(
     Expression<bool> Function($$TransactionCandidatesTableFilterComposer f) f,
   ) {
@@ -7204,6 +10386,26 @@ class $$SmsEventsTableOrderingComposer
     column: $table.privacyEpoch,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get providerRowId => $composableBuilder(
+    column: $table.providerRowId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get captureCanonicalizationVersion => $composableBuilder(
+    column: $table.captureCanonicalizationVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get redactionVersion => $composableBuilder(
+    column: $table.redactionVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawPurgeState => $composableBuilder(
+    column: $table.rawPurgeState,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SmsEventsTableAnnotationComposer
@@ -7258,6 +10460,27 @@ class $$SmsEventsTableAnnotationComposer
     column: $table.privacyEpoch,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get providerRowId => $composableBuilder(
+    column: $table.providerRowId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get captureCanonicalizationVersion => $composableBuilder(
+    column: $table.captureCanonicalizationVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get redactionVersion => $composableBuilder(
+    column: $table.redactionVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<RawPurgeState, String> get rawPurgeState =>
+      $composableBuilder(
+        column: $table.rawPurgeState,
+        builder: (column) => column,
+      );
 
   Expression<T> transactionCandidatesRefs<T extends Object>(
     Expression<T> Function($$TransactionCandidatesTableAnnotationComposer a) f,
@@ -7324,6 +10547,11 @@ class $$SmsEventsTableTableManager
                 Value<int?> expiresAtEpochMs = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<int> privacyEpoch = const Value.absent(),
+                Value<int?> providerRowId = const Value.absent(),
+                Value<int> captureCanonicalizationVersion =
+                    const Value.absent(),
+                Value<int> redactionVersion = const Value.absent(),
+                Value<RawPurgeState> rawPurgeState = const Value.absent(),
               }) => SmsEventsCompanion(
                 id: id,
                 sourceKey: sourceKey,
@@ -7335,6 +10563,10 @@ class $$SmsEventsTableTableManager
                 expiresAtEpochMs: expiresAtEpochMs,
                 status: status,
                 privacyEpoch: privacyEpoch,
+                providerRowId: providerRowId,
+                captureCanonicalizationVersion: captureCanonicalizationVersion,
+                redactionVersion: redactionVersion,
+                rawPurgeState: rawPurgeState,
               ),
           createCompanionCallback:
               ({
@@ -7348,6 +10580,11 @@ class $$SmsEventsTableTableManager
                 Value<int?> expiresAtEpochMs = const Value.absent(),
                 required String status,
                 required int privacyEpoch,
+                Value<int?> providerRowId = const Value.absent(),
+                Value<int> captureCanonicalizationVersion =
+                    const Value.absent(),
+                Value<int> redactionVersion = const Value.absent(),
+                Value<RawPurgeState> rawPurgeState = const Value.absent(),
               }) => SmsEventsCompanion.insert(
                 id: id,
                 sourceKey: sourceKey,
@@ -7359,6 +10596,10 @@ class $$SmsEventsTableTableManager
                 expiresAtEpochMs: expiresAtEpochMs,
                 status: status,
                 privacyEpoch: privacyEpoch,
+                providerRowId: providerRowId,
+                captureCanonicalizationVersion: captureCanonicalizationVersion,
+                redactionVersion: redactionVersion,
+                rawPurgeState: rawPurgeState,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -7431,6 +10672,24 @@ typedef $$TransactionCandidatesTableCreateCompanionBuilder =
       Value<String?> instrumentEvidence,
       Value<String?> originalCurrencyCode,
       Value<String?> walletCurrencyCode,
+      Value<TransactionKind?> kind,
+      Value<TransactionDirection?> direction,
+      Value<FinancialLifecycle?> lifecycle,
+      Value<int?> originalAmountMinor,
+      Value<int?> walletAmountMinor,
+      Value<int?> transactionAtEpochMs,
+      Value<String?> dateEvidence,
+      Value<String?> counterpartyRedacted,
+      Value<String?> instrumentSuffixHash,
+      Value<int?> availableBalanceMinor,
+      Value<String?> paymentType,
+      Value<int?> confidenceBasisPoints,
+      Value<String?> parserRuleId,
+      Value<String?> parserRuleVersion,
+      Value<String?> rulePackId,
+      Value<String?> rulePackVersion,
+      Value<String?> reviewReasons,
+      Value<String?> transactionFingerprint,
     });
 typedef $$TransactionCandidatesTableUpdateCompanionBuilder =
     TransactionCandidatesCompanion Function({
@@ -7445,6 +10704,24 @@ typedef $$TransactionCandidatesTableUpdateCompanionBuilder =
       Value<String?> instrumentEvidence,
       Value<String?> originalCurrencyCode,
       Value<String?> walletCurrencyCode,
+      Value<TransactionKind?> kind,
+      Value<TransactionDirection?> direction,
+      Value<FinancialLifecycle?> lifecycle,
+      Value<int?> originalAmountMinor,
+      Value<int?> walletAmountMinor,
+      Value<int?> transactionAtEpochMs,
+      Value<String?> dateEvidence,
+      Value<String?> counterpartyRedacted,
+      Value<String?> instrumentSuffixHash,
+      Value<int?> availableBalanceMinor,
+      Value<String?> paymentType,
+      Value<int?> confidenceBasisPoints,
+      Value<String?> parserRuleId,
+      Value<String?> parserRuleVersion,
+      Value<String?> rulePackId,
+      Value<String?> rulePackVersion,
+      Value<String?> reviewReasons,
+      Value<String?> transactionFingerprint,
     });
 
 final class $$TransactionCandidatesTableReferences
@@ -7560,6 +10837,107 @@ class $$TransactionCandidatesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<TransactionKind?, TransactionKind, String>
+  get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    TransactionDirection?,
+    TransactionDirection,
+    String
+  >
+  get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    FinancialLifecycle?,
+    FinancialLifecycle,
+    String
+  >
+  get lifecycle => $composableBuilder(
+    column: $table.lifecycle,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get originalAmountMinor => $composableBuilder(
+    column: $table.originalAmountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get walletAmountMinor => $composableBuilder(
+    column: $table.walletAmountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get transactionAtEpochMs => $composableBuilder(
+    column: $table.transactionAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dateEvidence => $composableBuilder(
+    column: $table.dateEvidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get counterpartyRedacted => $composableBuilder(
+    column: $table.counterpartyRedacted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get availableBalanceMinor => $composableBuilder(
+    column: $table.availableBalanceMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get confidenceBasisPoints => $composableBuilder(
+    column: $table.confidenceBasisPoints,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parserRuleId => $composableBuilder(
+    column: $table.parserRuleId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parserRuleVersion => $composableBuilder(
+    column: $table.parserRuleVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rulePackId => $composableBuilder(
+    column: $table.rulePackId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reviewReasons => $composableBuilder(
+    column: $table.reviewReasons,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionFingerprint => $composableBuilder(
+    column: $table.transactionFingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$SmsEventsTableFilterComposer get smsEventId {
     final $$SmsEventsTableFilterComposer composer = $composerBuilder(
       composer: this,
@@ -7668,6 +11046,96 @@ class $$TransactionCandidatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lifecycle => $composableBuilder(
+    column: $table.lifecycle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get originalAmountMinor => $composableBuilder(
+    column: $table.originalAmountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get walletAmountMinor => $composableBuilder(
+    column: $table.walletAmountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get transactionAtEpochMs => $composableBuilder(
+    column: $table.transactionAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dateEvidence => $composableBuilder(
+    column: $table.dateEvidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get counterpartyRedacted => $composableBuilder(
+    column: $table.counterpartyRedacted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get availableBalanceMinor => $composableBuilder(
+    column: $table.availableBalanceMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get confidenceBasisPoints => $composableBuilder(
+    column: $table.confidenceBasisPoints,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parserRuleId => $composableBuilder(
+    column: $table.parserRuleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parserRuleVersion => $composableBuilder(
+    column: $table.parserRuleVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rulePackId => $composableBuilder(
+    column: $table.rulePackId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reviewReasons => $composableBuilder(
+    column: $table.reviewReasons,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionFingerprint => $composableBuilder(
+    column: $table.transactionFingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SmsEventsTableOrderingComposer get smsEventId {
     final $$SmsEventsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -7742,6 +11210,91 @@ class $$TransactionCandidatesTableAnnotationComposer
 
   GeneratedColumn<String> get walletCurrencyCode => $composableBuilder(
     column: $table.walletCurrencyCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<TransactionKind?, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<TransactionDirection?, String>
+  get direction =>
+      $composableBuilder(column: $table.direction, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<FinancialLifecycle?, String> get lifecycle =>
+      $composableBuilder(column: $table.lifecycle, builder: (column) => column);
+
+  GeneratedColumn<int> get originalAmountMinor => $composableBuilder(
+    column: $table.originalAmountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get walletAmountMinor => $composableBuilder(
+    column: $table.walletAmountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get transactionAtEpochMs => $composableBuilder(
+    column: $table.transactionAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dateEvidence => $composableBuilder(
+    column: $table.dateEvidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get counterpartyRedacted => $composableBuilder(
+    column: $table.counterpartyRedacted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get availableBalanceMinor => $composableBuilder(
+    column: $table.availableBalanceMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get confidenceBasisPoints => $composableBuilder(
+    column: $table.confidenceBasisPoints,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parserRuleId => $composableBuilder(
+    column: $table.parserRuleId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parserRuleVersion => $composableBuilder(
+    column: $table.parserRuleVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rulePackId => $composableBuilder(
+    column: $table.rulePackId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reviewReasons => $composableBuilder(
+    column: $table.reviewReasons,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transactionFingerprint => $composableBuilder(
+    column: $table.transactionFingerprint,
     builder: (column) => column,
   );
 
@@ -7844,6 +11397,24 @@ class $$TransactionCandidatesTableTableManager
                 Value<String?> instrumentEvidence = const Value.absent(),
                 Value<String?> originalCurrencyCode = const Value.absent(),
                 Value<String?> walletCurrencyCode = const Value.absent(),
+                Value<TransactionKind?> kind = const Value.absent(),
+                Value<TransactionDirection?> direction = const Value.absent(),
+                Value<FinancialLifecycle?> lifecycle = const Value.absent(),
+                Value<int?> originalAmountMinor = const Value.absent(),
+                Value<int?> walletAmountMinor = const Value.absent(),
+                Value<int?> transactionAtEpochMs = const Value.absent(),
+                Value<String?> dateEvidence = const Value.absent(),
+                Value<String?> counterpartyRedacted = const Value.absent(),
+                Value<String?> instrumentSuffixHash = const Value.absent(),
+                Value<int?> availableBalanceMinor = const Value.absent(),
+                Value<String?> paymentType = const Value.absent(),
+                Value<int?> confidenceBasisPoints = const Value.absent(),
+                Value<String?> parserRuleId = const Value.absent(),
+                Value<String?> parserRuleVersion = const Value.absent(),
+                Value<String?> rulePackId = const Value.absent(),
+                Value<String?> rulePackVersion = const Value.absent(),
+                Value<String?> reviewReasons = const Value.absent(),
+                Value<String?> transactionFingerprint = const Value.absent(),
               }) => TransactionCandidatesCompanion(
                 id: id,
                 smsEventId: smsEventId,
@@ -7856,6 +11427,24 @@ class $$TransactionCandidatesTableTableManager
                 instrumentEvidence: instrumentEvidence,
                 originalCurrencyCode: originalCurrencyCode,
                 walletCurrencyCode: walletCurrencyCode,
+                kind: kind,
+                direction: direction,
+                lifecycle: lifecycle,
+                originalAmountMinor: originalAmountMinor,
+                walletAmountMinor: walletAmountMinor,
+                transactionAtEpochMs: transactionAtEpochMs,
+                dateEvidence: dateEvidence,
+                counterpartyRedacted: counterpartyRedacted,
+                instrumentSuffixHash: instrumentSuffixHash,
+                availableBalanceMinor: availableBalanceMinor,
+                paymentType: paymentType,
+                confidenceBasisPoints: confidenceBasisPoints,
+                parserRuleId: parserRuleId,
+                parserRuleVersion: parserRuleVersion,
+                rulePackId: rulePackId,
+                rulePackVersion: rulePackVersion,
+                reviewReasons: reviewReasons,
+                transactionFingerprint: transactionFingerprint,
               ),
           createCompanionCallback:
               ({
@@ -7870,6 +11459,24 @@ class $$TransactionCandidatesTableTableManager
                 Value<String?> instrumentEvidence = const Value.absent(),
                 Value<String?> originalCurrencyCode = const Value.absent(),
                 Value<String?> walletCurrencyCode = const Value.absent(),
+                Value<TransactionKind?> kind = const Value.absent(),
+                Value<TransactionDirection?> direction = const Value.absent(),
+                Value<FinancialLifecycle?> lifecycle = const Value.absent(),
+                Value<int?> originalAmountMinor = const Value.absent(),
+                Value<int?> walletAmountMinor = const Value.absent(),
+                Value<int?> transactionAtEpochMs = const Value.absent(),
+                Value<String?> dateEvidence = const Value.absent(),
+                Value<String?> counterpartyRedacted = const Value.absent(),
+                Value<String?> instrumentSuffixHash = const Value.absent(),
+                Value<int?> availableBalanceMinor = const Value.absent(),
+                Value<String?> paymentType = const Value.absent(),
+                Value<int?> confidenceBasisPoints = const Value.absent(),
+                Value<String?> parserRuleId = const Value.absent(),
+                Value<String?> parserRuleVersion = const Value.absent(),
+                Value<String?> rulePackId = const Value.absent(),
+                Value<String?> rulePackVersion = const Value.absent(),
+                Value<String?> reviewReasons = const Value.absent(),
+                Value<String?> transactionFingerprint = const Value.absent(),
               }) => TransactionCandidatesCompanion.insert(
                 id: id,
                 smsEventId: smsEventId,
@@ -7882,6 +11489,24 @@ class $$TransactionCandidatesTableTableManager
                 instrumentEvidence: instrumentEvidence,
                 originalCurrencyCode: originalCurrencyCode,
                 walletCurrencyCode: walletCurrencyCode,
+                kind: kind,
+                direction: direction,
+                lifecycle: lifecycle,
+                originalAmountMinor: originalAmountMinor,
+                walletAmountMinor: walletAmountMinor,
+                transactionAtEpochMs: transactionAtEpochMs,
+                dateEvidence: dateEvidence,
+                counterpartyRedacted: counterpartyRedacted,
+                instrumentSuffixHash: instrumentSuffixHash,
+                availableBalanceMinor: availableBalanceMinor,
+                paymentType: paymentType,
+                confidenceBasisPoints: confidenceBasisPoints,
+                parserRuleId: parserRuleId,
+                parserRuleVersion: parserRuleVersion,
+                rulePackId: rulePackId,
+                rulePackVersion: rulePackVersion,
+                reviewReasons: reviewReasons,
+                transactionFingerprint: transactionFingerprint,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -8194,6 +11819,9 @@ typedef $$DecisionTracesTableCreateCompanionBuilder =
       Value<int?> candidateId,
       required DecisionTraceCode traceCode,
       required int createdAtEpochMs,
+      Value<DecisionStage?> stage,
+      Value<String?> rulePackVersion,
+      Value<String?> outcomeCode,
     });
 typedef $$DecisionTracesTableUpdateCompanionBuilder =
     DecisionTracesCompanion Function({
@@ -8201,6 +11829,9 @@ typedef $$DecisionTracesTableUpdateCompanionBuilder =
       Value<int?> candidateId,
       Value<DecisionTraceCode> traceCode,
       Value<int> createdAtEpochMs,
+      Value<DecisionStage?> stage,
+      Value<String?> rulePackVersion,
+      Value<String?> outcomeCode,
     });
 
 final class $$DecisionTracesTableReferences
@@ -8255,6 +11886,22 @@ class $$DecisionTracesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnWithTypeConverterFilters<DecisionStage?, DecisionStage, String>
+  get stage => $composableBuilder(
+    column: $table.stage,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get outcomeCode => $composableBuilder(
+    column: $table.outcomeCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
   $$TransactionCandidatesTableFilterComposer get candidateId {
     final $$TransactionCandidatesTableFilterComposer composer =
         $composerBuilder(
@@ -8304,6 +11951,21 @@ class $$DecisionTracesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get stage => $composableBuilder(
+    column: $table.stage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outcomeCode => $composableBuilder(
+    column: $table.outcomeCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$TransactionCandidatesTableOrderingComposer get candidateId {
     final $$TransactionCandidatesTableOrderingComposer composer =
         $composerBuilder(
@@ -8346,6 +12008,19 @@ class $$DecisionTracesTableAnnotationComposer
 
   GeneratedColumn<int> get createdAtEpochMs => $composableBuilder(
     column: $table.createdAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<DecisionStage?, String> get stage =>
+      $composableBuilder(column: $table.stage, builder: (column) => column);
+
+  GeneratedColumn<String> get rulePackVersion => $composableBuilder(
+    column: $table.rulePackVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get outcomeCode => $composableBuilder(
+    column: $table.outcomeCode,
     builder: (column) => column,
   );
 
@@ -8408,11 +12083,17 @@ class $$DecisionTracesTableTableManager
                 Value<int?> candidateId = const Value.absent(),
                 Value<DecisionTraceCode> traceCode = const Value.absent(),
                 Value<int> createdAtEpochMs = const Value.absent(),
+                Value<DecisionStage?> stage = const Value.absent(),
+                Value<String?> rulePackVersion = const Value.absent(),
+                Value<String?> outcomeCode = const Value.absent(),
               }) => DecisionTracesCompanion(
                 id: id,
                 candidateId: candidateId,
                 traceCode: traceCode,
                 createdAtEpochMs: createdAtEpochMs,
+                stage: stage,
+                rulePackVersion: rulePackVersion,
+                outcomeCode: outcomeCode,
               ),
           createCompanionCallback:
               ({
@@ -8420,11 +12101,17 @@ class $$DecisionTracesTableTableManager
                 Value<int?> candidateId = const Value.absent(),
                 required DecisionTraceCode traceCode,
                 required int createdAtEpochMs,
+                Value<DecisionStage?> stage = const Value.absent(),
+                Value<String?> rulePackVersion = const Value.absent(),
+                Value<String?> outcomeCode = const Value.absent(),
               }) => DecisionTracesCompanion.insert(
                 id: id,
                 candidateId: candidateId,
                 traceCode: traceCode,
                 createdAtEpochMs: createdAtEpochMs,
+                stage: stage,
+                rulePackVersion: rulePackVersion,
+                outcomeCode: outcomeCode,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -10372,6 +14059,669 @@ typedef $$CapabilityLedgerTableProcessedTableManager =
       CapabilityLedgerData,
       PrefetchHooks Function()
     >;
+typedef $$RulePacksTableCreateCompanionBuilder =
+    RulePacksCompanion Function({
+      required String id,
+      required String version,
+      required String checksum,
+      required String market,
+      Value<bool> enabled,
+      required int installedAtEpochMs,
+      Value<int> rowid,
+    });
+typedef $$RulePacksTableUpdateCompanionBuilder =
+    RulePacksCompanion Function({
+      Value<String> id,
+      Value<String> version,
+      Value<String> checksum,
+      Value<String> market,
+      Value<bool> enabled,
+      Value<int> installedAtEpochMs,
+      Value<int> rowid,
+    });
+
+class $$RulePacksTableFilterComposer
+    extends Composer<_$AppDatabase, $RulePacksTable> {
+  $$RulePacksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get checksum => $composableBuilder(
+    column: $table.checksum,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get market => $composableBuilder(
+    column: $table.market,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get installedAtEpochMs => $composableBuilder(
+    column: $table.installedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RulePacksTableOrderingComposer
+    extends Composer<_$AppDatabase, $RulePacksTable> {
+  $$RulePacksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get checksum => $composableBuilder(
+    column: $table.checksum,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get market => $composableBuilder(
+    column: $table.market,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get installedAtEpochMs => $composableBuilder(
+    column: $table.installedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RulePacksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RulePacksTable> {
+  $$RulePacksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<String> get checksum =>
+      $composableBuilder(column: $table.checksum, builder: (column) => column);
+
+  GeneratedColumn<String> get market =>
+      $composableBuilder(column: $table.market, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get installedAtEpochMs => $composableBuilder(
+    column: $table.installedAtEpochMs,
+    builder: (column) => column,
+  );
+}
+
+class $$RulePacksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RulePacksTable,
+          RulePack,
+          $$RulePacksTableFilterComposer,
+          $$RulePacksTableOrderingComposer,
+          $$RulePacksTableAnnotationComposer,
+          $$RulePacksTableCreateCompanionBuilder,
+          $$RulePacksTableUpdateCompanionBuilder,
+          (RulePack, BaseReferences<_$AppDatabase, $RulePacksTable, RulePack>),
+          RulePack,
+          PrefetchHooks Function()
+        > {
+  $$RulePacksTableTableManager(_$AppDatabase db, $RulePacksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RulePacksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RulePacksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RulePacksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> version = const Value.absent(),
+                Value<String> checksum = const Value.absent(),
+                Value<String> market = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<int> installedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RulePacksCompanion(
+                id: id,
+                version: version,
+                checksum: checksum,
+                market: market,
+                enabled: enabled,
+                installedAtEpochMs: installedAtEpochMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String version,
+                required String checksum,
+                required String market,
+                Value<bool> enabled = const Value.absent(),
+                required int installedAtEpochMs,
+                Value<int> rowid = const Value.absent(),
+              }) => RulePacksCompanion.insert(
+                id: id,
+                version: version,
+                checksum: checksum,
+                market: market,
+                enabled: enabled,
+                installedAtEpochMs: installedAtEpochMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RulePacksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RulePacksTable,
+      RulePack,
+      $$RulePacksTableFilterComposer,
+      $$RulePacksTableOrderingComposer,
+      $$RulePacksTableAnnotationComposer,
+      $$RulePacksTableCreateCompanionBuilder,
+      $$RulePacksTableUpdateCompanionBuilder,
+      (RulePack, BaseReferences<_$AppDatabase, $RulePacksTable, RulePack>),
+      RulePack,
+      PrefetchHooks Function()
+    >;
+typedef $$IngestionCheckpointsTableCreateCompanionBuilder =
+    IngestionCheckpointsCompanion Function({
+      Value<int> id,
+      required String ingestionSource,
+      Value<int?> selectedFromEpochMs,
+      Value<int?> selectedUntilEpochMs,
+      Value<int?> selectedRangeDays,
+      Value<String?> senderCursorHash,
+      Value<int?> dateCursorEpochMs,
+      required int configuredCap,
+      Value<int> processedCount,
+      Value<int> acceptedCount,
+      Value<int> filteredCount,
+      Value<int> duplicateCount,
+      Value<IngestionOutcome?> outcome,
+      required int startedAtEpochMs,
+      Value<int?> completedAtEpochMs,
+      required int privacyEpoch,
+    });
+typedef $$IngestionCheckpointsTableUpdateCompanionBuilder =
+    IngestionCheckpointsCompanion Function({
+      Value<int> id,
+      Value<String> ingestionSource,
+      Value<int?> selectedFromEpochMs,
+      Value<int?> selectedUntilEpochMs,
+      Value<int?> selectedRangeDays,
+      Value<String?> senderCursorHash,
+      Value<int?> dateCursorEpochMs,
+      Value<int> configuredCap,
+      Value<int> processedCount,
+      Value<int> acceptedCount,
+      Value<int> filteredCount,
+      Value<int> duplicateCount,
+      Value<IngestionOutcome?> outcome,
+      Value<int> startedAtEpochMs,
+      Value<int?> completedAtEpochMs,
+      Value<int> privacyEpoch,
+    });
+
+class $$IngestionCheckpointsTableFilterComposer
+    extends Composer<_$AppDatabase, $IngestionCheckpointsTable> {
+  $$IngestionCheckpointsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ingestionSource => $composableBuilder(
+    column: $table.ingestionSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get selectedFromEpochMs => $composableBuilder(
+    column: $table.selectedFromEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get selectedUntilEpochMs => $composableBuilder(
+    column: $table.selectedUntilEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get selectedRangeDays => $composableBuilder(
+    column: $table.selectedRangeDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderCursorHash => $composableBuilder(
+    column: $table.senderCursorHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dateCursorEpochMs => $composableBuilder(
+    column: $table.dateCursorEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get configuredCap => $composableBuilder(
+    column: $table.configuredCap,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get processedCount => $composableBuilder(
+    column: $table.processedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get acceptedCount => $composableBuilder(
+    column: $table.acceptedCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get filteredCount => $composableBuilder(
+    column: $table.filteredCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get duplicateCount => $composableBuilder(
+    column: $table.duplicateCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<IngestionOutcome?, IngestionOutcome, String>
+  get outcome => $composableBuilder(
+    column: $table.outcome,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get startedAtEpochMs => $composableBuilder(
+    column: $table.startedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get completedAtEpochMs => $composableBuilder(
+    column: $table.completedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$IngestionCheckpointsTableOrderingComposer
+    extends Composer<_$AppDatabase, $IngestionCheckpointsTable> {
+  $$IngestionCheckpointsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ingestionSource => $composableBuilder(
+    column: $table.ingestionSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get selectedFromEpochMs => $composableBuilder(
+    column: $table.selectedFromEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get selectedUntilEpochMs => $composableBuilder(
+    column: $table.selectedUntilEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get selectedRangeDays => $composableBuilder(
+    column: $table.selectedRangeDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderCursorHash => $composableBuilder(
+    column: $table.senderCursorHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dateCursorEpochMs => $composableBuilder(
+    column: $table.dateCursorEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get configuredCap => $composableBuilder(
+    column: $table.configuredCap,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get processedCount => $composableBuilder(
+    column: $table.processedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get acceptedCount => $composableBuilder(
+    column: $table.acceptedCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get filteredCount => $composableBuilder(
+    column: $table.filteredCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get duplicateCount => $composableBuilder(
+    column: $table.duplicateCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get outcome => $composableBuilder(
+    column: $table.outcome,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startedAtEpochMs => $composableBuilder(
+    column: $table.startedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get completedAtEpochMs => $composableBuilder(
+    column: $table.completedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$IngestionCheckpointsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $IngestionCheckpointsTable> {
+  $$IngestionCheckpointsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get ingestionSource => $composableBuilder(
+    column: $table.ingestionSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get selectedFromEpochMs => $composableBuilder(
+    column: $table.selectedFromEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get selectedUntilEpochMs => $composableBuilder(
+    column: $table.selectedUntilEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get selectedRangeDays => $composableBuilder(
+    column: $table.selectedRangeDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderCursorHash => $composableBuilder(
+    column: $table.senderCursorHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get dateCursorEpochMs => $composableBuilder(
+    column: $table.dateCursorEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get configuredCap => $composableBuilder(
+    column: $table.configuredCap,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get processedCount => $composableBuilder(
+    column: $table.processedCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get acceptedCount => $composableBuilder(
+    column: $table.acceptedCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get filteredCount => $composableBuilder(
+    column: $table.filteredCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get duplicateCount => $composableBuilder(
+    column: $table.duplicateCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<IngestionOutcome?, String> get outcome =>
+      $composableBuilder(column: $table.outcome, builder: (column) => column);
+
+  GeneratedColumn<int> get startedAtEpochMs => $composableBuilder(
+    column: $table.startedAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get completedAtEpochMs => $composableBuilder(
+    column: $table.completedAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => column,
+  );
+}
+
+class $$IngestionCheckpointsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $IngestionCheckpointsTable,
+          IngestionCheckpoint,
+          $$IngestionCheckpointsTableFilterComposer,
+          $$IngestionCheckpointsTableOrderingComposer,
+          $$IngestionCheckpointsTableAnnotationComposer,
+          $$IngestionCheckpointsTableCreateCompanionBuilder,
+          $$IngestionCheckpointsTableUpdateCompanionBuilder,
+          (
+            IngestionCheckpoint,
+            BaseReferences<
+              _$AppDatabase,
+              $IngestionCheckpointsTable,
+              IngestionCheckpoint
+            >,
+          ),
+          IngestionCheckpoint,
+          PrefetchHooks Function()
+        > {
+  $$IngestionCheckpointsTableTableManager(
+    _$AppDatabase db,
+    $IngestionCheckpointsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$IngestionCheckpointsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$IngestionCheckpointsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$IngestionCheckpointsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> ingestionSource = const Value.absent(),
+                Value<int?> selectedFromEpochMs = const Value.absent(),
+                Value<int?> selectedUntilEpochMs = const Value.absent(),
+                Value<int?> selectedRangeDays = const Value.absent(),
+                Value<String?> senderCursorHash = const Value.absent(),
+                Value<int?> dateCursorEpochMs = const Value.absent(),
+                Value<int> configuredCap = const Value.absent(),
+                Value<int> processedCount = const Value.absent(),
+                Value<int> acceptedCount = const Value.absent(),
+                Value<int> filteredCount = const Value.absent(),
+                Value<int> duplicateCount = const Value.absent(),
+                Value<IngestionOutcome?> outcome = const Value.absent(),
+                Value<int> startedAtEpochMs = const Value.absent(),
+                Value<int?> completedAtEpochMs = const Value.absent(),
+                Value<int> privacyEpoch = const Value.absent(),
+              }) => IngestionCheckpointsCompanion(
+                id: id,
+                ingestionSource: ingestionSource,
+                selectedFromEpochMs: selectedFromEpochMs,
+                selectedUntilEpochMs: selectedUntilEpochMs,
+                selectedRangeDays: selectedRangeDays,
+                senderCursorHash: senderCursorHash,
+                dateCursorEpochMs: dateCursorEpochMs,
+                configuredCap: configuredCap,
+                processedCount: processedCount,
+                acceptedCount: acceptedCount,
+                filteredCount: filteredCount,
+                duplicateCount: duplicateCount,
+                outcome: outcome,
+                startedAtEpochMs: startedAtEpochMs,
+                completedAtEpochMs: completedAtEpochMs,
+                privacyEpoch: privacyEpoch,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String ingestionSource,
+                Value<int?> selectedFromEpochMs = const Value.absent(),
+                Value<int?> selectedUntilEpochMs = const Value.absent(),
+                Value<int?> selectedRangeDays = const Value.absent(),
+                Value<String?> senderCursorHash = const Value.absent(),
+                Value<int?> dateCursorEpochMs = const Value.absent(),
+                required int configuredCap,
+                Value<int> processedCount = const Value.absent(),
+                Value<int> acceptedCount = const Value.absent(),
+                Value<int> filteredCount = const Value.absent(),
+                Value<int> duplicateCount = const Value.absent(),
+                Value<IngestionOutcome?> outcome = const Value.absent(),
+                required int startedAtEpochMs,
+                Value<int?> completedAtEpochMs = const Value.absent(),
+                required int privacyEpoch,
+              }) => IngestionCheckpointsCompanion.insert(
+                id: id,
+                ingestionSource: ingestionSource,
+                selectedFromEpochMs: selectedFromEpochMs,
+                selectedUntilEpochMs: selectedUntilEpochMs,
+                selectedRangeDays: selectedRangeDays,
+                senderCursorHash: senderCursorHash,
+                dateCursorEpochMs: dateCursorEpochMs,
+                configuredCap: configuredCap,
+                processedCount: processedCount,
+                acceptedCount: acceptedCount,
+                filteredCount: filteredCount,
+                duplicateCount: duplicateCount,
+                outcome: outcome,
+                startedAtEpochMs: startedAtEpochMs,
+                completedAtEpochMs: completedAtEpochMs,
+                privacyEpoch: privacyEpoch,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$IngestionCheckpointsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $IngestionCheckpointsTable,
+      IngestionCheckpoint,
+      $$IngestionCheckpointsTableFilterComposer,
+      $$IngestionCheckpointsTableOrderingComposer,
+      $$IngestionCheckpointsTableAnnotationComposer,
+      $$IngestionCheckpointsTableCreateCompanionBuilder,
+      $$IngestionCheckpointsTableUpdateCompanionBuilder,
+      (
+        IngestionCheckpoint,
+        BaseReferences<
+          _$AppDatabase,
+          $IngestionCheckpointsTable,
+          IngestionCheckpoint
+        >,
+      ),
+      IngestionCheckpoint,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -10409,4 +14759,8 @@ class $AppDatabaseManager {
       $$WalletRecordLinksTableTableManager(_db, _db.walletRecordLinks);
   $$CapabilityLedgerTableTableManager get capabilityLedger =>
       $$CapabilityLedgerTableTableManager(_db, _db.capabilityLedger);
+  $$RulePacksTableTableManager get rulePacks =>
+      $$RulePacksTableTableManager(_db, _db.rulePacks);
+  $$IngestionCheckpointsTableTableManager get ingestionCheckpoints =>
+      $$IngestionCheckpointsTableTableManager(_db, _db.ingestionCheckpoints);
 }

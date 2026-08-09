@@ -63,6 +63,21 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
 }
 
+// M4.0 WP2: a transitive plugin dependency pulls androidx.test:runner/rules into the
+// MAIN (non-test) runtime classpath at old versions (1.3.0 / 1.2.0). AGP's "consistent
+// resolution" then forces those same old versions onto privateFullDebugAndroidTestRuntimeClasspath,
+// conflicting with the androidTestImplementation versions declared above and making
+// connectedAndroidTest unresolvable. `force()` is the documented override for a
+// `{strictly ...}` constraint from consistent resolution; confirmed via
+// `./gradlew :app:dependencyInsight --dependency androidx.test:runner
+//   --configuration privateFullDebugAndroidTestRuntimeClasspath`.
+configurations.configureEach {
+    resolutionStrategy {
+        force("androidx.test:runner:1.6.2")
+        force("androidx.test:rules:1.6.1")
+    }
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17

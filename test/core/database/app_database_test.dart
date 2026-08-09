@@ -7,7 +7,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 void main() {
-  group('AppDatabase schema v4', () {
+  group('AppDatabase schema v5', () {
     late AppDatabase database;
 
     setUp(() {
@@ -46,9 +46,9 @@ void main() {
     });
 
     test(
-      'reports the frozen v4 schema and enforces foreign keys after opening',
+      'reports the frozen v5 schema and enforces foreign keys after opening',
       () async {
-        expect(database.schemaVersion, 4);
+        expect(database.schemaVersion, 5);
 
         await expectLater(
           database
@@ -236,7 +236,7 @@ void main() {
         addTearDown(database.close);
 
         expect(suppliedKey, same(key));
-        expect(database.schemaVersion, 4);
+        expect(database.schemaVersion, 5);
         expect(await database.smsEvents.count().getSingle(), 0);
       },
     );

@@ -182,13 +182,21 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const ValueKey('open-wallet-connection')),
-        250,
+        400,
         scrollable: find.byType(Scrollable).first,
       );
+      // ensureVisible after the scroll: scrollUntilVisible can stop with the
+      // tile straddling the fold, and a tap that misses used to go unnoticed
+      // because the settings tile carries the same 'Wallet connection' label
+      // as the destination page.
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('open-wallet-connection')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('open-wallet-connection')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Wallet connection'), findsAtLeast(1));
+      expect(find.byType(WalletConnectionPage), findsOneWidget);
       expect(find.byType(NavigationDestination), findsNothing);
 
       await tester.binding.handlePopRoute();
