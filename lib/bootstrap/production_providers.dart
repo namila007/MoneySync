@@ -14,6 +14,8 @@ import 'package:money_sync/features/sms_ingestion/data/native_source_identity_si
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_repository.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 
 final nativeSecurityChannelProvider = Provider<NativeSecurityChannel>((ref) {
   return const NativeSecurityChannel();
@@ -73,4 +75,14 @@ final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
 final rulePackRegistryProvider = FutureProvider<RulePackRegistry>((ref) async {
   final db = await ref.watch(appDatabaseProvider.future);
   return RulePackRegistryRepository(database: db).loadActiveRegistry();
+});
+
+/// The Wallet create/reconcile repository. M5 ships against the fake data
+/// source — the live contract spike (M5.7) has not closed, so real network
+/// calls stay disabled (`ProductionDisabledWalletMutationPort` remains the
+/// `WalletMutationPort`; this provider feeds the outbox flows with the fake).
+/// Swap the `FakeWalletApiDataSource` for the live implementation here when
+/// M5.7 closes behind a feature flag.
+final walletRepositoryProvider = Provider<WalletRepository>((ref) {
+  return WalletRepository(dataSource: FakeWalletApiDataSource());
 });

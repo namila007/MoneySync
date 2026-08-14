@@ -54,4 +54,15 @@ void main() {
       throwsArgumentError,
     );
   });
+
+  test('default exponential backoff doubles each attempt from the base', () {
+    final scheduler = RetryScheduler(
+      baseDelay: const Duration(seconds: 2),
+      random: Random(5),
+    );
+    // Attempt 1 = 2s, attempt 2 = 4s, attempt 3 = 8s, all within ±20%.
+    expect(scheduler.nextDelay(1).inMilliseconds, inInclusiveRange(1600, 2400));
+    expect(scheduler.nextDelay(2).inMilliseconds, inInclusiveRange(3200, 4800));
+    expect(scheduler.nextDelay(3).inMilliseconds, inInclusiveRange(6400, 9600));
+  });
 }
