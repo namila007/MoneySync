@@ -5,16 +5,22 @@ import 'package:money_sync/app/settings_app_bar_action.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
+import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_page.dart';
 import 'package:money_sync/features/dashboard/presentation/home_page.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_page.dart';
 import 'package:money_sync/features/lock/presentation/lock_page.dart';
 import 'package:money_sync/features/mappings/presentation/mappings_page.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
+import 'package:money_sync/features/onboarding/domain/resolve_onboarding_entry.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_page.dart';
+import 'package:money_sync/features/sms_ingestion/presentation/manual_import_page.dart';
+import 'package:money_sync/features/sms_ingestion/presentation/history_scan_page.dart';
+import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_page.dart';
+import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
-import 'package:money_sync/features/settings/presentation/configuration_hub_page.dart';
 import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
@@ -56,6 +62,18 @@ GoRouter createAppRouter() {
           GoRoute(
             path: AppRoute.inbox.path,
             builder: (context, state) => const InboxPage(),
+            routes: [
+              GoRoute(
+                path: 'import',
+                builder: (context, state) => const ManualImportPage(),
+              ),
+              GoRoute(
+                path: 'detail/:id',
+                builder: (context, state) => InboxDetailPage(
+                  smsEventId: int.parse(state.pathParameters['id']!),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoute.mappings.path,
@@ -84,18 +102,16 @@ GoRouter createAppRouter() {
             builder: (context, state) => const DataControlPage(),
           ),
           GoRoute(
-            path: 'configuration',
-            builder: (context, state) => const ConfigurationHubPage(),
-            routes: [
-              GoRoute(
-                path: 'message-reading',
-                builder: (context, state) => const SmsAccessPage(),
-              ),
-              GoRoute(
-                path: 'history-import',
-                builder: (context, state) => const _HistoryImportStub(),
-              ),
-            ],
+            path: 'message-reading',
+            builder: (context, state) => const SmsAccessPage(),
+          ),
+          GoRoute(
+            path: 'history-import',
+            builder: (context, state) => const HistoryImportPage(),
+          ),
+          GoRoute(
+            path: 'tracked-senders',
+            builder: (context, state) => const TrackedSendersPage(),
           ),
         ],
       ),
@@ -139,6 +155,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final config = await repo.load();
       _lockRequiredNotifier.value = config.appLock.enabled;
       _lockStateNotifier.value = _lockStateNotifier.value;
+      // Apply the persisted screenshot-protection preference at startup
+      // (default on). Best-effort: the channel may not be wired yet.
+      try {
+        await const NativeSecurityChannel().setSecureWindowProtection(
+          enabled: config.secureWindowEnabled,
+        );
+      } catch (_) {}
     });
   });
 
@@ -155,7 +178,15 @@ String? _routeGuard(
   final isOnboardingRoute = matchedLocation == AppRoute.onboarding.path;
   final isLockRoute = matchedLocation == AppRoute.lock.path;
 
-  if (startup.status == StartupStatus.ready || onboarding.isComplete) {
+  final resolveEntry = const ResolveOnboardingEntry();
+  final entry = resolveEntry(
+    stored: onboarding,
+    currentOnboardingRevision: kOnboardingRevision,
+  );
+
+  if (entry is OnboardingEntrySupplement) {
+    if (!isOnboardingRoute) return AppRoute.onboarding.path;
+  } else if (startup.status == StartupStatus.ready || onboarding.isComplete) {
     if (isOnboardingRoute) return AppRoute.home.path;
   } else if (!isOnboardingRoute) {
     return AppRoute.onboarding.path;
@@ -179,12 +210,17 @@ enum AppRoute {
   lock('/lock'),
   home('/'),
   inbox('/inbox'),
+  manualImport('/inbox/import'),
+  inboxDetail('/inbox/detail/:id'),
   mappings('/mappings'),
   activity('/activity'),
   settings(SettingsAppBarAction.routePath),
   walletConnection('/settings/wallet'),
   securityPrivacy('/settings/security'),
-  dataControl('/settings/data');
+  dataControl('/settings/data'),
+  messageReading('/settings/message-reading'),
+  historyImport('/settings/history-import'),
+  trackedSenders('/settings/tracked-senders');
 
   const AppRoute(this.path);
 
@@ -259,16 +295,4 @@ final class _PrimaryRoute {
   final IconData selectedIcon;
 
   String get path => route.path;
-}
-
-class _HistoryImportStub extends StatelessWidget {
-  const _HistoryImportStub();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('History import')),
-      body: const Center(child: Text('History import settings \u2014 M4.8')),
-    );
-  }
 }

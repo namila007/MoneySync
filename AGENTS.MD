@@ -255,3 +255,51 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## serena — Durable Project Memory
+
+This project uses **Serena** (`mcp__serena__*` MCP tools) for stable, non-obvious project knowledge that persists across sessions.
+
+### For Agents (REQUIRED — Read First)
+
+**Before starting any coding task:**
+
+1. Call `mcp__serena__read_memory` with `memory_name: core`
+2. From `mem:core`, follow references to other memories as needed:
+   - `mem:tech_stack` — frameworks, build tools, language versions
+   - `mem:conventions` — code style, domain purity, patterns
+   - `mem:suggested_commands` — dev/test/deploy commands
+   - `mem:task_completion` — pre-commit verification steps
+
+These memories replace redundant rediscovery and document project invariants (financial exactness, privacy, Android boundaries, Riverpod patterns, etc.).
+
+### Updating Memories (IMPORTANT — Once Per Discovery Cycle)
+
+When you discover **stable, non-obvious** project conventions not yet documented:
+
+1. Check if the discovery belongs in `mem:core`, `mem:conventions`, `mem:tech_stack`, `mem:suggested_commands`, or `mem:task_completion`
+2. Call `mcp__serena__read_memory` with that memory name
+3. Call `mcp__serena__write_memory` with the updated content
+4. **Do not** add quick-read facts, generic framework knowledge, one-off task notes, or volatile line-level details
+
+Examples of what to add:
+- ✅ "Never use `double` for money; use integer minor units" (financial invariant)
+- ✅ "Domain code must be pure Dart; no Pigeon/Drift/Flutter imports" (architecture rule)
+- ✅ "Wallet operations review-only until M3; no blind retry" (product policy)
+- ✅ "Use `final log = Logger('feature.domain.service')` naming pattern" (logging convention)
+
+Examples of what NOT to add:
+- ❌ "MainActivity.kt is at android/app/src/..." (read file when needed)
+- ❌ "Riverpod is a state management library" (generic framework knowledge)
+- ❌ "Run tests before commit" (task-local, goes in task comment)
+- ❌ "Line 42 in FeatureController has a bug" (volatile, use commits/issues)
+
+### Verification
+
+After modifying memories, run from `money_sync/`:
+```bash
+serena memories check
+```
+
+This validates all `mem:` references and reports stale entries.
+

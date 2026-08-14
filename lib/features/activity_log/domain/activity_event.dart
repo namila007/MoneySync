@@ -8,7 +8,9 @@ enum ActivityEventCode {
   walletRecordCreated('wallet.record.created'),
   logInfo('app.log.info'),
   logWarning('app.log.warning'),
-  logError('app.log.error');
+  logError('app.log.error'),
+  messageImported('sms.message.imported'),
+  smsEventDeleted('sms.message.deleted');
 
   const ActivityEventCode(this.wireValue);
 

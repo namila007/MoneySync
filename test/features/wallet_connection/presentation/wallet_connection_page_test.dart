@@ -18,6 +18,7 @@ class _CompletedOnboardingNotifier extends OnboardingNotifier {
     currentStep: OnboardingStep.disclosure,
     disclosureRevision: 1,
     isComplete: true,
+    onboardingRevision: 2,
   );
 }
 

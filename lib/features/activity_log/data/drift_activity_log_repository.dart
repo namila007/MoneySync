@@ -5,8 +5,7 @@ import 'package:money_sync/features/activity_log/domain/activity_log_repository.
 /// Read-only Drift implementation. This repository never writes: activity rows
 /// are produced by ActivityEventWriter and only ever read back here.
 final class DriftActivityLogRepository implements ActivityLogRepository {
-  const DriftActivityLogRepository({required AppDatabase database})
-    : _database = database;
+  const DriftActivityLogRepository({required this._database});
 
   final AppDatabase _database;
 
@@ -36,6 +35,7 @@ final class DriftActivityLogRepository implements ActivityLogRepository {
               isUtc: true,
             ),
             privacyEpoch: row.privacyEpoch,
+            count: row.batchCount,
           ),
         )
         .toList(growable: false);

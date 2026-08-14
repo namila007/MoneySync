@@ -24,13 +24,13 @@ import 'package:money_sync/features/sms_permission/presentation/sms_permission_c
 final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
   ref,
 ) async {
-  final db = ref.watch(appDatabaseProvider).requireValue;
+  final db = await ref.watch(appDatabaseProvider.future);
   return DriftOnboardingRepository(database: db);
 });
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   (ref) async {
-    final db = ref.watch(appDatabaseProvider).requireValue;
+    final db = await ref.watch(appDatabaseProvider.future);
     return DriftConfigurationRepository(database: db);
   },
 );

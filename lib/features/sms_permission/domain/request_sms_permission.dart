@@ -22,17 +22,17 @@ final class SmsPermissionRequestUnavailable
 
 final class RequestSmsPermission {
   const RequestSmsPermission({
-    required SmsPermissionGateway gateway,
+    required this.gateway,
     required this.disclosureRevisionRequired,
-  }) : _gateway = gateway;
+  });
 
-  final SmsPermissionGateway _gateway;
+  final SmsPermissionGateway gateway;
   final int disclosureRevisionRequired;
 
   Future<SmsPermissionRequestOutcome> call({
     required int? acceptedDisclosureRevision,
   }) async {
-    final status = await _gateway.current();
+    final status = await gateway.current();
     if (status == SmsPermissionStatus.unavailableInBuild) {
       return const SmsPermissionRequestUnavailable();
     }
@@ -43,6 +43,6 @@ final class RequestSmsPermission {
     if (!status.isRequestable) {
       return SmsPermissionRequestCompleted(status);
     }
-    return SmsPermissionRequestCompleted(await _gateway.request());
+    return SmsPermissionRequestCompleted(await gateway.request());
   }
 }

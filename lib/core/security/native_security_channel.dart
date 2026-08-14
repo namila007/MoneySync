@@ -69,6 +69,18 @@ final class NativeSecurityChannel {
     }
   }
 
+  /// Applies FLAG_SECURE on the app window at runtime. Enabling is always
+  /// allowed; disabling requires the persisted user preference.
+  Future<void> setSecureWindowProtection({required bool enabled}) async {
+    try {
+      await _channel.invokeMethod('setSecureWindowProtection', {
+        'enabled': enabled,
+      });
+    } on PlatformException catch (e) {
+      throw NativeChannelKeyException(e.code, e.message ?? '');
+    }
+  }
+
   Future<void> storeWalletToken(String tokenHex) async {
     try {
       await _channel.invokeMethod('storeWalletToken', tokenHex);
@@ -99,51 +111,42 @@ final class NativeSecurityChannel {
 /// Bounded, typed fields for source-identity HMAC canonicalization. Every
 /// field is validated before it ever reaches the platform channel; native
 /// code re-validates independently and never trusts a pre-built string.
+/// The canonical byte encoding (length-prefixed fields, version first) is
+/// rebuilt natively and mirrors `SourceMessageCanonicalizer` exactly.
 final class SourceIdentityCanonicalizationRequest {
   const SourceIdentityCanonicalizationRequest({
     required this.senderAddress,
-    required this.messageFamily,
-    required this.maskedInstrumentEvidence,
-    required this.occurredAtEpochSeconds,
+    required this.body,
+    required this.occurredAtEpochMillis,
   });
 
   final String senderAddress;
-  final String messageFamily;
-  final String maskedInstrumentEvidence;
-  final int occurredAtEpochSeconds;
+  final String body;
+  final int occurredAtEpochMillis;
 
-  static const _maxFieldLength = 256;
+  static const _maxSenderLength = 256;
+  static const _maxBodyLength = 2000;
 
   Map<String, Object?> _toChannelArguments(int canonicalizationVersion) {
-    for (final field in [
-      senderAddress,
-      messageFamily,
-      maskedInstrumentEvidence,
-    ]) {
-      _requireBoundedField(field);
-    }
-    if (occurredAtEpochSeconds < 0) {
-      throw ArgumentError('occurredAtEpochSeconds must not be negative.');
+    _requireBoundedField(senderAddress, _maxSenderLength, 'senderAddress');
+    _requireBoundedField(body, _maxBodyLength, 'body');
+    if (occurredAtEpochMillis < 0) {
+      throw ArgumentError('occurredAtEpochMillis must not be negative.');
     }
     return {
       'senderAddress': senderAddress,
-      'messageFamily': messageFamily,
-      'maskedInstrumentEvidence': maskedInstrumentEvidence,
-      'occurredAtEpochSeconds': occurredAtEpochSeconds,
+      'body': body,
+      'occurredAtEpochMillis': occurredAtEpochMillis,
       'canonicalizationVersion': canonicalizationVersion,
     };
   }
 
-  static void _requireBoundedField(String value) {
-    if (value.isEmpty || value.length > _maxFieldLength) {
-      throw ArgumentError(
-        'Canonicalization fields must be 1-$_maxFieldLength characters.',
-      );
+  static void _requireBoundedField(String value, int maxLength, String field) {
+    if (value.isEmpty || value.length > maxLength) {
+      throw ArgumentError('$field must be 1-$maxLength characters.');
     }
     if (value.codeUnits.any((unit) => unit < 0x20 || unit == 0x7f)) {
-      throw ArgumentError(
-        'Canonicalization fields must not contain control characters.',
-      );
+      throw ArgumentError('$field must not contain control characters.');
     }
   }
 }

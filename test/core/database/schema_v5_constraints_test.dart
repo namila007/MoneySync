@@ -9,23 +9,25 @@ void main() {
       final db = AppDatabase.inMemoryForTesting();
       final resultA = await db.insertSmsEventIfAbsent(
         sourceKey: 'hash-abc',
-        senderHash: 'sender-1',
+        senderKey: 'sender-1',
         encryptedBody: 'body-a',
         ingestionSource: 'history_selection',
         receivedAtEpochMs: 1000,
-        status: 'pending',
+        status: SmsEventStatus.review,
         privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
       );
       expect(resultA.inserted, isTrue);
 
       final resultB = await db.insertSmsEventIfAbsent(
         sourceKey: 'hash-abc',
-        senderHash: 'sender-1',
+        senderKey: 'sender-1',
         encryptedBody: 'body-b',
         ingestionSource: 'history_selection',
         receivedAtEpochMs: 2000,
-        status: 'pending',
+        status: SmsEventStatus.review,
         privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
       );
       expect(resultB.inserted, isFalse);
       expect(resultB.id, resultA.id);
@@ -71,11 +73,12 @@ void main() {
       final db = AppDatabase.inMemoryForTesting();
       final result = await db.insertSmsEventIfAbsent(
         sourceKey: 'hash-xyz',
-        senderHash: 'sender-x',
+        senderKey: 'sender-x',
         ingestionSource: 'manual_paste',
         receivedAtEpochMs: 1000,
-        status: 'review',
+        status: SmsEventStatus.review,
         privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
       );
       final event = await (db.select(
         db.smsEvents,

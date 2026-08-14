@@ -1,13 +1,13 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/core/crypto/keyed_hmac.dart';
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 
 void main() {
   final canonicalizer = SourceMessageCanonicalizer(
-    keyedHmac: const _InspectableKeyedHmac(),
-    key: HmacKeyHandle('source_identity_test'),
+    signer: _inspectableSigner(),
   );
 
   SmsSourceMessage message({
@@ -25,35 +25,38 @@ void main() {
   );
 
   group('SourceMessageCanonicalizer', () {
-    test('derives one transport-independent key for history and broadcast', () {
-      final history = canonicalizer.identify(
-        message(
-          sender: 'bank-alert',
-          body: 'LKR 1,250.00\npaid at Sample Store',
-          providerRowId: '45',
-        ),
-      );
-      final broadcast = canonicalizer.identify(
-        message(
-          sender: 'BANK-ALERT',
-          body: 'LKR 1,250.00  paid at Sample Store',
-          providerRowId: null,
-          source: SmsIngestionSource.broadcast,
-        ),
-      );
+    test(
+      'derives one transport-independent key for history and broadcast',
+      () async {
+        final history = await canonicalizer.identify(
+          message(
+            sender: 'bank-alert',
+            body: 'LKR 1,250.00\npaid at Sample Store',
+            providerRowId: '45',
+          ),
+        );
+        final broadcast = await canonicalizer.identify(
+          message(
+            sender: 'BANK-ALERT',
+            body: 'LKR 1,250.00  paid at Sample Store',
+            providerRowId: null,
+            source: SmsIngestionSource.broadcast,
+          ),
+        );
 
-      expect(broadcast.sourceMessageKey, history.sourceMessageKey);
-      expect(broadcast.sourceEvidenceKey, history.sourceEvidenceKey);
+        expect(broadcast, history);
+      },
+    );
+
+    test('uses a frozen canonicalization version in the key', () async {
+      final key = await canonicalizer.identify(message());
+
+      expect(key.canonicalizationVersion, 2);
+      expect(key.value, startsWith('v2_'));
+      expect(key.value, matches(RegExp(r'^v2_[a-f0-9]{64}$')));
     });
 
-    test('uses a frozen canonicalization version in the key', () {
-      final identity = canonicalizer.identify(message());
-
-      expect(identity.sourceMessageKey.canonicalizationVersion, 1);
-      expect(identity.sourceMessageKey.value, startsWith('v1_'));
-    });
-
-    test('normalizes every supported Unicode whitespace variant', () {
+    test('normalizes every supported Unicode whitespace variant', () async {
       const whitespaceRunes = <String>[
         '\t',
         '\n',
@@ -69,12 +72,12 @@ void main() {
         '\u205f',
         '\u3000',
       ];
-      final baseline = canonicalizer.identify(
+      final baseline = await canonicalizer.identify(
         message(sender: 'bank alert', body: 'LKR 1250 at shop'),
       );
 
       for (final whitespace in whitespaceRunes) {
-        final identity = canonicalizer.identify(
+        final key = await canonicalizer.identify(
           message(
             sender: 'bank${whitespace}alert',
             body: 'LKR${whitespace}1250${whitespace}at${whitespace}shop',
@@ -82,7 +85,7 @@ void main() {
         );
 
         expect(
-          identity,
+          key,
           baseline,
           reason: 'failed for U+${whitespace.codeUnitAt(0).toRadixString(16)}',
         );
@@ -90,48 +93,33 @@ void main() {
     });
 
     test(
-      'preserves non-whitespace Unicode while encoding URL-safe MAC digests',
-      () {
-        final byteCanonicalizer = SourceMessageCanonicalizer(
-          keyedHmac: const _FixedDigestKeyedHmac(),
-          key: HmacKeyHandle('fixed_digest_test'),
-        );
-        final reference = canonicalizer.identify(
-          message(sender: 'BANK 😀', body: 'Paid at Café'),
-        );
-        final changed = canonicalizer.identify(
+      'preserves non-whitespace Unicode while encoding URL-safe digests',
+      () async {
+        final changed = await canonicalizer.identify(
           message(sender: 'BANK 😁', body: 'Paid at Café'),
         );
-        final encoded = byteCanonicalizer.identify(
+        final reference = await canonicalizer.identify(
           message(sender: 'BANK 😀', body: 'Paid at Café'),
         );
 
-        expect(reference.sourceMessageKey, isNot(changed.sourceMessageKey));
-        expect(
-          encoded.sourceMessageKey.value,
-          matches(RegExp(r'^v1_[A-Za-z0-9_-]+$')),
-        );
-        expect(
-          encoded.sourceEvidenceKey.value,
-          matches(RegExp(r'^[A-Za-z0-9_-]+$')),
-        );
-        expect(encoded.sourceMessageKey.value, isNot(contains('=')));
-        expect(encoded.sourceEvidenceKey.value, isNot(contains('=')));
+        expect(reference, isNot(changed));
       },
     );
 
-    test('does not use provider row ID as canonical identity', () {
-      final first = canonicalizer.identify(message(providerRowId: '45'));
-      final second = canonicalizer.identify(message(providerRowId: '999'));
+    test('does not use provider row ID as canonical identity', () async {
+      final first = await canonicalizer.identify(message(providerRowId: '45'));
+      final second = await canonicalizer.identify(
+        message(providerRowId: '999'),
+      );
 
       expect(second, first);
     });
 
-    test('preserves the key across generated transport-only aliases', () {
-      final baseline = canonicalizer.identify(message());
+    test('preserves the key across generated transport-only aliases', () async {
+      final baseline = await canonicalizer.identify(message());
 
       for (var index = 0; index < 30; index += 1) {
-        final alias = canonicalizer.identify(
+        final key = await canonicalizer.identify(
           message(
             sender: index.isEven ? 'bank-alert' : 'BANK-ALERT',
             body: index.isEven
@@ -144,31 +132,62 @@ void main() {
           ),
         );
 
-        expect(alias, baseline);
+        expect(key, baseline);
       }
     });
 
-    test('remains unchanged when a parser implementation is upgraded', () {
-      final beforeParserUpgrade = canonicalizer.identify(message());
-      final afterParserUpgrade = canonicalizer.identify(message());
+    test(
+      'remains unchanged when a parser implementation is upgraded',
+      () async {
+        final beforeParserUpgrade = await canonicalizer.identify(message());
+        final afterParserUpgrade = await canonicalizer.identify(message());
 
-      expect(afterParserUpgrade, beforeParserUpgrade);
+        expect(afterParserUpgrade, beforeParserUpgrade);
+      },
+    );
+
+    test(
+      'is stable across separate canonicalizer instances (restart)',
+      () async {
+        final first = await canonicalizer.identify(message());
+        final second = await SourceMessageCanonicalizer(
+          signer: _inspectableSigner(),
+        ).identify(message());
+
+        expect(second, first);
+      },
+    );
+
+    test('separator injection cannot forge a collision', () async {
+      // ("A|B", "C") vs ("A", "B|C") share no ambiguity in the length-prefixed
+      // encoding: different field boundaries produce different pre-images.
+      final first = await canonicalizer.identify(
+        SmsSourceMessage(
+          sender: 'A|B',
+          body: 'C',
+          receivedAtUtc: DateTime.utc(2026, 7, 22, 8, 30),
+          ingestionSource: SmsIngestionSource.historySelection,
+        ),
+      );
+      final second = await canonicalizer.identify(
+        SmsSourceMessage(
+          sender: 'A',
+          body: 'B|C',
+          receivedAtUtc: DateTime.utc(2026, 7, 22, 8, 30),
+          ingestionSource: SmsIngestionSource.historySelection,
+        ),
+      );
+
+      expect(first, isNot(second));
     });
 
-    test('does not merge distinct canonical source evidence', () {
-      final original = canonicalizer.identify(message());
-      final differentBody = canonicalizer.identify(
-        message(body: 'LKR 1,251.00 paid at Sample Store'),
-      );
-      final differentTimestamp = canonicalizer.identify(
+    test('differs when only the timestamp differs', () async {
+      final original = await canonicalizer.identify(message());
+      final later = await canonicalizer.identify(
         message(receivedAtUtc: DateTime.utc(2026, 7, 22, 8, 31)),
       );
 
-      expect(differentBody.sourceMessageKey, isNot(original.sourceMessageKey));
-      expect(
-        differentTimestamp.sourceMessageKey,
-        isNot(original.sourceMessageKey),
-      );
+      expect(later, isNot(original));
     });
 
     test('rejects blank sender or body and non-UTC timestamps', () {
@@ -181,7 +200,7 @@ void main() {
     });
 
     test('value objects compare complete values and hide digest material', () {
-      const key = SourceMessageKey(canonicalizationVersion: 1, value: 'same');
+      const key = SourceMessageKey(canonicalizationVersion: 2, value: 'same');
       const evidence = SourceEvidenceKey('evidence');
       const identity = SourceMessageIdentity(
         sourceMessageKey: key,
@@ -190,18 +209,18 @@ void main() {
 
       expect(
         key,
-        const SourceMessageKey(canonicalizationVersion: 1, value: 'same'),
+        const SourceMessageKey(canonicalizationVersion: 2, value: 'same'),
       );
       expect(
         key,
         isNot(
-          const SourceMessageKey(canonicalizationVersion: 2, value: 'same'),
+          const SourceMessageKey(canonicalizationVersion: 1, value: 'same'),
         ),
       );
       expect(
         key,
         isNot(
-          const SourceMessageKey(canonicalizationVersion: 1, value: 'other'),
+          const SourceMessageKey(canonicalizationVersion: 2, value: 'other'),
         ),
       );
       expect(evidence, const SourceEvidenceKey('evidence'));
@@ -225,19 +244,25 @@ void main() {
       expect(
         key.hashCode,
         const SourceMessageKey(
-          canonicalizationVersion: 1,
+          canonicalizationVersion: 2,
           value: 'same',
         ).hashCode,
       );
       expect(evidence.hashCode, const SourceEvidenceKey('evidence').hashCode);
-      expect(key.toString(), 'SourceMessageKey(version: 1)');
+      expect(key.toString(), 'SourceMessageKey(version: 2)');
       expect(evidence.toString(), 'SourceEvidenceKey()');
     });
   });
 
   group('SourceIdentityComparator', () {
     test('treats equal canonical and source-evidence keys as a duplicate', () {
-      final identity = canonicalizer.identify(message());
+      const identity = SourceMessageIdentity(
+        sourceMessageKey: SourceMessageKey(
+          canonicalizationVersion: 2,
+          value: 'same',
+        ),
+        sourceEvidenceKey: SourceEvidenceKey('evidence'),
+      );
 
       expect(
         SourceIdentityComparator.compare(identity, identity),
@@ -246,12 +271,20 @@ void main() {
     });
 
     test('fails safe as a collision when source evidence differs', () {
-      final collisionCanonicalizer = SourceMessageCanonicalizer(
-        keyedHmac: const _CollidingCanonicalKeyedHmac(),
-        key: HmacKeyHandle('collision_test'),
+      const existing = SourceMessageIdentity(
+        sourceMessageKey: SourceMessageKey(
+          canonicalizationVersion: 2,
+          value: 'canonical',
+        ),
+        sourceEvidenceKey: SourceEvidenceKey('evidence-a'),
       );
-      final existing = collisionCanonicalizer.identify(message(body: 'first'));
-      final incoming = collisionCanonicalizer.identify(message(body: 'second'));
+      const incoming = SourceMessageIdentity(
+        sourceMessageKey: SourceMessageKey(
+          canonicalizationVersion: 2,
+          value: 'canonical',
+        ),
+        sourceEvidenceKey: SourceEvidenceKey('evidence-b'),
+      );
 
       final comparison = SourceIdentityComparator.compare(existing, incoming);
 
@@ -268,8 +301,20 @@ void main() {
     });
 
     test('treats different canonical keys as distinct captures', () {
-      final first = canonicalizer.identify(message());
-      final second = canonicalizer.identify(message(body: 'different'));
+      const first = SourceMessageIdentity(
+        sourceMessageKey: SourceMessageKey(
+          canonicalizationVersion: 2,
+          value: 'one',
+        ),
+        sourceEvidenceKey: SourceEvidenceKey('evidence'),
+      );
+      const second = SourceMessageIdentity(
+        sourceMessageKey: SourceMessageKey(
+          canonicalizationVersion: 2,
+          value: 'two',
+        ),
+        sourceEvidenceKey: SourceEvidenceKey('evidence'),
+      );
 
       expect(
         SourceIdentityComparator.compare(first, second),
@@ -279,43 +324,26 @@ void main() {
   });
 }
 
-final class _InspectableKeyedHmac implements KeyedHmac {
-  const _InspectableKeyedHmac();
-
-  @override
-  HmacDigest digest({required HmacKeyHandle key, required HmacInput input}) {
-    var seed = key.id.codeUnits.fold<int>(0, (sum, byte) => sum + byte);
-    for (final byte in input.bytes) {
-      seed = ((seed * 31) + byte) & 0x7fffffff;
+/// Deterministic signer: sha256 over the length-prefixed pre-image, stable
+/// across instances — exactly what identity stability tests need.
+SourceIdentitySigner _inspectableSigner() {
+  return ({
+    required int canonicalizationVersion,
+    required String sender,
+    required String body,
+    required int receivedAtEpochMs,
+  }) async {
+    final fields = <String>[sender, body, receivedAtEpochMs.toString()];
+    final preimage = StringBuffer('v$canonicalizationVersion');
+    for (final field in fields) {
+      preimage
+        ..write('|')
+        ..write(field.length)
+        ..write(':')
+        ..write(field);
     }
-    final bytes = List<int>.generate(
-      32,
-      (index) => (seed + (index * 37)) & 0xff,
+    return HmacDigest(
+      sha256.convert(utf8.encode(preimage.toString())).toString(),
     );
-    return HmacDigest(_hex(bytes));
-  }
+  };
 }
-
-final class _CollidingCanonicalKeyedHmac implements KeyedHmac {
-  const _CollidingCanonicalKeyedHmac();
-
-  @override
-  HmacDigest digest({required HmacKeyHandle key, required HmacInput input}) {
-    final text = utf8.decode(input.bytes);
-    if (text.startsWith('money-sync/source-message-key/')) {
-      return HmacDigest('00' * 32);
-    }
-    return const _InspectableKeyedHmac().digest(key: key, input: input);
-  }
-}
-
-final class _FixedDigestKeyedHmac implements KeyedHmac {
-  const _FixedDigestKeyedHmac();
-
-  @override
-  HmacDigest digest({required HmacKeyHandle key, required HmacInput input}) =>
-      HmacDigest('ff' * 32);
-}
-
-String _hex(Iterable<int> bytes) =>
-    bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();

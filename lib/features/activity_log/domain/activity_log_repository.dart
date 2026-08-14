@@ -12,6 +12,7 @@ final class ActivityLogEntry {
     required this.detail,
     required this.occurredAt,
     required this.privacyEpoch,
+    this.count,
   });
 
   final int id;
@@ -19,6 +20,10 @@ final class ActivityLogEntry {
   final ActivityStateTransition detail;
   final DateTime occurredAt;
   final int privacyEpoch;
+
+  /// Batch size for aggregated events (M4.15 WP3); null for single-item
+  /// events.
+  final int? count;
 }
 
 /// Read-only port over the local activity log.

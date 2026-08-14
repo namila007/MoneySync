@@ -41,6 +41,11 @@ final class HmacDigest {
 }
 
 /// A cryptographic boundary; platform implementations must use the key handle.
+/// Async because platform key material is reached through asynchronous
+/// channels; implementations must never materialize the key in Dart.
 abstract interface class KeyedHmac {
-  HmacDigest digest({required HmacKeyHandle key, required HmacInput input});
+  Future<HmacDigest> digest({
+    required HmacKeyHandle key,
+    required HmacInput input,
+  });
 }

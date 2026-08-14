@@ -1,8 +1,6 @@
 import 'package:money_sync/core/money/currency.dart';
 import 'package:money_sync/core/money/money.dart';
 
-final _lkr = Currency(code: 'LKR', decimalDigits: 2);
-
 sealed class MoneyParseResult {
   const MoneyParseResult();
 }
@@ -26,8 +24,19 @@ enum MoneyParseError {
   zeroAmount,
 }
 
-MoneyParseResult parseMoney(String raw, {String currencyCode = 'LKR'}) {
-  final stripped = raw.replaceFirst(RegExp(r'^[A-Z]{3}\s*'), '');
+/// Parses an amount token into integer minor units. The currency comes from
+/// the text itself (leading `[A-Z]{3}`), with [currencyCode] as a caller-
+/// supplied fallback when a pack knows the currency without the message
+/// stating it. There is deliberately no market default: a bare amount with no
+/// currency is uninterpretable (M4.14 bank-agnosticism).
+MoneyParseResult parseMoney(String raw, {String? currencyCode}) {
+  final trimmed = raw.trim();
+  final codeMatch = RegExp(r'^([A-Z]{3})\s*').firstMatch(trimmed);
+  final code = codeMatch?.group(1) ?? currencyCode;
+  if (code == null) {
+    return const MoneyParseFailed(MoneyParseError.unsupportedCurrency);
+  }
+  final stripped = trimmed.replaceFirst(RegExp(r'^[A-Z]{3}\s*'), '');
   var cleaned = stripped.replaceAll(',', '');
   final dotIndex = cleaned.indexOf('.');
   int? decimals;
@@ -55,7 +64,12 @@ MoneyParseResult parseMoney(String raw, {String currencyCode = 'LKR'}) {
     return const MoneyParseFailed(MoneyParseError.zeroAmount);
   }
   try {
-    return MoneyParsed(Money(minorUnits: minorUnits, currency: _lkr));
+    return MoneyParsed(
+      Money(
+        minorUnits: minorUnits,
+        currency: Currency(code: code, decimalDigits: 2),
+      ),
+    );
   } on Exception {
     return const MoneyParseFailed(MoneyParseError.overflow);
   }

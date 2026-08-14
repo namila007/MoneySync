@@ -11,6 +11,7 @@ ActivityLogEntry _entry({
   required ActivityEventCode code,
   required ActivityStateTransition detail,
   required int epochMs,
+  int? count,
 }) {
   return ActivityLogEntry(
     id: id,
@@ -18,6 +19,7 @@ ActivityLogEntry _entry({
     detail: detail,
     occurredAt: DateTime.fromMillisecondsSinceEpoch(epochMs, isUtc: true),
     privacyEpoch: 0,
+    count: count,
   );
 }
 
@@ -91,6 +93,33 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'aggregated import event tile shows the batch count (M4.15 WP3)',
+      (tester) async {
+        await tester.pumpWidget(
+          _app([
+            _entry(
+              id: 1,
+              code: ActivityEventCode.messageImported,
+              detail: ActivityStateTransition.logEvent,
+              epochMs: 1000,
+              count: 20,
+            ),
+            _entry(
+              id: 2,
+              code: ActivityEventCode.messageImported,
+              detail: ActivityStateTransition.logEvent,
+              epochMs: 2000,
+            ),
+          ]),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('20 messages imported'), findsOneWidget);
+        expect(find.text('Message imported'), findsOneWidget);
+      },
+    );
 
     testWidgets('surfaces a safe message when the read fails', (tester) async {
       await tester.pumpWidget(

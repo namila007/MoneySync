@@ -23,6 +23,13 @@ final class OnboardingState {
     isComplete: false,
   );
 
+  factory OnboardingState.supplementAt(OnboardingStep step) => OnboardingState(
+    currentStep: step,
+    disclosureRevision: 1,
+    isComplete: false,
+    onboardingRevision: 1,
+  );
+
   final OnboardingStep currentStep;
   final int disclosureRevision;
   final bool isComplete;

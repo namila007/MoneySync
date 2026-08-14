@@ -64,8 +64,9 @@ class DataControlController extends Notifier<DataControlState> {
 
   IClearLocalDataUseCase _useCase() {
     final useCase = ref.read(clearLocalDataUseCaseProvider);
-    if (useCase == null)
+    if (useCase == null) {
       throw StateError('IClearLocalDataUseCase not provided.');
+    }
     return useCase;
   }
 

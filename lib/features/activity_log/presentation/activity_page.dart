@@ -54,7 +54,12 @@ class _ActivityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       leading: Icon(_iconFor(entry.code)),
-      title: Text(_labelFor(entry.code)),
+      title: Text(
+        // Aggregated batch events (M4.15 WP3) carry their size in the tile.
+        entry.count != null && entry.code == ActivityEventCode.messageImported
+            ? '${entry.count} messages imported'
+            : _labelFor(entry.code),
+      ),
       subtitle: Text(_detailFor(entry.detail)),
       trailing: Text(
         _formatTimestamp(entry.occurredAt.toLocal()),
@@ -81,6 +86,8 @@ String _labelFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.logInfo => 'App event',
   ActivityEventCode.logWarning => 'App warning',
   ActivityEventCode.logError => 'App error',
+  ActivityEventCode.messageImported => 'Message imported',
+  ActivityEventCode.smsEventDeleted => 'Imported message deleted',
 };
 
 String _detailFor(ActivityStateTransition detail) => switch (detail) {
@@ -102,6 +109,8 @@ IconData _iconFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.logInfo => Icons.info_outline,
   ActivityEventCode.logWarning => Icons.warning_amber_outlined,
   ActivityEventCode.logError => Icons.error_outline,
+  ActivityEventCode.messageImported => Icons.sms_outlined,
+  ActivityEventCode.smsEventDeleted => Icons.delete_outline,
 };
 
 class _ActivityMessage extends StatelessWidget {

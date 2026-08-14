@@ -13,6 +13,7 @@ import javax.crypto.Mac
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
+import timber.log.Timber
 
 internal const val nativeSecurityChannelName = "me.namila.money_sync/security"
 
@@ -36,18 +37,6 @@ internal class NoBackupDatabasePathProvider(
     }
 }
 
-internal interface SecureWindowController {
-    fun setEnabled(enabled: Boolean)
-}
-
-internal class AndroidSecureWindowController(
-    private val updateWindowFlags: (Boolean) -> Unit,
-) : SecureWindowController {
-    override fun setEnabled(enabled: Boolean) {
-        updateWindowFlags(enabled)
-    }
-}
-
 internal class WrappedKeyStore(
     private val keyStore: KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) },
 ) {
@@ -59,16 +48,14 @@ internal class WrappedKeyStore(
         const val GCM_IV_LENGTH_BYTES = 12
     }
 
-    private val wrapperKeyAlias: String = WRAP_KEY_ALIAS
-
     // The underlying platform KeyStore, shared so other components (e.g.
     // HmacSigner) do not open a second handle to the same store.
     val rawKeyStore: KeyStore get() = keyStore
 
     fun ensureWrapperKey() {
-        if (keyStore.containsAlias(wrapperKeyAlias)) return
+        if (keyStore.containsAlias(WRAP_KEY_ALIAS)) return
         val spec = KeyGenParameterSpec.Builder(
-            wrapperKeyAlias,
+            WRAP_KEY_ALIAS,
             KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -91,7 +78,7 @@ internal class WrappedKeyStore(
 
     fun wrapContentKey(contentKey: ByteArray): ByteArray {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val wrappingKey = (keyStore.getEntry(wrapperKeyAlias, null) as KeyStore.SecretKeyEntry).secretKey
+        val wrappingKey = (keyStore.getEntry(WRAP_KEY_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
         cipher.init(Cipher.ENCRYPT_MODE, wrappingKey)
         val ciphertext = cipher.doFinal(contentKey)
         val iv = cipher.iv
@@ -99,19 +86,20 @@ internal class WrappedKeyStore(
     }
 
     fun unwrapContentKey(wrappedBlob: ByteArray): ByteArray {
+        require(wrappedBlob.size > GCM_IV_LENGTH_BYTES) { "Wrapped key blob is truncated." }
         val iv = wrappedBlob.copyOfRange(0, GCM_IV_LENGTH_BYTES)
         val ciphertext = wrappedBlob.copyOfRange(GCM_IV_LENGTH_BYTES, wrappedBlob.size)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val wrappingKey = (keyStore.getEntry(wrapperKeyAlias, null) as KeyStore.SecretKeyEntry).secretKey
+        val wrappingKey = (keyStore.getEntry(WRAP_KEY_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
         cipher.init(Cipher.DECRYPT_MODE, wrappingKey, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
         return cipher.doFinal(ciphertext)
     }
 
-    fun keyExists(): Boolean = keyStore.containsAlias(wrapperKeyAlias)
+    fun keyExists(): Boolean = keyStore.containsAlias(WRAP_KEY_ALIAS)
 
     fun deleteWrapperKey() {
-        if (keyStore.containsAlias(wrapperKeyAlias)) {
-            keyStore.deleteEntry(wrapperKeyAlias)
+        if (keyStore.containsAlias(WRAP_KEY_ALIAS)) {
+            keyStore.deleteEntry(WRAP_KEY_ALIAS)
         }
     }
 }
@@ -125,7 +113,7 @@ internal class WrappedKeyFileStore(private val noBackupFilesDirectory: File) {
         if (!dir.exists() && !dir.mkdirs()) {
             throw IOException("Cannot create key storage directory")
         }
-        keyFile.writeBytes(wrapped)
+        keyFile.atomicWriteBytes(wrapped)
     }
 
     fun loadWrappedKey(): ByteArray = keyFile.readBytes()
@@ -141,7 +129,7 @@ internal class DatabaseKeyManager(
     private val wrappedKeyStore: WrappedKeyStore,
     private val keyFileStore: WrappedKeyFileStore,
 ) {
-    fun ensureContentKey(): String {
+    fun ensureContentKey() {
         if (!wrappedKeyStore.keyExists()) {
             wrappedKeyStore.ensureWrapperKey()
         }
@@ -149,7 +137,6 @@ internal class DatabaseKeyManager(
             val wrapped = wrappedKeyStore.generateAndWrapContentKey()
             keyFileStore.storeWrappedKey(wrapped)
         }
-        return "present"
     }
 
     // Returns the raw content-key bytes. Ownership transfers to the caller,
@@ -170,47 +157,42 @@ internal class DatabaseKeyManager(
 
 /**
  * Bounded, typed fields for source-identity HMAC canonicalization, mirroring
- * the length-prefixed canonical encoding already used by
- * SourceMessageCanonicalizer in Dart. Every field is re-validated here —
- * the Dart-side validation in SourceIdentityCanonicalizationRequest is
- * defense in depth, never a trust boundary.
+ * the length-prefixed canonical encoding used by SourceMessageCanonicalizer
+ * in Dart. Every field is re-validated here — the Dart-side validation in
+ * SourceIdentityCanonicalizationRequest is defense in depth, never a trust
+ * boundary.
  */
 internal data class SourceIdentityCanonicalizationRequest(
     val senderAddress: String,
-    val messageFamily: String,
-    val maskedInstrumentEvidence: String,
-    val occurredAtEpochSeconds: Long,
+    val body: String,
+    val occurredAtEpochMillis: Long,
     val canonicalizationVersion: Int,
 ) {
     companion object {
-        const val MAX_FIELD_LENGTH = 256
+        const val MAX_SENDER_LENGTH = 256
+        const val MAX_BODY_LENGTH = 2000
 
         fun fromChannelArguments(arguments: Map<*, *>): SourceIdentityCanonicalizationRequest {
-            val sender = requireBoundedField(arguments["senderAddress"])
-            val family = requireBoundedField(arguments["messageFamily"])
-            val evidence = requireBoundedField(arguments["maskedInstrumentEvidence"])
-            val occurredAt = (arguments["occurredAtEpochSeconds"] as? Number)?.toLong()
-                ?: throw IllegalArgumentException("occurredAtEpochSeconds is required.")
-            val version = (arguments["canonicalizationVersion"] as? Int)
+            val sender = requireBoundedField(arguments["senderAddress"], MAX_SENDER_LENGTH, "senderAddress")
+            val body = requireBoundedField(arguments["body"], MAX_BODY_LENGTH, "body")
+            val occurredAt = (arguments["occurredAtEpochMillis"] as? Number)?.toLong()
+                ?: throw IllegalArgumentException("occurredAtEpochMillis is required.")
+            val version = (arguments["canonicalizationVersion"] as? Number)?.toInt()
                 ?: throw IllegalArgumentException("canonicalizationVersion is required.")
             if (occurredAt < 0) {
-                throw IllegalArgumentException("occurredAtEpochSeconds must not be negative.")
+                throw IllegalArgumentException("occurredAtEpochMillis must not be negative.")
             }
-            return SourceIdentityCanonicalizationRequest(sender, family, evidence, occurredAt, version)
+            return SourceIdentityCanonicalizationRequest(sender, body, occurredAt, version)
         }
 
-        private fun requireBoundedField(value: Any?): String {
+        private fun requireBoundedField(value: Any?, maxLength: Int, field: String): String {
             val text = value as? String
-                ?: throw IllegalArgumentException("Canonicalization fields must be strings.")
-            if (text.isEmpty() || text.length > MAX_FIELD_LENGTH) {
-                throw IllegalArgumentException(
-                    "Canonicalization fields must be 1-$MAX_FIELD_LENGTH characters."
-                )
+                ?: throw IllegalArgumentException("$field must be a string.")
+            if (text.isEmpty() || text.length > maxLength) {
+                throw IllegalArgumentException("$field must be 1-$maxLength characters.")
             }
             if (text.any { it.code < 0x20 || it.code == 0x7f }) {
-                throw IllegalArgumentException(
-                    "Canonicalization fields must not contain control characters."
-                )
+                throw IllegalArgumentException("$field must not contain control characters.")
             }
             return text
         }
@@ -218,15 +200,15 @@ internal data class SourceIdentityCanonicalizationRequest(
 
     /**
      * Builds the canonical byte encoding natively — the caller never
-     * supplies a pre-built string to sign.
+     * supplies a pre-built string to sign. Mirrors Dart exactly:
+     * `v{version}|{len}:{field}|...` with UTF-16 code-unit lengths and the
+     * epoch as a length-prefixed field (Dart String.length is UTF-16).
      */
     fun toCanonicalBytes(): ByteArray {
         val builder = StringBuilder("v$canonicalizationVersion")
-        for (field in listOf(senderAddress, messageFamily, maskedInstrumentEvidence)) {
-            val fieldBytes = field.toByteArray(Charsets.UTF_8)
-            builder.append('|').append(fieldBytes.size).append(':').append(field)
+        for (field in listOf(senderAddress, body, occurredAtEpochMillis.toString())) {
+            builder.append('|').append(field.length).append(':').append(field)
         }
-        builder.append('|').append(occurredAtEpochSeconds)
         return builder.toString().toByteArray(Charsets.UTF_8)
     }
 }
@@ -243,7 +225,7 @@ internal class HmacSigner(
 ) {
     companion object {
         const val HMAC_KEY_ALIAS = "money_sync_source_identity_hmac_v2"
-        const val HMAC_SUPPORTED_VERSION = 1
+        const val HMAC_SUPPORTED_VERSION = 2
     }
 
     private val legacyHmacKeyFile: File
@@ -315,7 +297,7 @@ internal class HmacSigner(
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(key)
         val digest = mac.doFinal(request.toCanonicalBytes())
-        return digest.joinToString("") { "%02x".format(it) }
+        return digest.toHexString()
     }
 }
 
@@ -337,10 +319,10 @@ internal class WalletTokenManager(
         if (!dir.exists() && !dir.mkdirs()) {
             throw IOException("Cannot create token storage directory")
         }
-        val raw = tokenHex.hexToBytes()
+        val raw = tokenHex.hexToByteArray()
         try {
             val wrapped = wrappedKeyStore.wrapContentKey(raw)
-            tokenFile.writeBytes(wrapped)
+            tokenFile.atomicWriteBytes(wrapped)
         } finally {
             raw.fill(0)
         }
@@ -364,7 +346,7 @@ internal class WalletTokenManager(
 
 internal class NativeSecurityChannelHandler(
     private val databasePathProvider: DatabasePathProvider,
-    private val secureWindowController: SecureWindowController,
+    private val secureWindowController: (Boolean) -> Unit,
     private val databaseKeyManager: DatabaseKeyManager,
     private val hmacSigner: HmacSigner,
     private val noBackupFilesDirectory: File,
@@ -386,7 +368,8 @@ internal class NativeSecurityChannelHandler(
 
     private fun getSensitiveDatabasePath(): NativeChannelResponse = try {
         NativeChannelResponse.Success(databasePathProvider.databasePath())
-    } catch (_: Exception) {
+    } catch (t: Exception) {
+        Timber.e(t, "getSensitiveDatabasePath failed")
         NativeChannelResponse.Error(
             code = "STORAGE_UNAVAILABLE",
             message = "Secure local storage is unavailable.",
@@ -394,8 +377,10 @@ internal class NativeSecurityChannelHandler(
     }
 
     private fun ensureContentKey(): NativeChannelResponse = try {
-        NativeChannelResponse.Success(databaseKeyManager.ensureContentKey())
-    } catch (_: Exception) {
+        databaseKeyManager.ensureContentKey()
+        NativeChannelResponse.Success(null)
+    } catch (t: Exception) {
+        Timber.e(t, "ensureContentKey failed")
         NativeChannelResponse.Error(
             code = "KEY_UNAVAILABLE",
             message = "Database key generation failed.",
@@ -404,7 +389,8 @@ internal class NativeSecurityChannelHandler(
 
     private fun acquireContentKeyBytes(): NativeChannelResponse = try {
         NativeChannelResponse.Success(databaseKeyManager.acquireContentKeyBytes())
-    } catch (_: Exception) {
+    } catch (t: Exception) {
+        Timber.e(t, "acquireContentKeyBytes failed")
         NativeChannelResponse.Error(
             code = "KEY_UNAVAILABLE",
             message = "Database key is not available.",
@@ -418,7 +404,8 @@ internal class NativeSecurityChannelHandler(
         )
         val request = try {
             SourceIdentityCanonicalizationRequest.fromChannelArguments(args)
-        } catch (_: IllegalArgumentException) {
+        } catch (t: IllegalArgumentException) {
+            Timber.d(t, "Invalid canonicalization request")
             return NativeChannelResponse.Error(
                 code = "INVALID_ARGUMENT",
                 message = "Canonicalization request is invalid.",
@@ -432,7 +419,8 @@ internal class NativeSecurityChannelHandler(
         }
         return try {
             NativeChannelResponse.Success(hmacSigner.deriveSourceIdentityDigest(request))
-        } catch (_: Exception) {
+        } catch (t: Exception) {
+            Timber.e(t, "deriveSourceIdentityDigest failed")
             NativeChannelResponse.Error(
                 code = "HMAC_FAILED",
                 message = "Source identity digest failed.",
@@ -443,8 +431,10 @@ internal class NativeSecurityChannelHandler(
     private fun deleteKeys(): NativeChannelResponse = try {
         databaseKeyManager.deleteAllKeys()
         hmacSigner.deleteHmacKey()
+        walletTokenManager.deleteToken()
         NativeChannelResponse.Success(null)
-    } catch (_: Exception) {
+    } catch (t: Exception) {
+        Timber.e(t, "deleteKeys failed")
         NativeChannelResponse.Error(
             code = "KEY_DELETION_FAILED",
             message = "Key deletion failed.",
@@ -457,16 +447,11 @@ internal class NativeSecurityChannelHandler(
                 code = "INVALID_ARGUMENT",
                 message = "A boolean enabled value is required.",
             )
-        if (!enabled) {
-            return NativeChannelResponse.Error(
-                code = "INVALID_ARGUMENT",
-                message = "Secure-window protection can only be enforced.",
-            )
-        }
         return try {
-            secureWindowController.setEnabled(true)
+            secureWindowController(enabled)
             NativeChannelResponse.Success(null)
-        } catch (_: Exception) {
+        } catch (t: Exception) {
+            Timber.e(t, "setSecureWindowProtection failed")
             NativeChannelResponse.Error(
                 code = "SECURE_WINDOW_UNAVAILABLE",
                 message = "Secure-window protection is unavailable.",
@@ -482,7 +467,8 @@ internal class NativeSecurityChannelHandler(
         return try {
             walletTokenManager.storeToken(tokenHex)
             NativeChannelResponse.Success(null)
-        } catch (_: Exception) {
+        } catch (t: Exception) {
+            Timber.e(t, "storeWalletToken failed")
             NativeChannelResponse.Error(
                 code = "TOKEN_STORAGE_FAILED",
                 message = "Failed to store wallet token.",
@@ -492,7 +478,8 @@ internal class NativeSecurityChannelHandler(
 
     private fun loadWalletToken(): NativeChannelResponse = try {
         NativeChannelResponse.Success(walletTokenManager.loadToken())
-    } catch (_: Exception) {
+    } catch (t: Exception) {
+        Timber.e(t, "loadWalletToken failed")
         NativeChannelResponse.Error(
             code = "TOKEN_UNAVAILABLE",
             message = "Wallet token is not available.",
@@ -502,7 +489,8 @@ internal class NativeSecurityChannelHandler(
     private fun deleteWalletToken(): NativeChannelResponse = try {
         walletTokenManager.deleteToken()
         NativeChannelResponse.Success(null)
-    } catch (_: Exception) {
+    } catch (t: Exception) {
+        Timber.e(t, "deleteWalletToken failed")
         NativeChannelResponse.Error(
             code = "TOKEN_DELETION_FAILED",
             message = "Failed to delete wallet token.",
@@ -516,21 +504,14 @@ private fun Any?.singleBooleanArgument(name: String): Boolean? {
     return values[name] as? Boolean
 }
 
-
-private fun ByteArray.toHexString(): String = joinToString("") { "%02x".format(it) }
-
-private fun String.hexToBytes(): ByteArray {
-    val len = length / 2
-    return ByteArray(len) { Integer.parseInt(substring(it * 2, it * 2 + 2), 16).toByte() }
-}
-
-private fun ByteArray.joinToString(
-    separator: String = ", ",
-    transform: ((Byte) -> CharSequence)? = null,
-): String {
-    val joiner = java.util.StringJoiner(separator)
-    for (byte in this) {
-        joiner.add(transform?.invoke(byte)?.toString() ?: byte.toString())
+// Writes via a temp file plus atomic rename so a crash mid-write never
+// leaves a partially written key/token blob (corruption would lock the user
+// out of their data).
+private fun File.atomicWriteBytes(bytes: ByteArray) {
+    val temp = File(parentFile, "$name.tmp")
+    temp.writeBytes(bytes)
+    if (!temp.renameTo(this)) {
+        temp.delete()
+        throw IOException("Failed to finalize $name")
     }
-    return joiner.toString()
 }

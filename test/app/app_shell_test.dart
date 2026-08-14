@@ -9,6 +9,8 @@ import 'package:money_sync/features/activity_log/domain/activity_log_repository.
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/core/database/app_database.dart';
 
 Widget _appWithOnboardingComplete() {
   return ProviderScope(
@@ -22,6 +24,12 @@ Widget _appWithOnboardingComplete() {
       activityLogRepositoryProvider.overrideWith(
         (ref) async => const _EmptyActivityLog(),
       ),
+      // Home summary watches the database future; give it an in-memory DB.
+      appDatabaseProvider.overrideWith((ref) async {
+        final db = AppDatabase.inMemoryForTesting();
+        ref.onDispose(db.close);
+        return db;
+      }),
     ],
     child: const MoneySyncApp(),
   );
@@ -40,6 +48,7 @@ final class _CompletedOnboardingNotifier extends OnboardingNotifier {
     currentStep: OnboardingStep.disclosure,
     disclosureRevision: 1,
     isComplete: true,
+    onboardingRevision: 2,
   );
 }
 

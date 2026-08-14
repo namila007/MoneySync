@@ -57,8 +57,9 @@ void main() {
           }
           final content = File(filePath).readAsStringSync();
           for (final perm in forbidden) {
-            if (filePath.contains('permission_boundary_architecture_test'))
+            if (filePath.contains('permission_boundary_architecture_test')) {
               continue;
+            }
             expect(
               content,
               isNot(contains('Manifest.permission.$perm')),

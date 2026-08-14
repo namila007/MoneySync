@@ -8,6 +8,8 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
 
   final AppDatabase database;
 
+  static const _secureWindowKey = 'secure_window_enabled';
+
   @override
   Future<ConfigurationState> load() async {
     final setting = await (database.select(
@@ -19,6 +21,9 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
     final rawCopyDays = setting.rawCopyRetentionDays > kRawCopyRetentionMaxDays
         ? kRawCopyRetentionMaxDays
         : setting.rawCopyRetentionDays;
+    final secureRow = await (database.select(
+      database.databaseMetadata,
+    )..where((t) => t.key.equals(_secureWindowKey))).getSingleOrNull();
     return ConfigurationState(
       configurationRevision: setting.configurationRevision,
       processingMode: setting.processingMode == 'manual'
@@ -37,7 +42,20 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
         windowDays: setting.historyWindowDays,
         messageCap: setting.historyMessageCap,
       ),
+      secureWindowEnabled: secureRow?.value != 'false',
     );
+  }
+
+  @override
+  Future<void> updateSecureWindowEnabled(bool enabled) async {
+    await database
+        .into(database.databaseMetadata)
+        .insertOnConflictUpdate(
+          DatabaseMetadataCompanion.insert(
+            key: _secureWindowKey,
+            value: enabled ? 'true' : 'false',
+          ),
+        );
   }
 
   @override

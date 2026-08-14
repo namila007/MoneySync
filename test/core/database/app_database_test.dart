@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/core/database/app_database.dart';
@@ -48,7 +48,7 @@ void main() {
     test(
       'reports the frozen v5 schema and enforces foreign keys after opening',
       () async {
-        expect(database.schemaVersion, 5);
+        expect(database.schemaVersion, 8);
 
         await expectLater(
           database
@@ -74,12 +74,13 @@ void main() {
           2,
           (_) => database.insertSmsEventIfAbsent(
             sourceKey: 'synthetic-hmac-key',
-            senderHash: 'sender-hash',
+            senderKey: 'sender-hash',
             redactedBody: 'LKR ****.** at merchant',
             ingestionSource: 'history_selection',
             receivedAtEpochMs: 1784678400000,
-            status: 'captured',
+            status: SmsEventStatus.captured,
             privacyEpoch: 0,
+            captureCanonicalizationVersion: 2,
           ),
         );
 
@@ -95,11 +96,12 @@ void main() {
     test('inserts the candidate and activity together', () async {
       final sms = await database.insertSmsEventIfAbsent(
         sourceKey: 'synthetic-hmac-transaction',
-        senderHash: 'sender-hash',
+        senderKey: 'sender-hash',
         ingestionSource: 'history_selection',
         receivedAtEpochMs: 1784678400000,
-        status: 'captured',
+        status: SmsEventStatus.captured,
         privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
       );
 
       await database.insertCandidateAndActivityAtomically(
@@ -125,11 +127,12 @@ void main() {
       () async {
         final sms = await database.insertSmsEventIfAbsent(
           sourceKey: 'synthetic-hmac-rollback',
-          senderHash: 'sender-hash',
+          senderKey: 'sender-hash',
           ingestionSource: 'history_selection',
           receivedAtEpochMs: 1784678400000,
-          status: 'captured',
+          status: SmsEventStatus.captured,
           privacyEpoch: 0,
+          captureCanonicalizationVersion: 2,
         );
 
         await expectLater(
@@ -158,11 +161,12 @@ void main() {
     test('enforces one transaction candidate for each source event', () async {
       final sms = await database.insertSmsEventIfAbsent(
         sourceKey: 'synthetic-hmac-one-to-one',
-        senderHash: 'sender-hash',
+        senderKey: 'sender-hash',
         ingestionSource: 'history_selection',
         receivedAtEpochMs: 1784678400000,
-        status: 'captured',
+        status: SmsEventStatus.captured,
         privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
       );
 
       Future<void> insertCandidate() =>
@@ -189,11 +193,12 @@ void main() {
       await expectLater(
         database.insertSmsEventIfAbsent(
           sourceKey: 'synthetic-hmac-stale',
-          senderHash: 'sender-hash',
+          senderKey: 'sender-hash',
           ingestionSource: 'history_selection',
           receivedAtEpochMs: 1784678400000,
-          status: 'captured',
+          status: SmsEventStatus.captured,
           privacyEpoch: 0,
+          captureCanonicalizationVersion: 2,
         ),
         throwsA(isA<StalePrivacyEpochException>()),
       );
@@ -236,10 +241,94 @@ void main() {
         addTearDown(database.close);
 
         expect(suppliedKey, same(key));
-        expect(database.schemaVersion, 5);
+        expect(database.schemaVersion, 8);
         expect(await database.smsEvents.count().getSingle(), 0);
       },
     );
+  });
+
+  group('M4.15 WP1 detail reads', () {
+    late AppDatabase database;
+
+    setUp(() {
+      database = AppDatabase.inMemoryForTesting();
+    });
+
+    tearDown(() => database.close());
+
+    test('getSmsEventById returns the row and null for a missing id', () async {
+      final inserted = await database.insertSmsEventIfAbsent(
+        sourceKey: 'synthetic-hmac-detail',
+        senderKey: 'sender-hash',
+        redactedBody: 'LKR ****.** at merchant',
+        ingestionSource: 'history_selection',
+        receivedAtEpochMs: 1784678400000,
+        status: SmsEventStatus.review,
+        privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
+      );
+
+      final found = await database.getSmsEventById(inserted.id);
+      expect(found, isNotNull);
+      expect(found!.redactedBody, 'LKR ****.** at merchant');
+      expect(await database.getSmsEventById(inserted.id + 999), isNull);
+    });
+
+    test('getCandidateBySmsEventId returns the candidate or null', () async {
+      final sms = await database.insertSmsEventIfAbsent(
+        sourceKey: 'synthetic-hmac-candidate-detail',
+        senderKey: 'sender-hash',
+        ingestionSource: 'history_selection',
+        receivedAtEpochMs: 1784678400000,
+        status: SmsEventStatus.review,
+        privacyEpoch: 0,
+        captureCanonicalizationVersion: 2,
+      );
+
+      expect(await database.getCandidateBySmsEventId(sms.id), isNull);
+
+      await database.insertCandidateAndActivityAtomically(
+        smsEventId: sms.id,
+        candidateState: CandidateRecordState.needsReview,
+        encryptedPayload: '{"kind":"income"}',
+        revision: 1,
+        createdAtEpochMs: 1784678400000,
+        activityType: ActivityEventCode.candidateNeedsReview,
+        safeDetailCode: ActivityStateTransition.needsReview,
+        decisionTraceCode: DecisionTraceCode.parsedComplete,
+        privacyEpoch: 0,
+      );
+
+      final candidate = await database.getCandidateBySmsEventId(sms.id);
+      expect(candidate, isNotNull);
+      expect(candidate!.state, CandidateRecordState.needsReview);
+    });
+  });
+
+  group('M4.15 WP3 batch activity count', () {
+    test('insertActivity round-trips the count; null when omitted', () async {
+      final db = AppDatabase.inMemoryForTesting();
+      addTearDown(db.close);
+
+      await db.insertActivity(
+        activityType: ActivityEventCode.messageImported,
+        safeDetailCode: ActivityStateTransition.logEvent,
+        occurredAtEpochMs: 1784678400000,
+        privacyEpoch: 0,
+        count: 20,
+      );
+      await db.insertActivity(
+        activityType: ActivityEventCode.smsEventDeleted,
+        safeDetailCode: ActivityStateTransition.logEvent,
+        occurredAtEpochMs: 1784678400001,
+        privacyEpoch: 0,
+      );
+
+      final rows = await db.select(db.activityEvents).get();
+      expect(rows, hasLength(2));
+      expect(rows.first.batchCount, 20);
+      expect(rows.last.batchCount, isNull);
+    });
   });
 }
 

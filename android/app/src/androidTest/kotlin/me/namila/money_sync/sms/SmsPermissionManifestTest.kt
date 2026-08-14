@@ -13,7 +13,7 @@ import org.junit.Test
 class SmsPermissionManifestTest {
 
     @Test
-    fun `merged manifest declares READ_SMS when present`() {
+    fun mergedManifestDeclaresReadSmsWhenPresent() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val info = context.packageManager.getPermissionInfo(
             Manifest.permission.READ_SMS, 0
@@ -23,32 +23,26 @@ class SmsPermissionManifestTest {
     }
 
     @Test
-    fun `merged manifest declares no RECEIVE_SMS, SEND_SMS, or WRITE_SMS`() {
+    fun mergedManifestDeclaresNoReceiveSendOrWriteSms() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val packageInfo = context.packageManager.getPackageInfo(
+            context.packageName,
+            PackageManager.GET_PERMISSIONS
+        )
 
-        fun isPermissionDeclared(permission: String): Boolean {
-            return try {
-                context.packageManager.getPermissionInfo(permission, 0)
-                true
-            } catch (_: PackageManager.NameNotFoundException) {
-                false
-            }
-        }
+        val requestedPermissions = packageInfo.requestedPermissions?.toSet() ?: emptySet()
 
         assertTrue(
             "RECEIVE_SMS must not be declared",
-            !isPermissionDeclared(Manifest.permission.RECEIVE_SMS)
+            !requestedPermissions.contains(Manifest.permission.RECEIVE_SMS)
         )
         assertTrue(
             "SEND_SMS must not be declared",
-            !isPermissionDeclared(Manifest.permission.SEND_SMS)
+            !requestedPermissions.contains(Manifest.permission.SEND_SMS)
         )
         assertTrue(
             "WRITE_SMS must not be declared",
-            !isPermissionDeclared(Manifest.permission.WRITE_SMS) ||
-            !context.packageManager.getPermissionInfo(
-                Manifest.permission.WRITE_SMS, 0
-            ).let { true }
+            !requestedPermissions.contains("android.permission.WRITE_SMS")
         )
     }
 }

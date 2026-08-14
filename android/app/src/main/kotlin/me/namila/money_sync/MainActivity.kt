@@ -10,6 +10,8 @@ import timber.log.Timber
 import me.namila.money_sync.sms.SmsPermissionDelegate
 import me.namila.money_sync.sms.SmsPermissionDelegateFactory
 import me.namila.money_sync.sms.SmsPermissionHostApi
+import me.namila.money_sync.sms.SmsHistoryDelegateFactory
+import me.namila.money_sync.sms.SmsHistoryHostApi
 import me.namila.money_sync.sms.TransportSmsPermissionStatus
 import me.namila.money_sync.share.ShareIntentHandler
 import me.namila.money_sync.share.ShareIntentFlutterApi
@@ -28,17 +30,10 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // TEMPORARY: FLAG_SECURE blocks screenshots and screen recording, which
-        // also blanks `adb exec-out screencap` during development. Release
-        // builds keep it on. Restore the unconditional `setEnabled(true)` before
-        // capturing the M2 secure-window acceptance evidence.
-        AndroidSecureWindowController { enabled ->
-            if (enabled) {
-                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            } else {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
-        }.setEnabled(!isDebuggableBuild())
+        // Secure window is ON by default; the user can disable it via
+        // Settings → Configuration → Screenshot protection (persisted),
+        // which calls setSecureWindowProtection at runtime.
+        setSecureWindowFlag(true)
         handleShareIntent(intent)
     }
 
@@ -52,6 +47,14 @@ class MainActivity : FlutterFragmentActivity() {
         val api = shareIntentApi ?: return
         val payload = ShareIntentHandler.extractSharedText(intent) ?: return
         api.onSharedText(payload) {}
+    }
+
+    private fun setSecureWindowFlag(enabled: Boolean) {
+        if (enabled) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -73,13 +76,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         securityChannelHandler = NativeSecurityChannelHandler(
             databasePathProvider = NoBackupDatabasePathProvider(noBackupFilesDir),
-            secureWindowController = AndroidSecureWindowController { enabled ->
-                if (enabled) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                }
-            },
+            secureWindowController = ::setSecureWindowFlag,
             databaseKeyManager = databaseKeyManager,
             hmacSigner = hmacSigner,
             noBackupFilesDirectory = noBackupFilesDir,
@@ -111,6 +108,9 @@ class MainActivity : FlutterFragmentActivity() {
 
         val shareApi = ShareIntentFlutterApi(flutterEngine.dartExecutor.binaryMessenger)
         shareIntentApi = shareApi
+
+        val historyApi = SmsHistoryDelegateFactory.create(this)
+        SmsHistoryHostApi.setUp(flutterEngine.dartExecutor.binaryMessenger, historyApi)
 
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             Timber.plant(Timber.DebugTree())

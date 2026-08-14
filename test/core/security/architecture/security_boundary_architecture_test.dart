@@ -95,15 +95,14 @@ void main() {
     test('rejects an empty canonicalization field before reaching native', () {
       final request = const SourceIdentityCanonicalizationRequest(
         senderAddress: '',
-        messageFamily: 'family',
-        maskedInstrumentEvidence: 'evidence',
-        occurredAtEpochSeconds: 0,
+        body: 'body',
+        occurredAtEpochMillis: 0,
       );
 
       expect(
         channel.deriveSourceIdentityDigest(
           request: request,
-          canonicalizationVersion: 1,
+          canonicalizationVersion: 2,
         ),
         throwsArgumentError,
       );
@@ -112,15 +111,14 @@ void main() {
     test('rejects an oversized canonicalization field', () {
       final request = SourceIdentityCanonicalizationRequest(
         senderAddress: 'x' * 257,
-        messageFamily: 'family',
-        maskedInstrumentEvidence: 'evidence',
-        occurredAtEpochSeconds: 0,
+        body: 'body',
+        occurredAtEpochMillis: 0,
       );
 
       expect(
         channel.deriveSourceIdentityDigest(
           request: request,
-          canonicalizationVersion: 1,
+          canonicalizationVersion: 2,
         ),
         throwsArgumentError,
       );
@@ -129,32 +127,30 @@ void main() {
     test('rejects a canonicalization field with control characters', () {
       final request = const SourceIdentityCanonicalizationRequest(
         senderAddress: 'sender\nwith-newline',
-        messageFamily: 'family',
-        maskedInstrumentEvidence: 'evidence',
-        occurredAtEpochSeconds: 0,
+        body: 'body',
+        occurredAtEpochMillis: 0,
       );
 
       expect(
         channel.deriveSourceIdentityDigest(
           request: request,
-          canonicalizationVersion: 1,
+          canonicalizationVersion: 2,
         ),
         throwsArgumentError,
       );
     });
 
-    test('rejects a negative occurredAtEpochSeconds', () {
+    test('rejects a negative occurredAtEpochMillis', () {
       final request = const SourceIdentityCanonicalizationRequest(
         senderAddress: 'sender',
-        messageFamily: 'family',
-        maskedInstrumentEvidence: 'evidence',
-        occurredAtEpochSeconds: -1,
+        body: 'body',
+        occurredAtEpochMillis: -1,
       );
 
       expect(
         channel.deriveSourceIdentityDigest(
           request: request,
-          canonicalizationVersion: 1,
+          canonicalizationVersion: 2,
         ),
         throwsArgumentError,
       );

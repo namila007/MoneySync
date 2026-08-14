@@ -911,7 +911,6 @@ class $SenderRulesTable extends SenderRules
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _parserFamilyMeta = const VerificationMeta(
     'parserFamily',
@@ -934,6 +933,18 @@ class $SenderRulesTable extends SenderRules
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
   );
   static const VerificationMeta _parserVersionMeta = const VerificationMeta(
     'parserVersion',
@@ -963,6 +974,7 @@ class $SenderRulesTable extends SenderRules
     senderHash,
     parserFamily,
     createdAtEpochMs,
+    priority,
     parserVersion,
     parserChecksum,
   ];
@@ -1011,6 +1023,12 @@ class $SenderRulesTable extends SenderRules
     } else if (isInserting) {
       context.missing(_createdAtEpochMsMeta);
     }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
     if (data.containsKey('parser_version')) {
       context.handle(
         _parserVersionMeta,
@@ -1054,6 +1072,10 @@ class $SenderRulesTable extends SenderRules
         DriftSqlType.int,
         data['${effectivePrefix}created_at_epoch_ms'],
       )!,
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
       parserVersion: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}parser_version'],
@@ -1076,6 +1098,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
   final String senderHash;
   final String parserFamily;
   final int createdAtEpochMs;
+  final int priority;
   final String? parserVersion;
   final String? parserChecksum;
   const SenderRule({
@@ -1083,6 +1106,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
     required this.senderHash,
     required this.parserFamily,
     required this.createdAtEpochMs,
+    required this.priority,
     this.parserVersion,
     this.parserChecksum,
   });
@@ -1093,6 +1117,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
     map['sender_hash'] = Variable<String>(senderHash);
     map['parser_family'] = Variable<String>(parserFamily);
     map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
+    map['priority'] = Variable<int>(priority);
     if (!nullToAbsent || parserVersion != null) {
       map['parser_version'] = Variable<String>(parserVersion);
     }
@@ -1108,6 +1133,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
       senderHash: Value(senderHash),
       parserFamily: Value(parserFamily),
       createdAtEpochMs: Value(createdAtEpochMs),
+      priority: Value(priority),
       parserVersion: parserVersion == null && nullToAbsent
           ? const Value.absent()
           : Value(parserVersion),
@@ -1127,6 +1153,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
       senderHash: serializer.fromJson<String>(json['senderHash']),
       parserFamily: serializer.fromJson<String>(json['parserFamily']),
       createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
+      priority: serializer.fromJson<int>(json['priority']),
       parserVersion: serializer.fromJson<String?>(json['parserVersion']),
       parserChecksum: serializer.fromJson<String?>(json['parserChecksum']),
     );
@@ -1139,6 +1166,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
       'senderHash': serializer.toJson<String>(senderHash),
       'parserFamily': serializer.toJson<String>(parserFamily),
       'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
+      'priority': serializer.toJson<int>(priority),
       'parserVersion': serializer.toJson<String?>(parserVersion),
       'parserChecksum': serializer.toJson<String?>(parserChecksum),
     };
@@ -1149,6 +1177,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
     String? senderHash,
     String? parserFamily,
     int? createdAtEpochMs,
+    int? priority,
     Value<String?> parserVersion = const Value.absent(),
     Value<String?> parserChecksum = const Value.absent(),
   }) => SenderRule(
@@ -1156,6 +1185,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
     senderHash: senderHash ?? this.senderHash,
     parserFamily: parserFamily ?? this.parserFamily,
     createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    priority: priority ?? this.priority,
     parserVersion: parserVersion.present
         ? parserVersion.value
         : this.parserVersion,
@@ -1175,6 +1205,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
       createdAtEpochMs: data.createdAtEpochMs.present
           ? data.createdAtEpochMs.value
           : this.createdAtEpochMs,
+      priority: data.priority.present ? data.priority.value : this.priority,
       parserVersion: data.parserVersion.present
           ? data.parserVersion.value
           : this.parserVersion,
@@ -1191,6 +1222,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
           ..write('senderHash: $senderHash, ')
           ..write('parserFamily: $parserFamily, ')
           ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('priority: $priority, ')
           ..write('parserVersion: $parserVersion, ')
           ..write('parserChecksum: $parserChecksum')
           ..write(')'))
@@ -1203,6 +1235,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
     senderHash,
     parserFamily,
     createdAtEpochMs,
+    priority,
     parserVersion,
     parserChecksum,
   );
@@ -1214,6 +1247,7 @@ class SenderRule extends DataClass implements Insertable<SenderRule> {
           other.senderHash == this.senderHash &&
           other.parserFamily == this.parserFamily &&
           other.createdAtEpochMs == this.createdAtEpochMs &&
+          other.priority == this.priority &&
           other.parserVersion == this.parserVersion &&
           other.parserChecksum == this.parserChecksum);
 }
@@ -1223,6 +1257,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
   final Value<String> senderHash;
   final Value<String> parserFamily;
   final Value<int> createdAtEpochMs;
+  final Value<int> priority;
   final Value<String?> parserVersion;
   final Value<String?> parserChecksum;
   const SenderRulesCompanion({
@@ -1230,6 +1265,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
     this.senderHash = const Value.absent(),
     this.parserFamily = const Value.absent(),
     this.createdAtEpochMs = const Value.absent(),
+    this.priority = const Value.absent(),
     this.parserVersion = const Value.absent(),
     this.parserChecksum = const Value.absent(),
   });
@@ -1238,6 +1274,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
     required String senderHash,
     required String parserFamily,
     required int createdAtEpochMs,
+    this.priority = const Value.absent(),
     this.parserVersion = const Value.absent(),
     this.parserChecksum = const Value.absent(),
   }) : senderHash = Value(senderHash),
@@ -1248,6 +1285,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
     Expression<String>? senderHash,
     Expression<String>? parserFamily,
     Expression<int>? createdAtEpochMs,
+    Expression<int>? priority,
     Expression<String>? parserVersion,
     Expression<String>? parserChecksum,
   }) {
@@ -1256,6 +1294,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
       if (senderHash != null) 'sender_hash': senderHash,
       if (parserFamily != null) 'parser_family': parserFamily,
       if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
+      if (priority != null) 'priority': priority,
       if (parserVersion != null) 'parser_version': parserVersion,
       if (parserChecksum != null) 'parser_checksum': parserChecksum,
     });
@@ -1266,6 +1305,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
     Value<String>? senderHash,
     Value<String>? parserFamily,
     Value<int>? createdAtEpochMs,
+    Value<int>? priority,
     Value<String?>? parserVersion,
     Value<String?>? parserChecksum,
   }) {
@@ -1274,6 +1314,7 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
       senderHash: senderHash ?? this.senderHash,
       parserFamily: parserFamily ?? this.parserFamily,
       createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+      priority: priority ?? this.priority,
       parserVersion: parserVersion ?? this.parserVersion,
       parserChecksum: parserChecksum ?? this.parserChecksum,
     );
@@ -1294,6 +1335,9 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
     if (createdAtEpochMs.present) {
       map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs.value);
     }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
     if (parserVersion.present) {
       map['parser_version'] = Variable<String>(parserVersion.value);
     }
@@ -1310,8 +1354,345 @@ class SenderRulesCompanion extends UpdateCompanion<SenderRule> {
           ..write('senderHash: $senderHash, ')
           ..write('parserFamily: $parserFamily, ')
           ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('priority: $priority, ')
           ..write('parserVersion: $parserVersion, ')
           ..write('parserChecksum: $parserChecksum')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $TrackedSendersTable extends TrackedSenders
+    with TableInfo<$TrackedSendersTable, TrackedSenderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackedSendersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _senderKeyMeta = const VerificationMeta(
+    'senderKey',
+  );
+  @override
+  late final GeneratedColumn<String> senderKey = GeneratedColumn<String>(
+    'sender_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderDisplayMeta = const VerificationMeta(
+    'senderDisplay',
+  );
+  @override
+  late final GeneratedColumn<String> senderDisplay = GeneratedColumn<String>(
+    'sender_display',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _addedAtEpochMsMeta = const VerificationMeta(
+    'addedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> addedAtEpochMs = GeneratedColumn<int>(
+    'added_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    senderKey,
+    senderDisplay,
+    enabled,
+    addedAtEpochMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tracked_senders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackedSenderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('sender_key')) {
+      context.handle(
+        _senderKeyMeta,
+        senderKey.isAcceptableOrUnknown(data['sender_key']!, _senderKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderKeyMeta);
+    }
+    if (data.containsKey('sender_display')) {
+      context.handle(
+        _senderDisplayMeta,
+        senderDisplay.isAcceptableOrUnknown(
+          data['sender_display']!,
+          _senderDisplayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('added_at_epoch_ms')) {
+      context.handle(
+        _addedAtEpochMsMeta,
+        addedAtEpochMs.isAcceptableOrUnknown(
+          data['added_at_epoch_ms']!,
+          _addedAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtEpochMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {senderKey};
+  @override
+  TrackedSenderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackedSenderRow(
+      senderKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_key'],
+      )!,
+      senderDisplay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_display'],
+      ),
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      addedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}added_at_epoch_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackedSendersTable createAlias(String alias) {
+    return $TrackedSendersTable(attachedDatabase, alias);
+  }
+}
+
+class TrackedSenderRow extends DataClass
+    implements Insertable<TrackedSenderRow> {
+  final String senderKey;
+  final String? senderDisplay;
+  final bool enabled;
+  final int addedAtEpochMs;
+  const TrackedSenderRow({
+    required this.senderKey,
+    this.senderDisplay,
+    required this.enabled,
+    required this.addedAtEpochMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['sender_key'] = Variable<String>(senderKey);
+    if (!nullToAbsent || senderDisplay != null) {
+      map['sender_display'] = Variable<String>(senderDisplay);
+    }
+    map['enabled'] = Variable<bool>(enabled);
+    map['added_at_epoch_ms'] = Variable<int>(addedAtEpochMs);
+    return map;
+  }
+
+  TrackedSendersCompanion toCompanion(bool nullToAbsent) {
+    return TrackedSendersCompanion(
+      senderKey: Value(senderKey),
+      senderDisplay: senderDisplay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderDisplay),
+      enabled: Value(enabled),
+      addedAtEpochMs: Value(addedAtEpochMs),
+    );
+  }
+
+  factory TrackedSenderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackedSenderRow(
+      senderKey: serializer.fromJson<String>(json['senderKey']),
+      senderDisplay: serializer.fromJson<String?>(json['senderDisplay']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      addedAtEpochMs: serializer.fromJson<int>(json['addedAtEpochMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'senderKey': serializer.toJson<String>(senderKey),
+      'senderDisplay': serializer.toJson<String?>(senderDisplay),
+      'enabled': serializer.toJson<bool>(enabled),
+      'addedAtEpochMs': serializer.toJson<int>(addedAtEpochMs),
+    };
+  }
+
+  TrackedSenderRow copyWith({
+    String? senderKey,
+    Value<String?> senderDisplay = const Value.absent(),
+    bool? enabled,
+    int? addedAtEpochMs,
+  }) => TrackedSenderRow(
+    senderKey: senderKey ?? this.senderKey,
+    senderDisplay: senderDisplay.present
+        ? senderDisplay.value
+        : this.senderDisplay,
+    enabled: enabled ?? this.enabled,
+    addedAtEpochMs: addedAtEpochMs ?? this.addedAtEpochMs,
+  );
+  TrackedSenderRow copyWithCompanion(TrackedSendersCompanion data) {
+    return TrackedSenderRow(
+      senderKey: data.senderKey.present ? data.senderKey.value : this.senderKey,
+      senderDisplay: data.senderDisplay.present
+          ? data.senderDisplay.value
+          : this.senderDisplay,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      addedAtEpochMs: data.addedAtEpochMs.present
+          ? data.addedAtEpochMs.value
+          : this.addedAtEpochMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedSenderRow(')
+          ..write('senderKey: $senderKey, ')
+          ..write('senderDisplay: $senderDisplay, ')
+          ..write('enabled: $enabled, ')
+          ..write('addedAtEpochMs: $addedAtEpochMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(senderKey, senderDisplay, enabled, addedAtEpochMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackedSenderRow &&
+          other.senderKey == this.senderKey &&
+          other.senderDisplay == this.senderDisplay &&
+          other.enabled == this.enabled &&
+          other.addedAtEpochMs == this.addedAtEpochMs);
+}
+
+class TrackedSendersCompanion extends UpdateCompanion<TrackedSenderRow> {
+  final Value<String> senderKey;
+  final Value<String?> senderDisplay;
+  final Value<bool> enabled;
+  final Value<int> addedAtEpochMs;
+  final Value<int> rowid;
+  const TrackedSendersCompanion({
+    this.senderKey = const Value.absent(),
+    this.senderDisplay = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.addedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  TrackedSendersCompanion.insert({
+    required String senderKey,
+    this.senderDisplay = const Value.absent(),
+    this.enabled = const Value.absent(),
+    required int addedAtEpochMs,
+    this.rowid = const Value.absent(),
+  }) : senderKey = Value(senderKey),
+       addedAtEpochMs = Value(addedAtEpochMs);
+  static Insertable<TrackedSenderRow> custom({
+    Expression<String>? senderKey,
+    Expression<String>? senderDisplay,
+    Expression<bool>? enabled,
+    Expression<int>? addedAtEpochMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (senderKey != null) 'sender_key': senderKey,
+      if (senderDisplay != null) 'sender_display': senderDisplay,
+      if (enabled != null) 'enabled': enabled,
+      if (addedAtEpochMs != null) 'added_at_epoch_ms': addedAtEpochMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  TrackedSendersCompanion copyWith({
+    Value<String>? senderKey,
+    Value<String?>? senderDisplay,
+    Value<bool>? enabled,
+    Value<int>? addedAtEpochMs,
+    Value<int>? rowid,
+  }) {
+    return TrackedSendersCompanion(
+      senderKey: senderKey ?? this.senderKey,
+      senderDisplay: senderDisplay ?? this.senderDisplay,
+      enabled: enabled ?? this.enabled,
+      addedAtEpochMs: addedAtEpochMs ?? this.addedAtEpochMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (senderKey.present) {
+      map['sender_key'] = Variable<String>(senderKey.value);
+    }
+    if (senderDisplay.present) {
+      map['sender_display'] = Variable<String>(senderDisplay.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (addedAtEpochMs.present) {
+      map['added_at_epoch_ms'] = Variable<int>(addedAtEpochMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedSendersCompanion(')
+          ..write('senderKey: $senderKey, ')
+          ..write('senderDisplay: $senderDisplay, ')
+          ..write('enabled: $enabled, ')
+          ..write('addedAtEpochMs: $addedAtEpochMs, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -1348,16 +1729,27 @@ class $SmsEventsTable extends SmsEvents
     requiredDuringInsert: true,
     defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
-  static const VerificationMeta _senderHashMeta = const VerificationMeta(
-    'senderHash',
+  static const VerificationMeta _senderKeyMeta = const VerificationMeta(
+    'senderKey',
   );
   @override
-  late final GeneratedColumn<String> senderHash = GeneratedColumn<String>(
-    'sender_hash',
+  late final GeneratedColumn<String> senderKey = GeneratedColumn<String>(
+    'sender_key',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderDisplayMeta = const VerificationMeta(
+    'senderDisplay',
+  );
+  @override
+  late final GeneratedColumn<String> senderDisplay = GeneratedColumn<String>(
+    'sender_display',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _encryptedBodyMeta = const VerificationMeta(
     'encryptedBody',
@@ -1414,15 +1806,15 @@ class $SmsEventsTable extends SmsEvents
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
-  late final GeneratedColumn<String> status = GeneratedColumn<String>(
-    'status',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumnWithTypeConverter<SmsEventStatus, String> status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<SmsEventStatus>($SmsEventsTable.$converterstatus);
   static const VerificationMeta _privacyEpochMeta = const VerificationMeta(
     'privacyEpoch',
   );
@@ -1455,7 +1847,7 @@ class $SmsEventsTable extends SmsEvents
         false,
         type: DriftSqlType.int,
         requiredDuringInsert: false,
-        defaultValue: const Constant(1),
+        defaultValue: const Constant(2),
       );
   static const VerificationMeta _redactionVersionMeta = const VerificationMeta(
     'redactionVersion',
@@ -1479,11 +1871,23 @@ class $SmsEventsTable extends SmsEvents
     requiredDuringInsert: false,
     defaultValue: const Constant('pending'),
   ).withConverter<RawPurgeState>($SmsEventsTable.$converterrawPurgeState);
+  static const VerificationMeta _contentSha256Meta = const VerificationMeta(
+    'contentSha256',
+  );
+  @override
+  late final GeneratedColumn<String> contentSha256 = GeneratedColumn<String>(
+    'content_sha256',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
     sourceKey,
-    senderHash,
+    senderKey,
+    senderDisplay,
     encryptedBody,
     redactedBody,
     ingestionSource,
@@ -1495,6 +1899,7 @@ class $SmsEventsTable extends SmsEvents
     captureCanonicalizationVersion,
     redactionVersion,
     rawPurgeState,
+    contentSha256,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1519,13 +1924,22 @@ class $SmsEventsTable extends SmsEvents
     } else if (isInserting) {
       context.missing(_sourceKeyMeta);
     }
-    if (data.containsKey('sender_hash')) {
+    if (data.containsKey('sender_key')) {
       context.handle(
-        _senderHashMeta,
-        senderHash.isAcceptableOrUnknown(data['sender_hash']!, _senderHashMeta),
+        _senderKeyMeta,
+        senderKey.isAcceptableOrUnknown(data['sender_key']!, _senderKeyMeta),
       );
     } else if (isInserting) {
-      context.missing(_senderHashMeta);
+      context.missing(_senderKeyMeta);
+    }
+    if (data.containsKey('sender_display')) {
+      context.handle(
+        _senderDisplayMeta,
+        senderDisplay.isAcceptableOrUnknown(
+          data['sender_display']!,
+          _senderDisplayMeta,
+        ),
+      );
     }
     if (data.containsKey('encrypted_body')) {
       context.handle(
@@ -1576,14 +1990,6 @@ class $SmsEventsTable extends SmsEvents
         ),
       );
     }
-    if (data.containsKey('status')) {
-      context.handle(
-        _statusMeta,
-        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_statusMeta);
-    }
     if (data.containsKey('privacy_epoch')) {
       context.handle(
         _privacyEpochMeta,
@@ -1622,6 +2028,15 @@ class $SmsEventsTable extends SmsEvents
         ),
       );
     }
+    if (data.containsKey('content_sha256')) {
+      context.handle(
+        _contentSha256Meta,
+        contentSha256.isAcceptableOrUnknown(
+          data['content_sha256']!,
+          _contentSha256Meta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1639,10 +2054,14 @@ class $SmsEventsTable extends SmsEvents
         DriftSqlType.string,
         data['${effectivePrefix}source_key'],
       )!,
-      senderHash: attachedDatabase.typeMapping.read(
+      senderKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
-        data['${effectivePrefix}sender_hash'],
+        data['${effectivePrefix}sender_key'],
       )!,
+      senderDisplay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_display'],
+      ),
       encryptedBody: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}encrypted_body'],
@@ -1663,10 +2082,12 @@ class $SmsEventsTable extends SmsEvents
         DriftSqlType.int,
         data['${effectivePrefix}expires_at_epoch_ms'],
       ),
-      status: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}status'],
-      )!,
+      status: $SmsEventsTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
       privacyEpoch: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}privacy_epoch'],
@@ -1689,6 +2110,10 @@ class $SmsEventsTable extends SmsEvents
           data['${effectivePrefix}raw_purge_state'],
         )!,
       ),
+      contentSha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_sha256'],
+      ),
     );
   }
 
@@ -1697,6 +2122,8 @@ class $SmsEventsTable extends SmsEvents
     return $SmsEventsTable(attachedDatabase, alias);
   }
 
+  static JsonTypeConverter2<SmsEventStatus, String, String> $converterstatus =
+      const EnumNameConverter<SmsEventStatus>(SmsEventStatus.values);
   static JsonTypeConverter2<RawPurgeState, String, String>
   $converterrawPurgeState = const EnumNameConverter<RawPurgeState>(
     RawPurgeState.values,
@@ -1706,22 +2133,31 @@ class $SmsEventsTable extends SmsEvents
 class SmsEvent extends DataClass implements Insertable<SmsEvent> {
   final int id;
   final String sourceKey;
-  final String senderHash;
+
+  /// Normalized matching key: trimmed, uppercased, NFC. Not a hash — renamed
+  /// from `senderHash`, which never held a hash (M4.14 V6).
+  final String senderKey;
+
+  /// Sender exactly as the transport reported it. Display only — never used
+  /// for matching (plan/03:46).
+  final String? senderDisplay;
   final String? encryptedBody;
   final String? redactedBody;
   final String ingestionSource;
   final int receivedAtEpochMs;
   final int? expiresAtEpochMs;
-  final String status;
+  final SmsEventStatus status;
   final int privacyEpoch;
   final int? providerRowId;
   final int captureCanonicalizationVersion;
   final int redactionVersion;
   final RawPurgeState rawPurgeState;
+  final String? contentSha256;
   const SmsEvent({
     required this.id,
     required this.sourceKey,
-    required this.senderHash,
+    required this.senderKey,
+    this.senderDisplay,
     this.encryptedBody,
     this.redactedBody,
     required this.ingestionSource,
@@ -1733,13 +2169,17 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     required this.captureCanonicalizationVersion,
     required this.redactionVersion,
     required this.rawPurgeState,
+    this.contentSha256,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['source_key'] = Variable<String>(sourceKey);
-    map['sender_hash'] = Variable<String>(senderHash);
+    map['sender_key'] = Variable<String>(senderKey);
+    if (!nullToAbsent || senderDisplay != null) {
+      map['sender_display'] = Variable<String>(senderDisplay);
+    }
     if (!nullToAbsent || encryptedBody != null) {
       map['encrypted_body'] = Variable<String>(encryptedBody);
     }
@@ -1751,7 +2191,11 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     if (!nullToAbsent || expiresAtEpochMs != null) {
       map['expires_at_epoch_ms'] = Variable<int>(expiresAtEpochMs);
     }
-    map['status'] = Variable<String>(status);
+    {
+      map['status'] = Variable<String>(
+        $SmsEventsTable.$converterstatus.toSql(status),
+      );
+    }
     map['privacy_epoch'] = Variable<int>(privacyEpoch);
     if (!nullToAbsent || providerRowId != null) {
       map['provider_row_id'] = Variable<int>(providerRowId);
@@ -1765,6 +2209,9 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
         $SmsEventsTable.$converterrawPurgeState.toSql(rawPurgeState),
       );
     }
+    if (!nullToAbsent || contentSha256 != null) {
+      map['content_sha256'] = Variable<String>(contentSha256);
+    }
     return map;
   }
 
@@ -1772,7 +2219,10 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     return SmsEventsCompanion(
       id: Value(id),
       sourceKey: Value(sourceKey),
-      senderHash: Value(senderHash),
+      senderKey: Value(senderKey),
+      senderDisplay: senderDisplay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderDisplay),
       encryptedBody: encryptedBody == null && nullToAbsent
           ? const Value.absent()
           : Value(encryptedBody),
@@ -1792,6 +2242,9 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       captureCanonicalizationVersion: Value(captureCanonicalizationVersion),
       redactionVersion: Value(redactionVersion),
       rawPurgeState: Value(rawPurgeState),
+      contentSha256: contentSha256 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contentSha256),
     );
   }
 
@@ -1803,13 +2256,16 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     return SmsEvent(
       id: serializer.fromJson<int>(json['id']),
       sourceKey: serializer.fromJson<String>(json['sourceKey']),
-      senderHash: serializer.fromJson<String>(json['senderHash']),
+      senderKey: serializer.fromJson<String>(json['senderKey']),
+      senderDisplay: serializer.fromJson<String?>(json['senderDisplay']),
       encryptedBody: serializer.fromJson<String?>(json['encryptedBody']),
       redactedBody: serializer.fromJson<String?>(json['redactedBody']),
       ingestionSource: serializer.fromJson<String>(json['ingestionSource']),
       receivedAtEpochMs: serializer.fromJson<int>(json['receivedAtEpochMs']),
       expiresAtEpochMs: serializer.fromJson<int?>(json['expiresAtEpochMs']),
-      status: serializer.fromJson<String>(json['status']),
+      status: $SmsEventsTable.$converterstatus.fromJson(
+        serializer.fromJson<String>(json['status']),
+      ),
       privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
       providerRowId: serializer.fromJson<int?>(json['providerRowId']),
       captureCanonicalizationVersion: serializer.fromJson<int>(
@@ -1819,6 +2275,7 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       rawPurgeState: $SmsEventsTable.$converterrawPurgeState.fromJson(
         serializer.fromJson<String>(json['rawPurgeState']),
       ),
+      contentSha256: serializer.fromJson<String?>(json['contentSha256']),
     );
   }
   @override
@@ -1827,13 +2284,16 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'sourceKey': serializer.toJson<String>(sourceKey),
-      'senderHash': serializer.toJson<String>(senderHash),
+      'senderKey': serializer.toJson<String>(senderKey),
+      'senderDisplay': serializer.toJson<String?>(senderDisplay),
       'encryptedBody': serializer.toJson<String?>(encryptedBody),
       'redactedBody': serializer.toJson<String?>(redactedBody),
       'ingestionSource': serializer.toJson<String>(ingestionSource),
       'receivedAtEpochMs': serializer.toJson<int>(receivedAtEpochMs),
       'expiresAtEpochMs': serializer.toJson<int?>(expiresAtEpochMs),
-      'status': serializer.toJson<String>(status),
+      'status': serializer.toJson<String>(
+        $SmsEventsTable.$converterstatus.toJson(status),
+      ),
       'privacyEpoch': serializer.toJson<int>(privacyEpoch),
       'providerRowId': serializer.toJson<int?>(providerRowId),
       'captureCanonicalizationVersion': serializer.toJson<int>(
@@ -1843,28 +2303,34 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       'rawPurgeState': serializer.toJson<String>(
         $SmsEventsTable.$converterrawPurgeState.toJson(rawPurgeState),
       ),
+      'contentSha256': serializer.toJson<String?>(contentSha256),
     };
   }
 
   SmsEvent copyWith({
     int? id,
     String? sourceKey,
-    String? senderHash,
+    String? senderKey,
+    Value<String?> senderDisplay = const Value.absent(),
     Value<String?> encryptedBody = const Value.absent(),
     Value<String?> redactedBody = const Value.absent(),
     String? ingestionSource,
     int? receivedAtEpochMs,
     Value<int?> expiresAtEpochMs = const Value.absent(),
-    String? status,
+    SmsEventStatus? status,
     int? privacyEpoch,
     Value<int?> providerRowId = const Value.absent(),
     int? captureCanonicalizationVersion,
     int? redactionVersion,
     RawPurgeState? rawPurgeState,
+    Value<String?> contentSha256 = const Value.absent(),
   }) => SmsEvent(
     id: id ?? this.id,
     sourceKey: sourceKey ?? this.sourceKey,
-    senderHash: senderHash ?? this.senderHash,
+    senderKey: senderKey ?? this.senderKey,
+    senderDisplay: senderDisplay.present
+        ? senderDisplay.value
+        : this.senderDisplay,
     encryptedBody: encryptedBody.present
         ? encryptedBody.value
         : this.encryptedBody,
@@ -1883,14 +2349,18 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
         captureCanonicalizationVersion ?? this.captureCanonicalizationVersion,
     redactionVersion: redactionVersion ?? this.redactionVersion,
     rawPurgeState: rawPurgeState ?? this.rawPurgeState,
+    contentSha256: contentSha256.present
+        ? contentSha256.value
+        : this.contentSha256,
   );
   SmsEvent copyWithCompanion(SmsEventsCompanion data) {
     return SmsEvent(
       id: data.id.present ? data.id.value : this.id,
       sourceKey: data.sourceKey.present ? data.sourceKey.value : this.sourceKey,
-      senderHash: data.senderHash.present
-          ? data.senderHash.value
-          : this.senderHash,
+      senderKey: data.senderKey.present ? data.senderKey.value : this.senderKey,
+      senderDisplay: data.senderDisplay.present
+          ? data.senderDisplay.value
+          : this.senderDisplay,
       encryptedBody: data.encryptedBody.present
           ? data.encryptedBody.value
           : this.encryptedBody,
@@ -1923,6 +2393,9 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       rawPurgeState: data.rawPurgeState.present
           ? data.rawPurgeState.value
           : this.rawPurgeState,
+      contentSha256: data.contentSha256.present
+          ? data.contentSha256.value
+          : this.contentSha256,
     );
   }
 
@@ -1931,7 +2404,8 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     return (StringBuffer('SmsEvent(')
           ..write('id: $id, ')
           ..write('sourceKey: $sourceKey, ')
-          ..write('senderHash: $senderHash, ')
+          ..write('senderKey: $senderKey, ')
+          ..write('senderDisplay: $senderDisplay, ')
           ..write('encryptedBody: $encryptedBody, ')
           ..write('redactedBody: $redactedBody, ')
           ..write('ingestionSource: $ingestionSource, ')
@@ -1944,7 +2418,8 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
             'captureCanonicalizationVersion: $captureCanonicalizationVersion, ',
           )
           ..write('redactionVersion: $redactionVersion, ')
-          ..write('rawPurgeState: $rawPurgeState')
+          ..write('rawPurgeState: $rawPurgeState, ')
+          ..write('contentSha256: $contentSha256')
           ..write(')'))
         .toString();
   }
@@ -1953,7 +2428,8 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
   int get hashCode => Object.hash(
     id,
     sourceKey,
-    senderHash,
+    senderKey,
+    senderDisplay,
     encryptedBody,
     redactedBody,
     ingestionSource,
@@ -1965,6 +2441,7 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
     captureCanonicalizationVersion,
     redactionVersion,
     rawPurgeState,
+    contentSha256,
   );
   @override
   bool operator ==(Object other) =>
@@ -1972,7 +2449,8 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
       (other is SmsEvent &&
           other.id == this.id &&
           other.sourceKey == this.sourceKey &&
-          other.senderHash == this.senderHash &&
+          other.senderKey == this.senderKey &&
+          other.senderDisplay == this.senderDisplay &&
           other.encryptedBody == this.encryptedBody &&
           other.redactedBody == this.redactedBody &&
           other.ingestionSource == this.ingestionSource &&
@@ -1984,28 +2462,32 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
           other.captureCanonicalizationVersion ==
               this.captureCanonicalizationVersion &&
           other.redactionVersion == this.redactionVersion &&
-          other.rawPurgeState == this.rawPurgeState);
+          other.rawPurgeState == this.rawPurgeState &&
+          other.contentSha256 == this.contentSha256);
 }
 
 class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
   final Value<int> id;
   final Value<String> sourceKey;
-  final Value<String> senderHash;
+  final Value<String> senderKey;
+  final Value<String?> senderDisplay;
   final Value<String?> encryptedBody;
   final Value<String?> redactedBody;
   final Value<String> ingestionSource;
   final Value<int> receivedAtEpochMs;
   final Value<int?> expiresAtEpochMs;
-  final Value<String> status;
+  final Value<SmsEventStatus> status;
   final Value<int> privacyEpoch;
   final Value<int?> providerRowId;
   final Value<int> captureCanonicalizationVersion;
   final Value<int> redactionVersion;
   final Value<RawPurgeState> rawPurgeState;
+  final Value<String?> contentSha256;
   const SmsEventsCompanion({
     this.id = const Value.absent(),
     this.sourceKey = const Value.absent(),
-    this.senderHash = const Value.absent(),
+    this.senderKey = const Value.absent(),
+    this.senderDisplay = const Value.absent(),
     this.encryptedBody = const Value.absent(),
     this.redactedBody = const Value.absent(),
     this.ingestionSource = const Value.absent(),
@@ -2017,24 +2499,27 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     this.captureCanonicalizationVersion = const Value.absent(),
     this.redactionVersion = const Value.absent(),
     this.rawPurgeState = const Value.absent(),
+    this.contentSha256 = const Value.absent(),
   });
   SmsEventsCompanion.insert({
     this.id = const Value.absent(),
     required String sourceKey,
-    required String senderHash,
+    required String senderKey,
+    this.senderDisplay = const Value.absent(),
     this.encryptedBody = const Value.absent(),
     this.redactedBody = const Value.absent(),
     required String ingestionSource,
     required int receivedAtEpochMs,
     this.expiresAtEpochMs = const Value.absent(),
-    required String status,
+    required SmsEventStatus status,
     required int privacyEpoch,
     this.providerRowId = const Value.absent(),
     this.captureCanonicalizationVersion = const Value.absent(),
     this.redactionVersion = const Value.absent(),
     this.rawPurgeState = const Value.absent(),
+    this.contentSha256 = const Value.absent(),
   }) : sourceKey = Value(sourceKey),
-       senderHash = Value(senderHash),
+       senderKey = Value(senderKey),
        ingestionSource = Value(ingestionSource),
        receivedAtEpochMs = Value(receivedAtEpochMs),
        status = Value(status),
@@ -2042,7 +2527,8 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
   static Insertable<SmsEvent> custom({
     Expression<int>? id,
     Expression<String>? sourceKey,
-    Expression<String>? senderHash,
+    Expression<String>? senderKey,
+    Expression<String>? senderDisplay,
     Expression<String>? encryptedBody,
     Expression<String>? redactedBody,
     Expression<String>? ingestionSource,
@@ -2054,11 +2540,13 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     Expression<int>? captureCanonicalizationVersion,
     Expression<int>? redactionVersion,
     Expression<String>? rawPurgeState,
+    Expression<String>? contentSha256,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (sourceKey != null) 'source_key': sourceKey,
-      if (senderHash != null) 'sender_hash': senderHash,
+      if (senderKey != null) 'sender_key': senderKey,
+      if (senderDisplay != null) 'sender_display': senderDisplay,
       if (encryptedBody != null) 'encrypted_body': encryptedBody,
       if (redactedBody != null) 'redacted_body': redactedBody,
       if (ingestionSource != null) 'ingestion_source': ingestionSource,
@@ -2071,29 +2559,33 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
         'capture_canonicalization_version': captureCanonicalizationVersion,
       if (redactionVersion != null) 'redaction_version': redactionVersion,
       if (rawPurgeState != null) 'raw_purge_state': rawPurgeState,
+      if (contentSha256 != null) 'content_sha256': contentSha256,
     });
   }
 
   SmsEventsCompanion copyWith({
     Value<int>? id,
     Value<String>? sourceKey,
-    Value<String>? senderHash,
+    Value<String>? senderKey,
+    Value<String?>? senderDisplay,
     Value<String?>? encryptedBody,
     Value<String?>? redactedBody,
     Value<String>? ingestionSource,
     Value<int>? receivedAtEpochMs,
     Value<int?>? expiresAtEpochMs,
-    Value<String>? status,
+    Value<SmsEventStatus>? status,
     Value<int>? privacyEpoch,
     Value<int?>? providerRowId,
     Value<int>? captureCanonicalizationVersion,
     Value<int>? redactionVersion,
     Value<RawPurgeState>? rawPurgeState,
+    Value<String?>? contentSha256,
   }) {
     return SmsEventsCompanion(
       id: id ?? this.id,
       sourceKey: sourceKey ?? this.sourceKey,
-      senderHash: senderHash ?? this.senderHash,
+      senderKey: senderKey ?? this.senderKey,
+      senderDisplay: senderDisplay ?? this.senderDisplay,
       encryptedBody: encryptedBody ?? this.encryptedBody,
       redactedBody: redactedBody ?? this.redactedBody,
       ingestionSource: ingestionSource ?? this.ingestionSource,
@@ -2106,6 +2598,7 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
           captureCanonicalizationVersion ?? this.captureCanonicalizationVersion,
       redactionVersion: redactionVersion ?? this.redactionVersion,
       rawPurgeState: rawPurgeState ?? this.rawPurgeState,
+      contentSha256: contentSha256 ?? this.contentSha256,
     );
   }
 
@@ -2118,8 +2611,11 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     if (sourceKey.present) {
       map['source_key'] = Variable<String>(sourceKey.value);
     }
-    if (senderHash.present) {
-      map['sender_hash'] = Variable<String>(senderHash.value);
+    if (senderKey.present) {
+      map['sender_key'] = Variable<String>(senderKey.value);
+    }
+    if (senderDisplay.present) {
+      map['sender_display'] = Variable<String>(senderDisplay.value);
     }
     if (encryptedBody.present) {
       map['encrypted_body'] = Variable<String>(encryptedBody.value);
@@ -2137,7 +2633,9 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
       map['expires_at_epoch_ms'] = Variable<int>(expiresAtEpochMs.value);
     }
     if (status.present) {
-      map['status'] = Variable<String>(status.value);
+      map['status'] = Variable<String>(
+        $SmsEventsTable.$converterstatus.toSql(status.value),
+      );
     }
     if (privacyEpoch.present) {
       map['privacy_epoch'] = Variable<int>(privacyEpoch.value);
@@ -2158,6 +2656,9 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
         $SmsEventsTable.$converterrawPurgeState.toSql(rawPurgeState.value),
       );
     }
+    if (contentSha256.present) {
+      map['content_sha256'] = Variable<String>(contentSha256.value);
+    }
     return map;
   }
 
@@ -2166,7 +2667,8 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
     return (StringBuffer('SmsEventsCompanion(')
           ..write('id: $id, ')
           ..write('sourceKey: $sourceKey, ')
-          ..write('senderHash: $senderHash, ')
+          ..write('senderKey: $senderKey, ')
+          ..write('senderDisplay: $senderDisplay, ')
           ..write('encryptedBody: $encryptedBody, ')
           ..write('redactedBody: $redactedBody, ')
           ..write('ingestionSource: $ingestionSource, ')
@@ -2179,7 +2681,8 @@ class SmsEventsCompanion extends UpdateCompanion<SmsEvent> {
             'captureCanonicalizationVersion: $captureCanonicalizationVersion, ',
           )
           ..write('redactionVersion: $redactionVersion, ')
-          ..write('rawPurgeState: $rawPurgeState')
+          ..write('rawPurgeState: $rawPurgeState, ')
+          ..write('contentSha256: $contentSha256')
           ..write(')'))
         .toString();
   }
@@ -4015,6 +4518,17 @@ class $ActivityEventsTable extends ActivityEvents
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _batchCountMeta = const VerificationMeta(
+    'batchCount',
+  );
+  @override
+  late final GeneratedColumn<int> batchCount = GeneratedColumn<int>(
+    'batch_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4022,6 +4536,7 @@ class $ActivityEventsTable extends ActivityEvents
     sanitizedDetail,
     occurredAtEpochMs,
     privacyEpoch,
+    batchCount,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4060,6 +4575,12 @@ class $ActivityEventsTable extends ActivityEvents
     } else if (isInserting) {
       context.missing(_privacyEpochMeta);
     }
+    if (data.containsKey('batch_count')) {
+      context.handle(
+        _batchCountMeta,
+        batchCount.isAcceptableOrUnknown(data['batch_count']!, _batchCountMeta),
+      );
+    }
     return context;
   }
 
@@ -4093,6 +4614,10 @@ class $ActivityEventsTable extends ActivityEvents
         DriftSqlType.int,
         data['${effectivePrefix}privacy_epoch'],
       )!,
+      batchCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}batch_count'],
+      ),
     );
   }
 
@@ -4117,12 +4642,18 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
   final ActivityStateTransition sanitizedDetail;
   final int occurredAtEpochMs;
   final int privacyEpoch;
+
+  /// Optional count for aggregated batch events — e.g. one
+  /// `messageImported` row per import batch instead of one per message
+  /// (M4.15 WP3). Null = single-item event.
+  final int? batchCount;
   const ActivityEvent({
     required this.id,
     required this.eventType,
     required this.sanitizedDetail,
     required this.occurredAtEpochMs,
     required this.privacyEpoch,
+    this.batchCount,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4140,6 +4671,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     }
     map['occurred_at_epoch_ms'] = Variable<int>(occurredAtEpochMs);
     map['privacy_epoch'] = Variable<int>(privacyEpoch);
+    if (!nullToAbsent || batchCount != null) {
+      map['batch_count'] = Variable<int>(batchCount);
+    }
     return map;
   }
 
@@ -4150,6 +4684,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       sanitizedDetail: Value(sanitizedDetail),
       occurredAtEpochMs: Value(occurredAtEpochMs),
       privacyEpoch: Value(privacyEpoch),
+      batchCount: batchCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(batchCount),
     );
   }
 
@@ -4168,6 +4705,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       ),
       occurredAtEpochMs: serializer.fromJson<int>(json['occurredAtEpochMs']),
       privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
+      batchCount: serializer.fromJson<int?>(json['batchCount']),
     );
   }
   @override
@@ -4183,6 +4721,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       ),
       'occurredAtEpochMs': serializer.toJson<int>(occurredAtEpochMs),
       'privacyEpoch': serializer.toJson<int>(privacyEpoch),
+      'batchCount': serializer.toJson<int?>(batchCount),
     };
   }
 
@@ -4192,12 +4731,14 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     ActivityStateTransition? sanitizedDetail,
     int? occurredAtEpochMs,
     int? privacyEpoch,
+    Value<int?> batchCount = const Value.absent(),
   }) => ActivityEvent(
     id: id ?? this.id,
     eventType: eventType ?? this.eventType,
     sanitizedDetail: sanitizedDetail ?? this.sanitizedDetail,
     occurredAtEpochMs: occurredAtEpochMs ?? this.occurredAtEpochMs,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+    batchCount: batchCount.present ? batchCount.value : this.batchCount,
   );
   ActivityEvent copyWithCompanion(ActivityEventsCompanion data) {
     return ActivityEvent(
@@ -4212,6 +4753,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       privacyEpoch: data.privacyEpoch.present
           ? data.privacyEpoch.value
           : this.privacyEpoch,
+      batchCount: data.batchCount.present
+          ? data.batchCount.value
+          : this.batchCount,
     );
   }
 
@@ -4222,7 +4766,8 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
           ..write('eventType: $eventType, ')
           ..write('sanitizedDetail: $sanitizedDetail, ')
           ..write('occurredAtEpochMs: $occurredAtEpochMs, ')
-          ..write('privacyEpoch: $privacyEpoch')
+          ..write('privacyEpoch: $privacyEpoch, ')
+          ..write('batchCount: $batchCount')
           ..write(')'))
         .toString();
   }
@@ -4234,6 +4779,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     sanitizedDetail,
     occurredAtEpochMs,
     privacyEpoch,
+    batchCount,
   );
   @override
   bool operator ==(Object other) =>
@@ -4243,7 +4789,8 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
           other.eventType == this.eventType &&
           other.sanitizedDetail == this.sanitizedDetail &&
           other.occurredAtEpochMs == this.occurredAtEpochMs &&
-          other.privacyEpoch == this.privacyEpoch);
+          other.privacyEpoch == this.privacyEpoch &&
+          other.batchCount == this.batchCount);
 }
 
 class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
@@ -4252,12 +4799,14 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
   final Value<ActivityStateTransition> sanitizedDetail;
   final Value<int> occurredAtEpochMs;
   final Value<int> privacyEpoch;
+  final Value<int?> batchCount;
   const ActivityEventsCompanion({
     this.id = const Value.absent(),
     this.eventType = const Value.absent(),
     this.sanitizedDetail = const Value.absent(),
     this.occurredAtEpochMs = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
+    this.batchCount = const Value.absent(),
   });
   ActivityEventsCompanion.insert({
     this.id = const Value.absent(),
@@ -4265,6 +4814,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     required ActivityStateTransition sanitizedDetail,
     required int occurredAtEpochMs,
     required int privacyEpoch,
+    this.batchCount = const Value.absent(),
   }) : eventType = Value(eventType),
        sanitizedDetail = Value(sanitizedDetail),
        occurredAtEpochMs = Value(occurredAtEpochMs),
@@ -4275,6 +4825,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     Expression<String>? sanitizedDetail,
     Expression<int>? occurredAtEpochMs,
     Expression<int>? privacyEpoch,
+    Expression<int>? batchCount,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4282,6 +4833,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
       if (sanitizedDetail != null) 'sanitized_detail': sanitizedDetail,
       if (occurredAtEpochMs != null) 'occurred_at_epoch_ms': occurredAtEpochMs,
       if (privacyEpoch != null) 'privacy_epoch': privacyEpoch,
+      if (batchCount != null) 'batch_count': batchCount,
     });
   }
 
@@ -4291,6 +4843,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     Value<ActivityStateTransition>? sanitizedDetail,
     Value<int>? occurredAtEpochMs,
     Value<int>? privacyEpoch,
+    Value<int?>? batchCount,
   }) {
     return ActivityEventsCompanion(
       id: id ?? this.id,
@@ -4298,6 +4851,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
       sanitizedDetail: sanitizedDetail ?? this.sanitizedDetail,
       occurredAtEpochMs: occurredAtEpochMs ?? this.occurredAtEpochMs,
       privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+      batchCount: batchCount ?? this.batchCount,
     );
   }
 
@@ -4325,6 +4879,9 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     if (privacyEpoch.present) {
       map['privacy_epoch'] = Variable<int>(privacyEpoch.value);
     }
+    if (batchCount.present) {
+      map['batch_count'] = Variable<int>(batchCount.value);
+    }
     return map;
   }
 
@@ -4335,7 +4892,8 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
           ..write('eventType: $eventType, ')
           ..write('sanitizedDetail: $sanitizedDetail, ')
           ..write('occurredAtEpochMs: $occurredAtEpochMs, ')
-          ..write('privacyEpoch: $privacyEpoch')
+          ..write('privacyEpoch: $privacyEpoch, ')
+          ..write('batchCount: $batchCount')
           ..write(')'))
         .toString();
   }
@@ -9487,6 +10045,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final $SenderRulesTable senderRules = $SenderRulesTable(this);
+  late final $TrackedSendersTable trackedSenders = $TrackedSendersTable(this);
   late final $SmsEventsTable smsEvents = $SmsEventsTable(this);
   late final $TransactionCandidatesTable transactionCandidates =
       $TransactionCandidatesTable(this);
@@ -9515,6 +10074,18 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RulePacksTable rulePacks = $RulePacksTable(this);
   late final $IngestionCheckpointsTable ingestionCheckpoints =
       $IngestionCheckpointsTable(this);
+  late final Index idxParserRulesSenderFamily = Index(
+    'idx_parser_rules_sender_family',
+    'CREATE UNIQUE INDEX idx_parser_rules_sender_family ON parser_rules (sender_hash, parser_family)',
+  );
+  late final Index idxSmsEventsReceivedDesc = Index(
+    'idx_sms_events_received_desc',
+    'CREATE INDEX idx_sms_events_received_desc ON sms_events (received_at_epoch_ms, id)',
+  );
+  late final Index idxSmsEventsSenderReceived = Index(
+    'idx_sms_events_sender_received',
+    'CREATE INDEX idx_sms_events_sender_received ON sms_events (sender_key, received_at_epoch_ms, id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9522,6 +10093,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     appSettings,
     senderRules,
+    trackedSenders,
     smsEvents,
     transactionCandidates,
     activityEvents,
@@ -9537,6 +10109,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     capabilityLedger,
     rulePacks,
     ingestionCheckpoints,
+    idxParserRulesSenderFamily,
+    idxSmsEventsReceivedDesc,
+    idxSmsEventsSenderReceived,
   ];
 }
 
@@ -9939,6 +10514,7 @@ typedef $$SenderRulesTableCreateCompanionBuilder =
       required String senderHash,
       required String parserFamily,
       required int createdAtEpochMs,
+      Value<int> priority,
       Value<String?> parserVersion,
       Value<String?> parserChecksum,
     });
@@ -9948,6 +10524,7 @@ typedef $$SenderRulesTableUpdateCompanionBuilder =
       Value<String> senderHash,
       Value<String> parserFamily,
       Value<int> createdAtEpochMs,
+      Value<int> priority,
       Value<String?> parserVersion,
       Value<String?> parserChecksum,
     });
@@ -9978,6 +10555,11 @@ class $$SenderRulesTableFilterComposer
 
   ColumnFilters<int> get createdAtEpochMs => $composableBuilder(
     column: $table.createdAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10021,6 +10603,11 @@ class $$SenderRulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get parserVersion => $composableBuilder(
     column: $table.parserVersion,
     builder: (column) => ColumnOrderings(column),
@@ -10058,6 +10645,9 @@ class $$SenderRulesTableAnnotationComposer
     column: $table.createdAtEpochMs,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
 
   GeneratedColumn<String> get parserVersion => $composableBuilder(
     column: $table.parserVersion,
@@ -10105,6 +10695,7 @@ class $$SenderRulesTableTableManager
                 Value<String> senderHash = const Value.absent(),
                 Value<String> parserFamily = const Value.absent(),
                 Value<int> createdAtEpochMs = const Value.absent(),
+                Value<int> priority = const Value.absent(),
                 Value<String?> parserVersion = const Value.absent(),
                 Value<String?> parserChecksum = const Value.absent(),
               }) => SenderRulesCompanion(
@@ -10112,6 +10703,7 @@ class $$SenderRulesTableTableManager
                 senderHash: senderHash,
                 parserFamily: parserFamily,
                 createdAtEpochMs: createdAtEpochMs,
+                priority: priority,
                 parserVersion: parserVersion,
                 parserChecksum: parserChecksum,
               ),
@@ -10121,6 +10713,7 @@ class $$SenderRulesTableTableManager
                 required String senderHash,
                 required String parserFamily,
                 required int createdAtEpochMs,
+                Value<int> priority = const Value.absent(),
                 Value<String?> parserVersion = const Value.absent(),
                 Value<String?> parserChecksum = const Value.absent(),
               }) => SenderRulesCompanion.insert(
@@ -10128,6 +10721,7 @@ class $$SenderRulesTableTableManager
                 senderHash: senderHash,
                 parserFamily: parserFamily,
                 createdAtEpochMs: createdAtEpochMs,
+                priority: priority,
                 parserVersion: parserVersion,
                 parserChecksum: parserChecksum,
               ),
@@ -10156,39 +10750,234 @@ typedef $$SenderRulesTableProcessedTableManager =
       SenderRule,
       PrefetchHooks Function()
     >;
+typedef $$TrackedSendersTableCreateCompanionBuilder =
+    TrackedSendersCompanion Function({
+      required String senderKey,
+      Value<String?> senderDisplay,
+      Value<bool> enabled,
+      required int addedAtEpochMs,
+      Value<int> rowid,
+    });
+typedef $$TrackedSendersTableUpdateCompanionBuilder =
+    TrackedSendersCompanion Function({
+      Value<String> senderKey,
+      Value<String?> senderDisplay,
+      Value<bool> enabled,
+      Value<int> addedAtEpochMs,
+      Value<int> rowid,
+    });
+
+class $$TrackedSendersTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackedSendersTable> {
+  $$TrackedSendersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get senderKey => $composableBuilder(
+    column: $table.senderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get addedAtEpochMs => $composableBuilder(
+    column: $table.addedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TrackedSendersTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackedSendersTable> {
+  $$TrackedSendersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get senderKey => $composableBuilder(
+    column: $table.senderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get addedAtEpochMs => $composableBuilder(
+    column: $table.addedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TrackedSendersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackedSendersTable> {
+  $$TrackedSendersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get senderKey =>
+      $composableBuilder(column: $table.senderKey, builder: (column) => column);
+
+  GeneratedColumn<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get addedAtEpochMs => $composableBuilder(
+    column: $table.addedAtEpochMs,
+    builder: (column) => column,
+  );
+}
+
+class $$TrackedSendersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackedSendersTable,
+          TrackedSenderRow,
+          $$TrackedSendersTableFilterComposer,
+          $$TrackedSendersTableOrderingComposer,
+          $$TrackedSendersTableAnnotationComposer,
+          $$TrackedSendersTableCreateCompanionBuilder,
+          $$TrackedSendersTableUpdateCompanionBuilder,
+          (
+            TrackedSenderRow,
+            BaseReferences<
+              _$AppDatabase,
+              $TrackedSendersTable,
+              TrackedSenderRow
+            >,
+          ),
+          TrackedSenderRow,
+          PrefetchHooks Function()
+        > {
+  $$TrackedSendersTableTableManager(
+    _$AppDatabase db,
+    $TrackedSendersTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackedSendersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackedSendersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackedSendersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> senderKey = const Value.absent(),
+                Value<String?> senderDisplay = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<int> addedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => TrackedSendersCompanion(
+                senderKey: senderKey,
+                senderDisplay: senderDisplay,
+                enabled: enabled,
+                addedAtEpochMs: addedAtEpochMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String senderKey,
+                Value<String?> senderDisplay = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                required int addedAtEpochMs,
+                Value<int> rowid = const Value.absent(),
+              }) => TrackedSendersCompanion.insert(
+                senderKey: senderKey,
+                senderDisplay: senderDisplay,
+                enabled: enabled,
+                addedAtEpochMs: addedAtEpochMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TrackedSendersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackedSendersTable,
+      TrackedSenderRow,
+      $$TrackedSendersTableFilterComposer,
+      $$TrackedSendersTableOrderingComposer,
+      $$TrackedSendersTableAnnotationComposer,
+      $$TrackedSendersTableCreateCompanionBuilder,
+      $$TrackedSendersTableUpdateCompanionBuilder,
+      (
+        TrackedSenderRow,
+        BaseReferences<_$AppDatabase, $TrackedSendersTable, TrackedSenderRow>,
+      ),
+      TrackedSenderRow,
+      PrefetchHooks Function()
+    >;
 typedef $$SmsEventsTableCreateCompanionBuilder =
     SmsEventsCompanion Function({
       Value<int> id,
       required String sourceKey,
-      required String senderHash,
+      required String senderKey,
+      Value<String?> senderDisplay,
       Value<String?> encryptedBody,
       Value<String?> redactedBody,
       required String ingestionSource,
       required int receivedAtEpochMs,
       Value<int?> expiresAtEpochMs,
-      required String status,
+      required SmsEventStatus status,
       required int privacyEpoch,
       Value<int?> providerRowId,
       Value<int> captureCanonicalizationVersion,
       Value<int> redactionVersion,
       Value<RawPurgeState> rawPurgeState,
+      Value<String?> contentSha256,
     });
 typedef $$SmsEventsTableUpdateCompanionBuilder =
     SmsEventsCompanion Function({
       Value<int> id,
       Value<String> sourceKey,
-      Value<String> senderHash,
+      Value<String> senderKey,
+      Value<String?> senderDisplay,
       Value<String?> encryptedBody,
       Value<String?> redactedBody,
       Value<String> ingestionSource,
       Value<int> receivedAtEpochMs,
       Value<int?> expiresAtEpochMs,
-      Value<String> status,
+      Value<SmsEventStatus> status,
       Value<int> privacyEpoch,
       Value<int?> providerRowId,
       Value<int> captureCanonicalizationVersion,
       Value<int> redactionVersion,
       Value<RawPurgeState> rawPurgeState,
+      Value<String?> contentSha256,
     });
 
 final class $$SmsEventsTableReferences
@@ -10240,8 +11029,13 @@ class $$SmsEventsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get senderHash => $composableBuilder(
-    column: $table.senderHash,
+  ColumnFilters<String> get senderKey => $composableBuilder(
+    column: $table.senderKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10270,9 +11064,10 @@ class $$SmsEventsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get status => $composableBuilder(
+  ColumnWithTypeConverterFilters<SmsEventStatus, SmsEventStatus, String>
+  get status => $composableBuilder(
     column: $table.status,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<int> get privacyEpoch => $composableBuilder(
@@ -10299,6 +11094,11 @@ class $$SmsEventsTableFilterComposer
   get rawPurgeState => $composableBuilder(
     column: $table.rawPurgeState,
     builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => ColumnFilters(column),
   );
 
   Expression<bool> transactionCandidatesRefs(
@@ -10347,8 +11147,13 @@ class $$SmsEventsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get senderHash => $composableBuilder(
-    column: $table.senderHash,
+  ColumnOrderings<String> get senderKey => $composableBuilder(
+    column: $table.senderKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -10406,6 +11211,11 @@ class $$SmsEventsTableOrderingComposer
     column: $table.rawPurgeState,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SmsEventsTableAnnotationComposer
@@ -10423,8 +11233,11 @@ class $$SmsEventsTableAnnotationComposer
   GeneratedColumn<String> get sourceKey =>
       $composableBuilder(column: $table.sourceKey, builder: (column) => column);
 
-  GeneratedColumn<String> get senderHash => $composableBuilder(
-    column: $table.senderHash,
+  GeneratedColumn<String> get senderKey =>
+      $composableBuilder(column: $table.senderKey, builder: (column) => column);
+
+  GeneratedColumn<String> get senderDisplay => $composableBuilder(
+    column: $table.senderDisplay,
     builder: (column) => column,
   );
 
@@ -10453,7 +11266,7 @@ class $$SmsEventsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get status =>
+  GeneratedColumnWithTypeConverter<SmsEventStatus, String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
 
   GeneratedColumn<int> get privacyEpoch => $composableBuilder(
@@ -10481,6 +11294,11 @@ class $$SmsEventsTableAnnotationComposer
         column: $table.rawPurgeState,
         builder: (column) => column,
       );
+
+  GeneratedColumn<String> get contentSha256 => $composableBuilder(
+    column: $table.contentSha256,
+    builder: (column) => column,
+  );
 
   Expression<T> transactionCandidatesRefs<T extends Object>(
     Expression<T> Function($$TransactionCandidatesTableAnnotationComposer a) f,
@@ -10539,23 +11357,26 @@ class $$SmsEventsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> sourceKey = const Value.absent(),
-                Value<String> senderHash = const Value.absent(),
+                Value<String> senderKey = const Value.absent(),
+                Value<String?> senderDisplay = const Value.absent(),
                 Value<String?> encryptedBody = const Value.absent(),
                 Value<String?> redactedBody = const Value.absent(),
                 Value<String> ingestionSource = const Value.absent(),
                 Value<int> receivedAtEpochMs = const Value.absent(),
                 Value<int?> expiresAtEpochMs = const Value.absent(),
-                Value<String> status = const Value.absent(),
+                Value<SmsEventStatus> status = const Value.absent(),
                 Value<int> privacyEpoch = const Value.absent(),
                 Value<int?> providerRowId = const Value.absent(),
                 Value<int> captureCanonicalizationVersion =
                     const Value.absent(),
                 Value<int> redactionVersion = const Value.absent(),
                 Value<RawPurgeState> rawPurgeState = const Value.absent(),
+                Value<String?> contentSha256 = const Value.absent(),
               }) => SmsEventsCompanion(
                 id: id,
                 sourceKey: sourceKey,
-                senderHash: senderHash,
+                senderKey: senderKey,
+                senderDisplay: senderDisplay,
                 encryptedBody: encryptedBody,
                 redactedBody: redactedBody,
                 ingestionSource: ingestionSource,
@@ -10567,28 +11388,32 @@ class $$SmsEventsTableTableManager
                 captureCanonicalizationVersion: captureCanonicalizationVersion,
                 redactionVersion: redactionVersion,
                 rawPurgeState: rawPurgeState,
+                contentSha256: contentSha256,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String sourceKey,
-                required String senderHash,
+                required String senderKey,
+                Value<String?> senderDisplay = const Value.absent(),
                 Value<String?> encryptedBody = const Value.absent(),
                 Value<String?> redactedBody = const Value.absent(),
                 required String ingestionSource,
                 required int receivedAtEpochMs,
                 Value<int?> expiresAtEpochMs = const Value.absent(),
-                required String status,
+                required SmsEventStatus status,
                 required int privacyEpoch,
                 Value<int?> providerRowId = const Value.absent(),
                 Value<int> captureCanonicalizationVersion =
                     const Value.absent(),
                 Value<int> redactionVersion = const Value.absent(),
                 Value<RawPurgeState> rawPurgeState = const Value.absent(),
+                Value<String?> contentSha256 = const Value.absent(),
               }) => SmsEventsCompanion.insert(
                 id: id,
                 sourceKey: sourceKey,
-                senderHash: senderHash,
+                senderKey: senderKey,
+                senderDisplay: senderDisplay,
                 encryptedBody: encryptedBody,
                 redactedBody: redactedBody,
                 ingestionSource: ingestionSource,
@@ -10600,6 +11425,7 @@ class $$SmsEventsTableTableManager
                 captureCanonicalizationVersion: captureCanonicalizationVersion,
                 redactionVersion: redactionVersion,
                 rawPurgeState: rawPurgeState,
+                contentSha256: contentSha256,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -11610,6 +12436,7 @@ typedef $$ActivityEventsTableCreateCompanionBuilder =
       required ActivityStateTransition sanitizedDetail,
       required int occurredAtEpochMs,
       required int privacyEpoch,
+      Value<int?> batchCount,
     });
 typedef $$ActivityEventsTableUpdateCompanionBuilder =
     ActivityEventsCompanion Function({
@@ -11618,6 +12445,7 @@ typedef $$ActivityEventsTableUpdateCompanionBuilder =
       Value<ActivityStateTransition> sanitizedDetail,
       Value<int> occurredAtEpochMs,
       Value<int> privacyEpoch,
+      Value<int?> batchCount,
     });
 
 class $$ActivityEventsTableFilterComposer
@@ -11659,6 +12487,11 @@ class $$ActivityEventsTableFilterComposer
     column: $table.privacyEpoch,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<int> get batchCount => $composableBuilder(
+    column: $table.batchCount,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$ActivityEventsTableOrderingComposer
@@ -11694,6 +12527,11 @@ class $$ActivityEventsTableOrderingComposer
     column: $table.privacyEpoch,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get batchCount => $composableBuilder(
+    column: $table.batchCount,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ActivityEventsTableAnnotationComposer
@@ -11724,6 +12562,11 @@ class $$ActivityEventsTableAnnotationComposer
 
   GeneratedColumn<int> get privacyEpoch => $composableBuilder(
     column: $table.privacyEpoch,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get batchCount => $composableBuilder(
+    column: $table.batchCount,
     builder: (column) => column,
   );
 }
@@ -11767,12 +12610,14 @@ class $$ActivityEventsTableTableManager
                     const Value.absent(),
                 Value<int> occurredAtEpochMs = const Value.absent(),
                 Value<int> privacyEpoch = const Value.absent(),
+                Value<int?> batchCount = const Value.absent(),
               }) => ActivityEventsCompanion(
                 id: id,
                 eventType: eventType,
                 sanitizedDetail: sanitizedDetail,
                 occurredAtEpochMs: occurredAtEpochMs,
                 privacyEpoch: privacyEpoch,
+                batchCount: batchCount,
               ),
           createCompanionCallback:
               ({
@@ -11781,12 +12626,14 @@ class $$ActivityEventsTableTableManager
                 required ActivityStateTransition sanitizedDetail,
                 required int occurredAtEpochMs,
                 required int privacyEpoch,
+                Value<int?> batchCount = const Value.absent(),
               }) => ActivityEventsCompanion.insert(
                 id: id,
                 eventType: eventType,
                 sanitizedDetail: sanitizedDetail,
                 occurredAtEpochMs: occurredAtEpochMs,
                 privacyEpoch: privacyEpoch,
+                batchCount: batchCount,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -14730,6 +15577,8 @@ class $AppDatabaseManager {
       $$AppSettingsTableTableManager(_db, _db.appSettings);
   $$SenderRulesTableTableManager get senderRules =>
       $$SenderRulesTableTableManager(_db, _db.senderRules);
+  $$TrackedSendersTableTableManager get trackedSenders =>
+      $$TrackedSendersTableTableManager(_db, _db.trackedSenders);
   $$SmsEventsTableTableManager get smsEvents =>
       $$SmsEventsTableTableManager(_db, _db.smsEvents);
   $$TransactionCandidatesTableTableManager get transactionCandidates =>

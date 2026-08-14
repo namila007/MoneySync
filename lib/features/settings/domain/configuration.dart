@@ -46,6 +46,7 @@ final class ConfigurationState {
     this.historyImport = const HistoryImportPreferences(),
     this.processingMode = ProcessingMode.review,
     this.configurationRevision = 0,
+    this.secureWindowEnabled = true,
   });
   final AppThemeMode themeMode;
   final AppLockPreferences appLock;
@@ -53,4 +54,5 @@ final class ConfigurationState {
   final HistoryImportPreferences historyImport;
   final ProcessingMode processingMode;
   final int configurationRevision;
+  final bool secureWindowEnabled;
 }

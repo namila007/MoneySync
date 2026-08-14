@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../../../core/crypto/keyed_hmac.dart';
 
 /// The only supported origins of a captured source message.
@@ -7,6 +5,18 @@ import '../../../core/crypto/keyed_hmac.dart';
 /// This is provenance, not identity: both paths must derive the same key for
 /// the same provider message.
 enum SmsIngestionSource { historySelection, broadcast }
+
+/// Signs one canonical source-message pre-image. Implementations receive the
+/// structured fields — never a pre-built string — and rebuild the canonical
+/// byte encoding themselves, so callers cannot sign arbitrary bytes. The keyed
+/// boundary keeps key material in the platform; Dart only ever sees digests.
+typedef SourceIdentitySigner =
+    Future<HmacDigest> Function({
+      required int canonicalizationVersion,
+      required String sender,
+      required String body,
+      required int receivedAtEpochMs,
+    });
 
 /// A read-only copy of the fields required to identify an Android SMS source.
 ///
@@ -109,61 +119,27 @@ final class SourceMessageIdentity {
 /// path are excluded by construction so later parser work cannot create a
 /// duplicate source event.
 final class SourceMessageCanonicalizer {
-  const SourceMessageCanonicalizer({
-    required this.keyedHmac,
-    required this.key,
-  });
+  const SourceMessageCanonicalizer({required this.signer});
 
-  static const canonicalizationVersion = 1;
+  /// Identity-function version. Bumped when the canonical encoding changes
+  /// (v1 → v2 in M4.14 WP4): existing rows keep their v1 keys, new rows get
+  /// v2. Duplicate detection across that boundary is lost by design — that is
+  /// exactly why the version is in the key.
+  static const canonicalizationVersion = 2;
 
-  final KeyedHmac keyedHmac;
-  final HmacKeyHandle key;
+  final SourceIdentitySigner signer;
 
-  SourceMessageIdentity identify(SmsSourceMessage message) {
-    final canonicalBytes = _canonicalBytes(message);
-    final sourceMac = keyedHmac.digest(
-      key: key,
-      input: HmacInput(<int>[
-        ...utf8.encode(
-          'money-sync/source-message-key/v$canonicalizationVersion\n',
-        ),
-        ...canonicalBytes,
-      ]),
+  Future<SourceMessageKey> identify(SmsSourceMessage message) async {
+    final digest = await signer(
+      canonicalizationVersion: canonicalizationVersion,
+      sender: _normalizeSender(message.sender),
+      body: _normalizeBody(message.body),
+      receivedAtEpochMs: message.receivedAtUtc.millisecondsSinceEpoch,
     );
-    final evidenceMac = keyedHmac.digest(
-      key: key,
-      input: HmacInput(<int>[
-        ...utf8.encode(
-          'money-sync/source-evidence/v$canonicalizationVersion\n',
-        ),
-        ...canonicalBytes,
-      ]),
+    return SourceMessageKey(
+      canonicalizationVersion: canonicalizationVersion,
+      value: 'v${canonicalizationVersion}_${digest.hex}',
     );
-
-    return SourceMessageIdentity(
-      sourceMessageKey: SourceMessageKey(
-        canonicalizationVersion: canonicalizationVersion,
-        value: 'v${canonicalizationVersion}_${sourceMac.hex}',
-      ),
-      sourceEvidenceKey: SourceEvidenceKey(evidenceMac.hex),
-    );
-  }
-
-  List<int> _canonicalBytes(SmsSourceMessage message) {
-    final fields = <String>[
-      _normalizeSender(message.sender),
-      _normalizeBody(message.body),
-      message.receivedAtUtc.millisecondsSinceEpoch.toString(),
-    ];
-    final payload = StringBuffer('v$canonicalizationVersion');
-    for (final field in fields) {
-      payload
-        ..write('|')
-        ..write(field.length)
-        ..write(':')
-        ..write(field);
-    }
-    return utf8.encode(payload.toString());
   }
 
   String _normalizeSender(String sender) =>

@@ -8,9 +8,19 @@ import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
+import 'package:money_sync/features/sms_ingestion/data/native_source_identity_signer.dart';
+import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
+import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_repository.dart';
+import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
 
 final nativeSecurityChannelProvider = Provider<NativeSecurityChannel>((ref) {
   return const NativeSecurityChannel();
+});
+
+/// Keystore-backed keyed HMAC for canonical source identity (M4.14 WP4).
+final sourceIdentitySignerProvider = Provider<SourceIdentitySigner>((ref) {
+  final channel = ref.watch(nativeSecurityChannelProvider);
+  return NativeSourceIdentitySigner(channel: channel).digest;
 });
 
 final databaseKeyProvider = Provider<DatabaseKeyProvider>((ref) {
@@ -46,4 +56,12 @@ final appDatabaseProvider = FutureProvider<AppDatabase>((ref) async {
 
 final freshAuthPortProvider = FutureProvider<FreshAuthPort>((ref) async {
   return LocalAuthDeviceAuthenticator(auth: LocalAuthentication());
+});
+
+/// Active rule packs as data: the `rule_packs` table's `enabled` flag decides
+/// selection; packs absent from the table are registered on first run
+/// (M4.14 WP5). No use case constructs a [RulePackRegistry] directly.
+final rulePackRegistryProvider = FutureProvider<RulePackRegistry>((ref) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return RulePackRegistryRepository(database: db).loadActiveRegistry();
 });
