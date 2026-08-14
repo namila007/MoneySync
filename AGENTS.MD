@@ -152,6 +152,15 @@ App requires lock → router guard captures intended route via _intendedRouteNot
 - [moneysync-logger](.opencode/skills/moneysync-logger/SKILL.md) — logging framework usage: levels, logger naming, redaction rules, insertion points for debug/info/error logs. Load via `/skill moneysync-logger`.
 - [moneysync-onboarding-debug](.opencode/skills/moneysync-onboarding-debug/SKILL.md) — debugging patterns for onboarding persistence, Riverpod state transitions, GoRouter redirect chains, and Flutter logcat tracing. Load via `/skill moneysync-onboarding-debug`.
 
+## Relevant rules (ECC)
+
+Always-loaded standards live in `~/.config/opencode/rules/`. Read the pack before coding in the matching layer — they supplement (never override) the plan and milestone packs in the guides repository:
+
+- `common/` — coding style (immutability, readability), testing (min 80% coverage), security, git workflow, code review, performance.
+- `dart/` — Dart/Flutter style, patterns, security, and testing for `lib/` and `test/`.
+- `kotlin/` — Android Kotlin style, patterns, security, and testing for `android/` source sets.
+- `python/` — Python style and pytest for `tool/` scripts.
+
 ## Device deployment and testing
 
 A passing `flutter test` run does not prove UI, navigation, permission, platform-channel, or
