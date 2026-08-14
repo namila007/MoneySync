@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
@@ -10,7 +13,9 @@ import 'package:money_sync/features/review_inbox/domain/review_transaction_use_c
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
 
 final log = Logger('review');
 
@@ -151,6 +156,23 @@ class ReviewTransactionController
         policy: const WalletCreateEligibilityPolicy(),
       );
 
+      // M5.14 gap 3: the immutable create payload goes through the M5.6
+      // serializer (compile-time allowlist / structural redaction), never a
+      // hand-built map. The serialized single-item body is both the mutation
+      // payload snapshot and the per-item ciphertext.
+      final snapshot = TransactionCandidateSnapshot(
+        accountId: state.accountId ?? '',
+        amountMinor: state.amountMinor,
+        currencyCode: 'LKR',
+        recordDateUtc: state.dateUtc ?? DateTime.now().toUtc(),
+        paymentType: _wirePaymentType(state.paymentType),
+        recordState: WalletRecordState.cleared,
+        counterParty: state.counterParty.isEmpty ? null : state.counterParty,
+      );
+      final serializedBody = jsonEncode(
+        const WalletRecordPayloadSerializer().serialize(snapshot),
+      );
+
       final intent = WalletMutationIntent(
         id: 'mutation-$_smsEventId-${DateTime.now().millisecondsSinceEpoch}',
         candidateId: 'candidate-$_smsEventId',
@@ -180,7 +202,7 @@ class ReviewTransactionController
         privacyEpoch: 0,
         intent: intent,
         itemLegRole: WalletItemLegRole.primary,
-        itemPayloadCiphertext: encryptedPayload,
+        itemPayloadCiphertext: serializedBody,
         activityType: ActivityEventCode.walletRecordCreated,
         safeDetailCode: ActivityStateTransition.needsReview,
         decisionTraceCode: DecisionTraceCode.initialReview,
@@ -225,8 +247,35 @@ class ReviewTransactionController
       ),
     );
 
+    // M5.14 gap 2: gates 1/2/7/8 read REAL state instead of hardcoded pass.
+    // Privacy epoch / consent / capability come from the DB; lineage and owned
+    // record link are real queries against the outbox and record-link tables.
+    final db = await ref.read(appDatabaseProvider.future);
+    final setting = await (db.select(
+      db.appSettings,
+    )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
+    final event = await db.getSmsEventById(_smsEventId);
+    final currentPrivacyEpoch = setting?.privacyEpoch ?? 0;
+    final privacyEpochMatches =
+        (event?.privacyEpoch ?? currentPrivacyEpoch) == currentPrivacyEpoch;
+
+    final consentCurrent =
+        (setting?.disclosureAccepted ?? false) &&
+        (setting?.onboardingCompleted ?? false);
+
+    final capabilityCanCreate = await _capabilityCanCreate(db);
+
+    final writer = DriftReviewOutboxWriter(database: db);
+    final candidateId = 'candidate-$_smsEventId';
+    final hasActiveLineage = await writer.hasActiveLineage(candidateId);
+
+    final linkRows = await (db.select(
+      db.walletRecordLinks,
+    )..where((row) => row.candidateId.equals(candidateId))).get();
+    final hasOwnedRecordLink = linkRows.isNotEmpty;
+
     return PreSendContext(
-      candidateId: 'candidate-$_smsEventId',
+      candidateId: candidateId,
       amountMinor: state.amountMinor,
       currencyCode: 'LKR',
       recordDateUtc: state.dateUtc ?? DateTime.now().toUtc(),
@@ -234,8 +283,8 @@ class ReviewTransactionController
       paymentType: state.paymentType,
       senderNormalized: senderNormalized,
       confidenceBasisPoints: 9500,
-      privacyEpochMatches: true,
-      consentCurrent: true,
+      privacyEpochMatches: privacyEpochMatches,
+      consentCurrent: consentCurrent,
       connectionConnected: catalog != null && catalog.accounts.isNotEmpty,
       eligibleTargetAccount:
           account != null &&
@@ -244,9 +293,54 @@ class ReviewTransactionController
       targetAccountEligibility:
           account?.eligibility ?? WalletAccountEligibility.missingRequiredFields,
       mappingResolution: resolution,
-      capabilityCanCreate: true,
-      hasActiveLineage: false,
-      hasOwnedRecordLink: false,
+      capabilityCanCreate: capabilityCanCreate,
+      hasActiveLineage: hasActiveLineage,
+      hasOwnedRecordLink: hasOwnedRecordLink,
     );
   }
+
+  /// Wallet create capability from the capability_ledger table, mapped onto
+  /// the domain [WalletCapabilityLedger]. Empty ledger -> no evidence -> false
+  /// (fail-closed; M5.7 spike not closed). Contract version matches the
+  /// v1.3.0 catalog contract the reader targets.
+  Future<bool> _capabilityCanCreate(AppDatabase db) async {
+    final rows = await db.select(db.capabilityLedger).get();
+    final evidence = <WalletCapabilityEvidence>[
+      for (final row in rows)
+        if (_toCapability(row.capability) case final capability?)
+          WalletCapabilityEvidence(
+            capability: capability,
+            outcome: _toOutcome(row.status),
+            observedAt: DateTime.tryParse(row.observedOn) ?? DateTime.now(),
+            contractVersion: _contractVersion,
+          ),
+    ];
+    return WalletCapabilityLedger(
+      evidence: evidence,
+    ).canCreate(
+      now: DateTime.now().toUtc(),
+      compatibleContractVersion: _contractVersion,
+    );
+  }
+
+  static const _contractVersion = 'v1.3.0';
+
+  static WalletRemoteCapability? _toCapability(String value) =>
+      WalletRemoteCapability.values.where((c) => c.name == value).firstOrNull;
+
+  static WalletCapabilityOutcome _toOutcome(String value) => switch (value) {
+    'pass' => WalletCapabilityOutcome.pass,
+    'fail' => WalletCapabilityOutcome.fail,
+    _ => WalletCapabilityOutcome.unknown,
+  };
+
+  static WalletPaymentType _wirePaymentType(String value) => switch (value) {
+    'cash' => WalletPaymentType.cash,
+    'credit_card' => WalletPaymentType.creditCard,
+    'transfer' => WalletPaymentType.transfer,
+    'voucher' => WalletPaymentType.voucher,
+    'mobile_payment' => WalletPaymentType.mobilePayment,
+    'web_payment' => WalletPaymentType.webPayment,
+    _ => WalletPaymentType.debitCard,
+  };
 }

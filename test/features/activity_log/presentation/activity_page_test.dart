@@ -13,6 +13,7 @@ ActivityLogEntry _entry({
   required ActivityStateTransition detail,
   required int epochMs,
   int? count,
+  String? mutationId,
 }) {
   return ActivityLogEntry(
     id: id,
@@ -21,6 +22,7 @@ ActivityLogEntry _entry({
     occurredAt: DateTime.fromMillisecondsSinceEpoch(epochMs, isUtc: true),
     privacyEpoch: 0,
     count: count,
+    mutationId: mutationId,
   );
 }
 
@@ -170,40 +172,45 @@ void main() {
       expect(find.text('Wallet record created'), findsOneWidget);
     });
 
-    testWidgets('dispatches retry now / verify in Wallet actions (M5.12)', (
-      tester,
-    ) async {
-      final actions = _SpyRecoveryActions();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            activityLogRepositoryProvider.overrideWith(
-              (ref) async => _FakeRepo([
-                _entry(
-                  id: 7,
-                  code: ActivityEventCode.walletRecordCreated,
-                  detail: ActivityStateTransition.logEvent,
-                  epochMs: 1000,
-                ),
-              ]),
-            ),
-            activityRecoveryActionsProvider.overrideWith((ref) => actions),
-          ],
-          child: const MaterialApp(home: ActivityPage()),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'dispatches retry now / verify in Wallet with the REAL mutation id '
+      '(M5.12/M5.14 gap 5)',
+      (tester) async {
+        final actions = _SpyRecoveryActions();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              activityLogRepositoryProvider.overrideWith(
+                (ref) async => _FakeRepo([
+                  _entry(
+                    id: 7,
+                    code: ActivityEventCode.walletRecordCreated,
+                    detail: ActivityStateTransition.logEvent,
+                    epochMs: 1000,
+                    mutationId: 'mutation-real-7',
+                  ),
+                ]),
+              ),
+              activityRecoveryActionsProvider.overrideWith(
+                (ref) async => actions,
+              ),
+            ],
+            child: const MaterialApp(home: ActivityPage()),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Retry'), findsOneWidget);
-      expect(find.text('Verify'), findsOneWidget);
+        expect(find.text('Retry'), findsOneWidget);
+        expect(find.text('Verify'), findsOneWidget);
 
-      await tester.tap(find.text('Retry'));
-      await tester.tap(find.text('Verify'));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Retry'));
+        await tester.tap(find.text('Verify'));
+        await tester.pumpAndSettle();
 
-      expect(actions.retries, ['mutation-7']);
-      expect(actions.verifies, ['mutation-7']);
-    });
+        expect(actions.retries, ['mutation-real-7']);
+        expect(actions.verifies, ['mutation-real-7']);
+      },
+    );
 
     testWidgets('non-wallet events show no recovery actions', (tester) async {
       await tester.pumpWidget(
@@ -213,6 +220,15 @@ void main() {
             code: ActivityEventCode.messageImported,
             detail: ActivityStateTransition.logEvent,
             epochMs: 1000,
+          ),
+          // A wallet event WITHOUT a mutation id (pre-v10 / log-derived) must
+          // also hide recovery — dispatching a fabricated id would target a
+          // non-existent row (M5.14 gap 5).
+          _entry(
+            id: 6,
+            code: ActivityEventCode.walletRecordCreated,
+            detail: ActivityStateTransition.logEvent,
+            epochMs: 2000,
           ),
         ]),
       );

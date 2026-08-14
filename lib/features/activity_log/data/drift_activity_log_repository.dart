@@ -43,6 +43,7 @@ final class DriftActivityLogRepository implements ActivityLogRepository {
             ),
             privacyEpoch: row.privacyEpoch,
             count: row.batchCount,
+            mutationId: row.mutationId,
           ),
         )
         .toList(growable: false);

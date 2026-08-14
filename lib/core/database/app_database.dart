@@ -321,6 +321,11 @@ class ActivityEvents extends Table {
   /// `messageImported` row per import batch instead of one per message
   /// (M4.15 WP3). Null = single-item event.
   IntColumn get batchCount => integer().nullable()();
+
+  /// The outbox mutation this event describes (M5.14). Nullable so the column
+  /// is safe for log-derived and pre-v10 rows; recovery actions read it to
+  /// dispatch the REAL mutation id instead of a fabricated one.
+  TextColumn get mutationId => text().nullable()();
 }
 
 class DecisionTraces extends Table {
@@ -609,7 +614,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -991,6 +996,11 @@ class AppDatabase extends _$AppDatabase {
         // New tables.
         await m.createTable(mappingRules);
         await m.createTable(walletMutationItems);
+      }
+      if (from < 10) {
+        // M5.14 gap 5: recovery actions must dispatch the REAL mutation id.
+        // Nullable so log-derived and pre-v10 rows stay valid.
+        await m.addColumn(activityEvents, activityEvents.mutationId);
       }
     },
   );

@@ -9,14 +9,3 @@ abstract interface class ActivityRecoveryActions {
   /// Mark the mutation as needing user verification in the Wallet app.
   Future<void> verifyInWallet(String mutationId);
 }
-
-/// No-op fallback used when the outbox is not wired (tests / M5 fake posture).
-final class NoopActivityRecoveryActions implements ActivityRecoveryActions {
-  const NoopActivityRecoveryActions();
-
-  @override
-  Future<void> retryNow(String mutationId) async {}
-
-  @override
-  Future<void> verifyInWallet(String mutationId) async {}
-}

@@ -80,41 +80,113 @@ void main() {
       expect(mutation.candidateId, 'candidate-1');
       expect(mutation.lineageGeneration, 1);
     });
+
+    test(
+      'reviewing an ingest-created candidate UPDATES it in place: exactly one '
+      'row, revision bumped, no unique sms_event_id collision (M5.14 gap 1)',
+      () async {
+        // Mimic the real ingest path: history import creates the candidate row
+        // via insertCandidateAndActivityAtomically (sms_event_id UNIQUE).
+        final eventId = await insertSmsEvent('source-ingested');
+        await database.insertCandidateAndActivityAtomically(
+          smsEventId: eventId,
+          candidateState: CandidateRecordState.needsReview,
+          encryptedPayload: '{"kind":"expense"}',
+          revision: 1,
+          createdAtEpochMs: 1_700_000_000_000,
+          activityType: ActivityEventCode.candidateNeedsReview,
+          safeDetailCode: ActivityStateTransition.needsReview,
+          decisionTraceCode: DecisionTraceCode.parsedComplete,
+          privacyEpoch: 0,
+        );
+
+        await writer.submitAtomically(
+          smsEventId: eventId,
+          candidateState: CandidateRecordState.retainedLocal,
+          encryptedPayload: '{"kind":"expense","approved":true}',
+          revision: 2,
+          createdAtEpochMs: 1_700_000_000_000,
+          privacyEpoch: 0,
+          intent: WalletMutationIntent(
+            id: 'mutation-ingested',
+            candidateId: 'candidate-ingested',
+            operation: WalletMutationOperation.create,
+            operationRevision: 1,
+            lineageGeneration: 1,
+            createLineageKey: 'lineage-key-ingested',
+            transactionFingerprint: 'fingerprint-ingested',
+            payload: const <String, Object?>{'accountId': 'account-1'},
+            state: WalletMutationState.queued,
+          ),
+          itemLegRole: WalletItemLegRole.primary,
+          itemPayloadCiphertext: '{}',
+          activityType: ActivityEventCode.walletRecordCreated,
+          safeDetailCode: ActivityStateTransition.needsReview,
+          decisionTraceCode: DecisionTraceCode.initialReview,
+        );
+
+        // Exactly ONE candidate row, updated (revision 2), not a duplicate.
+        final candidates = await database
+            .select(database.transactionCandidates)
+            .get();
+        expect(candidates, hasLength(1));
+        expect(candidates.single.revision, 2);
+        expect(candidates.single.smsEventId, eventId);
+        expect(candidates.single.candidateId, 'candidate-ingested');
+
+        // The approved candidate + one queued mutation are both observable.
+        expect(await database.walletMutations.count().getSingle(), 1);
+        final mutation = await database
+            .select(database.walletMutations)
+            .getSingle();
+        expect(mutation.candidateId, 'candidate-ingested');
+        expect(mutation.state, WalletMutationState.queued);
+      },
+    );
   });
 
   group('atomic rollback', () {
     test(
-      'a mid-transaction failure rolls back ALL three writes (no partial '
+      'a mid-transaction failure rolls back ALL writes (no partial '
       'state observable)',
       () async {
         final eventId = await insertSmsEvent('source-rollback');
 
-        // First, pre-insert a candidate with the SAME sms_event_id so the
-        // candidate insert inside submitAtomically violates the unique
-        // constraint mid-transaction — after the writer would otherwise have
-        // started writing. The whole transaction must roll back.
-        await database.into(database.transactionCandidates).insert(
-          TransactionCandidatesCompanion.insert(
-            smsEventId: eventId,
-            state: CandidateRecordState.retainedLocal,
-            encryptedPayload: '{}',
-            revision: 1,
+        // Force the wallet_mutations insert (step 2 of the transaction) to
+        // violate the partial unique active-lineage index by pre-inserting an
+        // active create mutation for the same candidate+generation. This is a
+        // realistic mid-transaction failure (a concurrent submit that won),
+        // after the candidate UPSERT (step 1) has already run. Everything must
+        // roll back — including the candidate update.
+        await database.into(database.walletMutations).insert(
+          WalletMutationsCompanion.insert(
+            id: 'mutation-pre-existing',
+            operationKind: WalletMutationOperation.create,
+            payload: '{}',
+            state: WalletMutationState.queued,
+            lineageKey: 'lineage-key-rollback-candidate',
+            fingerprint: 'fingerprint-rollback-candidate',
             createdAtEpochMs: 1_700_000_000_000,
+            updatedAtEpochMs: 1_700_000_000_000,
+            candidateId: const Value('rollback-candidate'),
+            operationRevision: const Value(1),
+            lineageGeneration: const Value(1),
           ),
         );
 
         await expectLater(
           submit(candidateId: 'rollback-candidate', smsEventId: eventId),
-          throwsA(isA<Object>()),
+          throwsA(isA<UniqueLineageViolationException>()),
         );
 
         // Nothing from the failed transaction may be observable: no mutation,
-        // no item, no activity event, and only the pre-inserted candidate.
-        expect(await database.walletMutations.count().getSingle(), 0);
+        // no item, no activity event, no decision trace, and the candidate
+        // UPSERT that ran before the failure must also be rolled back.
+        expect(await database.walletMutations.count().getSingle(), 1);
         expect(await database.walletMutationItems.count().getSingle(), 0);
         expect(await database.activityEvents.count().getSingle(), 0);
         expect(await database.decisionTraces.count().getSingle(), 0);
-        expect(await database.transactionCandidates.count().getSingle(), 1);
+        expect(await database.transactionCandidates.count().getSingle(), 0);
       },
     );
   });

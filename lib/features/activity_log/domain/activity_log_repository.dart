@@ -13,6 +13,7 @@ final class ActivityLogEntry {
     required this.occurredAt,
     required this.privacyEpoch,
     this.count,
+    this.mutationId,
   });
 
   final int id;
@@ -24,6 +25,10 @@ final class ActivityLogEntry {
   /// Batch size for aggregated events (M4.15 WP3); null for single-item
   /// events.
   final int? count;
+
+  /// The outbox mutation this entry describes (M5.14). Null for
+  /// log-derived/pre-v10 rows; recovery actions dispatch this REAL id.
+  final String? mutationId;
 }
 
 /// Read-only port over the local activity log.

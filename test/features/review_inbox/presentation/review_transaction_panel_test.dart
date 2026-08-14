@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_controller.dart';
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_panel.dart';
@@ -32,6 +34,14 @@ void main() {
   ProviderScope wrap(Widget child) {
     return ProviderScope(
       overrides: [
+        // The controller reads REAL state (privacy epoch, consent, capability,
+        // lineage, record link) for the pre-send gates (M5.14 gap 2), so the
+        // panel tests need an in-memory DB behind appDatabaseProvider.
+        appDatabaseProvider.overrideWith((ref) async {
+          final db = AppDatabase.inMemoryForTesting();
+          ref.onDispose(db.close);
+          return db;
+        }),
         walletCatalogProvider.overrideWith((ref) async => writableCatalog),
         mappingRuleListProvider.overrideWith((ref) async => []),
       ],
@@ -112,6 +122,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appDatabaseProvider.overrideWith((ref) async {
+            final db = AppDatabase.inMemoryForTesting();
+            ref.onDispose(db.close);
+            return db;
+          }),
           walletCatalogProvider.overrideWith((ref) async => writableCatalog),
           mappingRuleListProvider.overrideWith((ref) async => []),
           // reviewTransactionControllerProvider overridden to a busy state.
