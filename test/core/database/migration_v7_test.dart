@@ -133,6 +133,24 @@ void main() {
       'last_sync_at_epoch_ms INTEGER)',
     );
     db.execute(
+      'CREATE TABLE wallet_mutations ('
+      'id TEXT NOT NULL PRIMARY KEY, '
+      'operation TEXT NOT NULL, '
+      'payload TEXT NOT NULL, '
+      'state TEXT NOT NULL, '
+      'lineage_key TEXT NOT NULL, '
+      'fingerprint TEXT NOT NULL, '
+      'created_at_epoch_ms INTEGER NOT NULL, '
+      'updated_at_epoch_ms INTEGER NOT NULL)',
+    );
+    db.execute(
+      'CREATE TABLE wallet_record_links ('
+      'id TEXT NOT NULL PRIMARY KEY, '
+      'app_id TEXT NOT NULL UNIQUE, '
+      'remote_id TEXT, '
+      'created_at_epoch_ms INTEGER NOT NULL)',
+    );
+    db.execute(
       'CREATE TABLE sms_events ('
       'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
       'source_key TEXT NOT NULL UNIQUE, '
@@ -170,6 +188,25 @@ void main() {
     db.execute(
       'CREATE TABLE schema_metadata (key TEXT NOT NULL PRIMARY KEY, '
       'value TEXT NOT NULL)',
+    );
+    db.execute(
+      'CREATE TABLE transaction_candidates ('
+      'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+      'sms_event_id INTEGER NOT NULL UNIQUE, '
+      'state TEXT NOT NULL, '
+      'encrypted_payload TEXT NOT NULL, '
+      'revision INTEGER NOT NULL, '
+      'created_at_epoch_ms INTEGER NOT NULL, '
+      'warning_code TEXT, payment_evidence TEXT, instrument_evidence TEXT, '
+      'original_currency_code TEXT, wallet_currency_code TEXT, '
+      'kind TEXT, direction TEXT, lifecycle TEXT, '
+      'original_amount_minor INTEGER, wallet_amount_minor INTEGER, '
+      'transaction_at_epoch_ms INTEGER, date_evidence TEXT, '
+      'counterparty_redacted TEXT, instrument_suffix_hash TEXT, '
+      'available_balance_minor INTEGER, payment_type TEXT, '
+      'confidence_basis_points INTEGER, parser_rule_id TEXT, '
+      'parser_rule_version TEXT, rule_pack_id TEXT, rule_pack_version TEXT, '
+      'review_reasons TEXT, transaction_fingerprint TEXT)',
     );
 
     if (includeContentSha256) {
@@ -344,7 +381,7 @@ void main() {
       final db = await migrateFrom(1, seedV1Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(1));
       final event = events.single;
@@ -385,7 +422,7 @@ void main() {
         (db) => seedV6Schema(db, includeContentSha256: false),
       );
       addTearDown(db.close);
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
       expect(await db.select(db.trackedSenders).get(), isNotEmpty);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(4));

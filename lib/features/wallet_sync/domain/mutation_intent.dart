@@ -4,6 +4,12 @@ import 'package:money_sync/core/errors/domain_failure.dart';
 
 enum WalletMutationOperation { create, update, delete }
 
+/// Role of one immutable item within a Wallet mutation batch
+/// (plan/03 §wallet_mutation_item). Primary for ordinary records and
+/// outside-Wallet transfers; a verified internal paired transfer carries a
+/// source and a mirror leg.
+enum WalletItemLegRole { primary, transferSource, transferMirror }
+
 enum WalletMutationState {
   queued,
   syncing,

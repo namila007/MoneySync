@@ -11,6 +11,7 @@ import 'package:money_sync/features/dashboard/presentation/home_page.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_page.dart';
 import 'package:money_sync/features/lock/presentation/lock_page.dart';
 import 'package:money_sync/features/mappings/presentation/mappings_page.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_editor_page.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/domain/resolve_onboarding_entry.dart';
@@ -78,6 +79,18 @@ GoRouter createAppRouter() {
           GoRoute(
             path: AppRoute.mappings.path,
             builder: (context, state) => const MappingsPage(),
+            routes: [
+              GoRoute(
+                path: 'new',
+                builder: (context, state) => const MappingEditorPage(),
+              ),
+              GoRoute(
+                path: ':id/edit',
+                builder: (context, state) => MappingEditorPage(
+                  ruleId: state.pathParameters['id'],
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoute.activity.path,

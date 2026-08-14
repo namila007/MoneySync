@@ -7,6 +7,7 @@ enum DomainFailureCode {
   illegalStateTransition,
   invalidMutationIntent,
   invalidInstrumentEvidence,
+  invalidMappingRule,
 }
 
 /// A failure that may cross domain boundaries without carrying sensitive input.
@@ -73,5 +74,13 @@ final class InvalidInstrumentEvidenceFailure extends DomainFailure {
     : super(
         DomainFailureCode.invalidInstrumentEvidence,
         'The instrument evidence is not valid.',
+      );
+}
+
+final class InvalidMappingRuleFailure extends DomainFailure {
+  const InvalidMappingRuleFailure()
+    : super(
+        DomainFailureCode.invalidMappingRule,
+        'The mapping rule is not valid.',
       );
 }

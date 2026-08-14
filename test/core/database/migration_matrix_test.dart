@@ -9,7 +9,7 @@ void main() {
     test('schema version is 5', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 8);
+      expect(db.schemaVersion, 9);
     });
 
     group('v5 schema has all required tables', () {
