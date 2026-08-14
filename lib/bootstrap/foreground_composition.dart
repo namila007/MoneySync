@@ -9,6 +9,7 @@ import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/database/database_health.dart';
 import 'package:money_sync/core/logging/activity_event_writer.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/log_redaction_policy.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
@@ -19,6 +20,8 @@ import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
+import 'package:money_sync/features/wallet_sync/application/wallet_mutation_recovery_service.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   (ref) async {
@@ -168,6 +171,20 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       database: db,
       clearLocalDataService: clearService,
     );
+
+    // M5.5: recover outbox rows interrupted by process death before any UI
+    // reaches the mutation flows. Best-effort — recovery failure must not
+    // block startup.
+    try {
+      final recovered = await WalletMutationRecoveryService(
+        dao: WalletMutationsDao(database: db),
+      ).recoverInterrupted();
+      if (recovered > 0) {
+        log.info('Recovered $recovered interrupted outbox mutation(s)');
+      }
+    } on Exception catch (e, s) {
+      log.error('Outbox recovery scan failed', e, s);
+    }
 
     log.info('Health check and onboarding repo ready');
     await startupNotifier.initialize(

@@ -3,8 +3,10 @@ import 'package:drift/native.dart';
 
 import '../security/database_key_provider.dart';
 import '../../features/activity_log/domain/activity_event.dart';
+import '../../features/mappings/domain/mapping_rule.dart';
 import '../../features/sms_tracking/domain/tracked_senders.dart';
 import '../../features/transaction_parser/domain/transaction_candidate.dart';
+import '../../features/wallet_sync/domain/mutation_intent.dart';
 
 part 'app_database.g.dart';
 
@@ -62,6 +64,69 @@ final class SmsEventSenderSummary {
 
 final class StalePrivacyEpochException implements Exception {
   const StalePrivacyEpochException();
+}
+
+/// Persists [WalletMutationState] using the plan/03 canonical snake_case
+/// values so the raw-SQL partial unique index on
+/// `wallet_mutations(candidate_id, lineage_generation)` matches what the
+/// outbox writes (M5.1). Enum `.name` is camelCase and is not stored.
+class WalletMutationStateConverter
+    extends TypeConverter<WalletMutationState, String> {
+  const WalletMutationStateConverter();
+
+  @override
+  WalletMutationState fromSql(String fromDb) => switch (fromDb) {
+    'queued' => WalletMutationState.queued,
+    'syncing' => WalletMutationState.syncing,
+    'reconciling' => WalletMutationState.reconciling,
+    'unknown_delivery' => WalletMutationState.unknownDelivery,
+    'unknown_update' => WalletMutationState.unknownUpdate,
+    'unknown_delete' => WalletMutationState.unknownDelete,
+    'retry_scheduled' => WalletMutationState.retryScheduled,
+    'succeeded' => WalletMutationState.succeeded,
+    'permanent_failure' => WalletMutationState.permanentFailure,
+    'superseded_before_send' => WalletMutationState.supersededBeforeSend,
+    _ => throw ArgumentError.value(
+        fromDb,
+        'fromDb',
+        'Unknown WalletMutationState',
+      ),
+  };
+
+  @override
+  String toSql(WalletMutationState value) => switch (value) {
+    WalletMutationState.queued => 'queued',
+    WalletMutationState.syncing => 'syncing',
+    WalletMutationState.reconciling => 'reconciling',
+    WalletMutationState.unknownDelivery => 'unknown_delivery',
+    WalletMutationState.unknownUpdate => 'unknown_update',
+    WalletMutationState.unknownDelete => 'unknown_delete',
+    WalletMutationState.retryScheduled => 'retry_scheduled',
+    WalletMutationState.succeeded => 'succeeded',
+    WalletMutationState.permanentFailure => 'permanent_failure',
+    WalletMutationState.supersededBeforeSend => 'superseded_before_send',
+  };
+}
+
+/// Persists [WalletItemLegRole] using plan/03 canonical snake_case values
+/// (`primary`, `transfer_source`, `transfer_mirror`).
+class WalletItemLegRoleConverter extends TypeConverter<WalletItemLegRole, String> {
+  const WalletItemLegRoleConverter();
+
+  @override
+  WalletItemLegRole fromSql(String fromDb) => switch (fromDb) {
+    'primary' => WalletItemLegRole.primary,
+    'transfer_source' => WalletItemLegRole.transferSource,
+    'transfer_mirror' => WalletItemLegRole.transferMirror,
+    _ => throw ArgumentError.value(fromDb, 'fromDb', 'Unknown WalletItemLegRole'),
+  };
+
+  @override
+  String toSql(WalletItemLegRole value) => switch (value) {
+    WalletItemLegRole.primary => 'primary',
+    WalletItemLegRole.transferSource => 'transfer_source',
+    WalletItemLegRole.transferMirror => 'transfer_mirror',
+  };
 }
 
 typedef EncryptedExecutorOpener =
@@ -207,6 +272,12 @@ class SmsEvents extends Table {
 
 class TransactionCandidates extends Table {
   IntColumn get id => integer().autoIncrement()();
+
+  /// Stable text UUID decoupled from the int auto-increment PK. Autoincrement
+  /// ints are unsafe to expose in `create_lineage_key` derivation across
+  /// reinstall/restore (M5.1). Nullable: pre-v9 rows predate the column.
+  TextColumn get candidateId => text().nullable()();
+
   IntColumn get smsEventId => integer().unique().references(SmsEvents, #id)();
   TextColumn get state => textEnum<CandidateRecordState>()();
   TextColumn get encryptedPayload => text()();
@@ -340,15 +411,30 @@ class WalletConnectionStatus extends Table {
   String get tableName => 'wallet_connection_status';
 }
 
+/// M5 outbox row. Widened in schema v9 from the M3 stub: the `operation_kind`,
+/// `state` and dedup columns now carry the outbox state machine, and
+/// `lineage_key`/`fingerprint` are reused as `create_lineage_key`/
+/// `transactionFingerprint` (plan/03 §wallet_mutation, M5.1).
 class WalletMutations extends Table {
   TextColumn get id => text()();
-  TextColumn get operation => text()();
+  TextColumn get operationKind => textEnum<WalletMutationOperation>()();
   TextColumn get payload => text()();
-  TextColumn get state => text()();
+  TextColumn get state => text().map(const WalletMutationStateConverter())();
   TextColumn get lineageKey => text()();
   TextColumn get fingerprint => text()();
   IntColumn get createdAtEpochMs => integer()();
   IntColumn get updatedAtEpochMs => integer()();
+
+  TextColumn get candidateId => text().nullable()();
+  IntColumn get operationRevision => integer().nullable()();
+  IntColumn get lineageGeneration => integer().nullable()();
+  TextColumn get payloadJsonCiphertext => text().nullable()();
+  TextColumn get sourceMarker => text().nullable()();
+  IntColumn get attemptCount => integer().nullable()();
+  IntColumn get nextAttemptAtEpochMs => integer().nullable()();
+  IntColumn get leaseUntilEpochMs => integer().nullable()();
+  IntColumn get lastHttpStatus => integer().nullable()();
+  TextColumn get walletCorrelationId => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -357,17 +443,88 @@ class WalletMutations extends Table {
   String get tableName => 'wallet_mutations';
 }
 
+/// One row per confirmed remote record/leg owned by the app. Only these links
+/// authorize PATCH/DELETE. `remote_id` carries a partial unique index (not
+/// null) and `remote_deleted_tombstone` marks a deleted generation (M5.1).
 class WalletRecordLinks extends Table {
   TextColumn get id => text()();
   TextColumn get appId => text().unique()();
   TextColumn get remoteId => text().nullable()();
   IntColumn get createdAtEpochMs => integer()();
 
+  TextColumn get candidateId => text().nullable()();
+  TextColumn get legRole => text().map(const WalletItemLegRoleConverter()).nullable()();
+  TextColumn get pairGroupId => text().nullable()();
+  IntColumn get lastKnownRevision => integer().nullable()();
+  TextColumn get lastKnownState => text().nullable()();
+  IntColumn get updatedAtEpochMs => integer().nullable()();
+  IntColumn get deletedAtEpochMs => integer().nullable()();
+  BoolColumn get remoteDeletedTombstone => boolean().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 
   @override
   String get tableName => 'wallet_record_links';
+}
+
+/// User-owned mapping rule (plan/03 §mapping_rule). `sender_matcher` and
+/// `merchant_matcher` are JSON matcher specs; `sync_mode` and `direction`
+/// store enum names (M5.1).
+@TableIndex(
+  name: 'idx_mapping_rules_lookup',
+  columns: {#senderMatcher, #parserFamily, #instrumentSuffixHash, #enabled},
+)
+@DataClassName('MappingRuleRow')
+class MappingRules extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  BoolColumn get enabled => boolean()();
+  TextColumn get senderMatcher => text()();
+  TextColumn get parserFamily => text().nullable()();
+  TextColumn get instrumentSuffixHash => text().nullable()();
+  TextColumn get direction => textEnum<TransactionDirection>().nullable()();
+  TextColumn get merchantMatcher => text().nullable()();
+  TextColumn get walletAccountId => text()();
+  TextColumn get walletCategoryId => text().nullable()();
+  TextColumn get paymentType => text()();
+  TextColumn get syncMode => textEnum<MappingSyncMode>()();
+  IntColumn get priority => integer()();
+  IntColumn get minConfidenceBasisPoints => integer().nullable()();
+  IntColumn get ruleVersion => integer()();
+  TextColumn get supersededByRuleId => text().nullable()();
+  IntColumn get createdAtEpochMs => integer()();
+  IntColumn get updatedAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id, ruleVersion};
+
+  @override
+  String get tableName => 'mapping_rule';
+}
+
+/// One immutable item of a [WalletMutations] batch (plan/03
+/// §wallet_mutation_item). `state`/`safe_error_code` are per-item because
+/// Wallet batches are non-atomic (207). One mutation = one or more items.
+class WalletMutationItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get walletMutationId =>
+      text().references(WalletMutations, #id)();
+  IntColumn get itemIndex => integer()();
+  TextColumn get legRole => text().map(const WalletItemLegRoleConverter())();
+  TextColumn get walletRecordId => text().nullable()();
+  IntColumn get expectedRemoteRevision => integer().nullable()();
+  TextColumn get payloadCiphertext => text()();
+  TextColumn get state => text().map(const WalletMutationStateConverter())();
+  TextColumn get safeErrorCode => text().nullable()();
+
+  @override
+  List<Set<Column<Object>>> get uniqueKeys => [
+    {walletMutationId, itemIndex},
+  ];
+
+  @override
+  String get tableName => 'wallet_mutation_item';
 }
 
 class CapabilityLedger extends Table {
@@ -439,6 +596,8 @@ class IngestionCheckpoints extends Table {
     WalletConnectionStatus,
     WalletMutations,
     WalletRecordLinks,
+    MappingRules,
+    WalletMutationItems,
     CapabilityLedger,
     RulePacks,
     IngestionCheckpoints,
@@ -450,7 +609,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -466,6 +625,22 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'INSERT OR IGNORE INTO wallet_connection_status '
         '(singleton_id) VALUES (1)',
+      );
+
+      // Partial unique indexes cannot be expressed in Drift's declarative
+      // table syntax (M5.1). Created here with IF NOT EXISTS so fresh
+      // installs and every upgrade path both get the constraints; they run
+      // after onCreate/onUpgrade complete.
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS wallet_mutation_active_lineage '
+        'ON wallet_mutations (candidate_id, lineage_generation) '
+        "WHERE operation_kind = 'create' AND state IN "
+        "('queued','syncing','reconciling','unknown_delivery',"
+        "'retry_scheduled','succeeded')",
+      );
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_record_link_remote_id '
+        'ON wallet_record_links (remote_id) WHERE remote_id IS NOT NULL',
       );
     },
     onUpgrade: (m, from, to) async {
@@ -512,9 +687,29 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(walletAccountCache);
         await m.createTable(walletCategoryCache);
         await m.createTable(walletConnectionStatus);
-        await m.createTable(walletMutations);
-        await m.createTable(walletRecordLinks);
         await m.createTable(capabilityLedger);
+
+        // Original v3 stub shapes for the wallet tables (not the current v9
+        // definition): the v9 block widens them via ALTER-add-column, so a
+        // v1/v2->v9 chain must start from the stub, not the final shape.
+        await customStatement(
+          'CREATE TABLE wallet_mutations ('
+          'id TEXT NOT NULL PRIMARY KEY, '
+          'operation TEXT NOT NULL, '
+          'payload TEXT NOT NULL, '
+          'state TEXT NOT NULL, '
+          'lineage_key TEXT NOT NULL, '
+          'fingerprint TEXT NOT NULL, '
+          'created_at_epoch_ms INTEGER NOT NULL, '
+          'updated_at_epoch_ms INTEGER NOT NULL)',
+        );
+        await customStatement(
+          'CREATE TABLE wallet_record_links ('
+          'id TEXT NOT NULL PRIMARY KEY, '
+          'app_id TEXT NOT NULL UNIQUE, '
+          'remote_id TEXT, '
+          'created_at_epoch_ms INTEGER NOT NULL)',
+        );
 
         await customStatement(
           'INSERT OR IGNORE INTO wallet_connection_status '
@@ -729,6 +924,73 @@ class AppDatabase extends _$AppDatabase {
       if (from < 8) {
         // M4.15 WP3: aggregated batch events carry an optional count.
         await m.addColumn(activityEvents, activityEvents.batchCount);
+      }
+      if (from < 9) {
+        // M5.1: rename the M3 stub `operation` column to `operation_kind`
+        // (plan/03 §wallet_mutation) so the raw-SQL partial unique index can
+        // match `operation_kind='create'`.
+        await m.renameColumn(
+          walletMutations,
+          'operation',
+          walletMutations.operationKind,
+        );
+
+        // Widen wallet_mutations via ALTER-add-column (not recreate-and-copy:
+        // v8 rows here are stub placeholders with no real create traffic).
+        await m.addColumn(walletMutations, walletMutations.candidateId);
+        await m.addColumn(
+          walletMutations,
+          walletMutations.operationRevision,
+        );
+        await m.addColumn(
+          walletMutations,
+          walletMutations.lineageGeneration,
+        );
+        await m.addColumn(
+          walletMutations,
+          walletMutations.payloadJsonCiphertext,
+        );
+        await m.addColumn(walletMutations, walletMutations.sourceMarker);
+        await m.addColumn(walletMutations, walletMutations.attemptCount);
+        await m.addColumn(
+          walletMutations,
+          walletMutations.nextAttemptAtEpochMs,
+        );
+        await m.addColumn(walletMutations, walletMutations.leaseUntilEpochMs);
+        await m.addColumn(walletMutations, walletMutations.lastHttpStatus);
+        await m.addColumn(
+          walletMutations,
+          walletMutations.walletCorrelationId,
+        );
+
+        // Widen wallet_record_links.
+        await m.addColumn(walletRecordLinks, walletRecordLinks.candidateId);
+        await m.addColumn(walletRecordLinks, walletRecordLinks.legRole);
+        await m.addColumn(walletRecordLinks, walletRecordLinks.pairGroupId);
+        await m.addColumn(
+          walletRecordLinks,
+          walletRecordLinks.lastKnownRevision,
+        );
+        await m.addColumn(walletRecordLinks, walletRecordLinks.lastKnownState);
+        await m.addColumn(
+          walletRecordLinks,
+          walletRecordLinks.updatedAtEpochMs,
+        );
+        await m.addColumn(walletRecordLinks, walletRecordLinks.deletedAtEpochMs);
+        await m.addColumn(
+          walletRecordLinks,
+          walletRecordLinks.remoteDeletedTombstone,
+        );
+
+        // Stable text candidateId on TransactionCandidates.
+        await m.addColumn(
+          transactionCandidates,
+          transactionCandidates.candidateId,
+        );
+
+        // New tables.
+        await m.createTable(mappingRules);
+        await m.createTable(walletMutationItems);
       }
     },
   );

@@ -29,6 +29,15 @@ void main() {
       ).readCatalog(WalletToken.parse('synthetic-token'));
 
       expect(result, isA<WalletReadSuccess>());
+      final success = result as WalletReadSuccess;
+      // M5.2: OpenAPI v1.3.0 exposes no writable flag, so the reader stays
+      // fail-closed until the live eligibility spike supplies evidence.
+      // Eligibility-gate tests use FakeWritableWalletCatalogCache instead.
+      expect(success.catalog.accounts.single.isWritable, isFalse);
+      expect(
+        success.catalog.accounts.single.eligibility,
+        WalletAccountEligibility.unwritable,
+      );
       expect(adapter.requests, hasLength(2));
       expect(
         adapter.requests.map((request) => request.method),

@@ -2141,7 +2141,17 @@ class SmsEvent extends DataClass implements Insertable<SmsEvent> {
   /// Sender exactly as the transport reported it. Display only — never used
   /// for matching (plan/03:46).
   final String? senderDisplay;
+
+  /// Full normalized original message body — the primary review display
+  /// source (M4.16). Plaintext inside the SQLCipher-encrypted database;
+  /// the column name is historical and predates the at-rest encryption
+  /// design. Nullable: filtered OTP/unrelated rows store nothing, and the
+  /// retention sweep clears it when raw-copy consent is disabled.
   final String? encryptedBody;
+
+  /// Masked preview (amounts/dates/phone numbers redacted, ≤300 chars).
+  /// Fallback display source when [encryptedBody] is absent, and the
+  /// source for plan-mandated redacted surfaces (notifications).
   final String? redactedBody;
   final String ingestionSource;
   final int receivedAtEpochMs;
@@ -2707,6 +2717,17 @@ class $TransactionCandidatesTable extends TransactionCandidates
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _candidateIdMeta = const VerificationMeta(
+    'candidateId',
+  );
+  @override
+  late final GeneratedColumn<String> candidateId = GeneratedColumn<String>(
+    'candidate_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _smsEventIdMeta = const VerificationMeta(
     'smsEventId',
   );
@@ -3021,6 +3042,7 @@ class $TransactionCandidatesTable extends TransactionCandidates
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    candidateId,
     smsEventId,
     state,
     encryptedPayload,
@@ -3064,6 +3086,15 @@ class $TransactionCandidatesTable extends TransactionCandidates
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('candidate_id')) {
+      context.handle(
+        _candidateIdMeta,
+        candidateId.isAcceptableOrUnknown(
+          data['candidate_id']!,
+          _candidateIdMeta,
+        ),
+      );
     }
     if (data.containsKey('sms_event_id')) {
       context.handle(
@@ -3299,6 +3330,10 @@ class $TransactionCandidatesTable extends TransactionCandidates
         DriftSqlType.int,
         data['${effectivePrefix}id'],
       )!,
+      candidateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}candidate_id'],
+      ),
       smsEventId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sms_event_id'],
@@ -3452,6 +3487,11 @@ class $TransactionCandidatesTable extends TransactionCandidates
 class TransactionCandidate extends DataClass
     implements Insertable<TransactionCandidate> {
   final int id;
+
+  /// Stable text UUID decoupled from the int auto-increment PK. Autoincrement
+  /// ints are unsafe to expose in `create_lineage_key` derivation across
+  /// reinstall/restore (M5.1). Nullable: pre-v9 rows predate the column.
+  final String? candidateId;
   final int smsEventId;
   final CandidateRecordState state;
   final String encryptedPayload;
@@ -3482,6 +3522,7 @@ class TransactionCandidate extends DataClass
   final String? transactionFingerprint;
   const TransactionCandidate({
     required this.id,
+    this.candidateId,
     required this.smsEventId,
     required this.state,
     required this.encryptedPayload,
@@ -3515,6 +3556,9 @@ class TransactionCandidate extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    if (!nullToAbsent || candidateId != null) {
+      map['candidate_id'] = Variable<String>(candidateId);
+    }
     map['sms_event_id'] = Variable<int>(smsEventId);
     {
       map['state'] = Variable<String>(
@@ -3605,6 +3649,9 @@ class TransactionCandidate extends DataClass
   TransactionCandidatesCompanion toCompanion(bool nullToAbsent) {
     return TransactionCandidatesCompanion(
       id: Value(id),
+      candidateId: candidateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(candidateId),
       smsEventId: Value(smsEventId),
       state: Value(state),
       encryptedPayload: Value(encryptedPayload),
@@ -3687,6 +3734,7 @@ class TransactionCandidate extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return TransactionCandidate(
       id: serializer.fromJson<int>(json['id']),
+      candidateId: serializer.fromJson<String?>(json['candidateId']),
       smsEventId: serializer.fromJson<int>(json['smsEventId']),
       state: $TransactionCandidatesTable.$converterstate.fromJson(
         serializer.fromJson<String>(json['state']),
@@ -3752,6 +3800,7 @@ class TransactionCandidate extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'candidateId': serializer.toJson<String?>(candidateId),
       'smsEventId': serializer.toJson<int>(smsEventId),
       'state': serializer.toJson<String>(
         $TransactionCandidatesTable.$converterstate.toJson(state),
@@ -3795,6 +3844,7 @@ class TransactionCandidate extends DataClass
 
   TransactionCandidate copyWith({
     int? id,
+    Value<String?> candidateId = const Value.absent(),
     int? smsEventId,
     CandidateRecordState? state,
     String? encryptedPayload,
@@ -3825,6 +3875,7 @@ class TransactionCandidate extends DataClass
     Value<String?> transactionFingerprint = const Value.absent(),
   }) => TransactionCandidate(
     id: id ?? this.id,
+    candidateId: candidateId.present ? candidateId.value : this.candidateId,
     smsEventId: smsEventId ?? this.smsEventId,
     state: state ?? this.state,
     encryptedPayload: encryptedPayload ?? this.encryptedPayload,
@@ -3887,6 +3938,9 @@ class TransactionCandidate extends DataClass
   TransactionCandidate copyWithCompanion(TransactionCandidatesCompanion data) {
     return TransactionCandidate(
       id: data.id.present ? data.id.value : this.id,
+      candidateId: data.candidateId.present
+          ? data.candidateId.value
+          : this.candidateId,
       smsEventId: data.smsEventId.present
           ? data.smsEventId.value
           : this.smsEventId,
@@ -3968,6 +4022,7 @@ class TransactionCandidate extends DataClass
   String toString() {
     return (StringBuffer('TransactionCandidate(')
           ..write('id: $id, ')
+          ..write('candidateId: $candidateId, ')
           ..write('smsEventId: $smsEventId, ')
           ..write('state: $state, ')
           ..write('encryptedPayload: $encryptedPayload, ')
@@ -4003,6 +4058,7 @@ class TransactionCandidate extends DataClass
   @override
   int get hashCode => Object.hashAll([
     id,
+    candidateId,
     smsEventId,
     state,
     encryptedPayload,
@@ -4037,6 +4093,7 @@ class TransactionCandidate extends DataClass
       identical(this, other) ||
       (other is TransactionCandidate &&
           other.id == this.id &&
+          other.candidateId == this.candidateId &&
           other.smsEventId == this.smsEventId &&
           other.state == this.state &&
           other.encryptedPayload == this.encryptedPayload &&
@@ -4070,6 +4127,7 @@ class TransactionCandidate extends DataClass
 class TransactionCandidatesCompanion
     extends UpdateCompanion<TransactionCandidate> {
   final Value<int> id;
+  final Value<String?> candidateId;
   final Value<int> smsEventId;
   final Value<CandidateRecordState> state;
   final Value<String> encryptedPayload;
@@ -4100,6 +4158,7 @@ class TransactionCandidatesCompanion
   final Value<String?> transactionFingerprint;
   const TransactionCandidatesCompanion({
     this.id = const Value.absent(),
+    this.candidateId = const Value.absent(),
     this.smsEventId = const Value.absent(),
     this.state = const Value.absent(),
     this.encryptedPayload = const Value.absent(),
@@ -4131,6 +4190,7 @@ class TransactionCandidatesCompanion
   });
   TransactionCandidatesCompanion.insert({
     this.id = const Value.absent(),
+    this.candidateId = const Value.absent(),
     required int smsEventId,
     required CandidateRecordState state,
     required String encryptedPayload,
@@ -4166,6 +4226,7 @@ class TransactionCandidatesCompanion
        createdAtEpochMs = Value(createdAtEpochMs);
   static Insertable<TransactionCandidate> custom({
     Expression<int>? id,
+    Expression<String>? candidateId,
     Expression<int>? smsEventId,
     Expression<String>? state,
     Expression<String>? encryptedPayload,
@@ -4197,6 +4258,7 @@ class TransactionCandidatesCompanion
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (candidateId != null) 'candidate_id': candidateId,
       if (smsEventId != null) 'sms_event_id': smsEventId,
       if (state != null) 'state': state,
       if (encryptedPayload != null) 'encrypted_payload': encryptedPayload,
@@ -4239,6 +4301,7 @@ class TransactionCandidatesCompanion
 
   TransactionCandidatesCompanion copyWith({
     Value<int>? id,
+    Value<String?>? candidateId,
     Value<int>? smsEventId,
     Value<CandidateRecordState>? state,
     Value<String>? encryptedPayload,
@@ -4270,6 +4333,7 @@ class TransactionCandidatesCompanion
   }) {
     return TransactionCandidatesCompanion(
       id: id ?? this.id,
+      candidateId: candidateId ?? this.candidateId,
       smsEventId: smsEventId ?? this.smsEventId,
       state: state ?? this.state,
       encryptedPayload: encryptedPayload ?? this.encryptedPayload,
@@ -4309,6 +4373,9 @@ class TransactionCandidatesCompanion
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<int>(id.value);
+    }
+    if (candidateId.present) {
+      map['candidate_id'] = Variable<String>(candidateId.value);
     }
     if (smsEventId.present) {
       map['sms_event_id'] = Variable<int>(smsEventId.value);
@@ -4423,6 +4490,7 @@ class TransactionCandidatesCompanion
   String toString() {
     return (StringBuffer('TransactionCandidatesCompanion(')
           ..write('id: $id, ')
+          ..write('candidateId: $candidateId, ')
           ..write('smsEventId: $smsEventId, ')
           ..write('state: $state, ')
           ..write('encryptedPayload: $encryptedPayload, ')
@@ -7379,17 +7447,18 @@ class $WalletMutationsTable extends WalletMutations
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _operationMeta = const VerificationMeta(
-    'operation',
-  );
   @override
-  late final GeneratedColumn<String> operation = GeneratedColumn<String>(
-    'operation',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
+  late final GeneratedColumnWithTypeConverter<WalletMutationOperation, String>
+  operationKind =
+      GeneratedColumn<String>(
+        'operation_kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<WalletMutationOperation>(
+        $WalletMutationsTable.$converteroperationKind,
+      );
   static const VerificationMeta _payloadMeta = const VerificationMeta(
     'payload',
   );
@@ -7401,15 +7470,15 @@ class $WalletMutationsTable extends WalletMutations
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _stateMeta = const VerificationMeta('state');
   @override
-  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+  late final GeneratedColumnWithTypeConverter<WalletMutationState, String>
+  state = GeneratedColumn<String>(
     'state',
     aliasedName,
     false,
     type: DriftSqlType.string,
     requiredDuringInsert: true,
-  );
+  ).withConverter<WalletMutationState>($WalletMutationsTable.$converterstate);
   static const VerificationMeta _lineageKeyMeta = const VerificationMeta(
     'lineageKey',
   );
@@ -7454,16 +7523,135 @@ class $WalletMutationsTable extends WalletMutations
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _candidateIdMeta = const VerificationMeta(
+    'candidateId',
+  );
+  @override
+  late final GeneratedColumn<String> candidateId = GeneratedColumn<String>(
+    'candidate_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _operationRevisionMeta = const VerificationMeta(
+    'operationRevision',
+  );
+  @override
+  late final GeneratedColumn<int> operationRevision = GeneratedColumn<int>(
+    'operation_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lineageGenerationMeta = const VerificationMeta(
+    'lineageGeneration',
+  );
+  @override
+  late final GeneratedColumn<int> lineageGeneration = GeneratedColumn<int>(
+    'lineage_generation',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payloadJsonCiphertextMeta =
+      const VerificationMeta('payloadJsonCiphertext');
+  @override
+  late final GeneratedColumn<String> payloadJsonCiphertext =
+      GeneratedColumn<String>(
+        'payload_json_ciphertext',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _sourceMarkerMeta = const VerificationMeta(
+    'sourceMarker',
+  );
+  @override
+  late final GeneratedColumn<String> sourceMarker = GeneratedColumn<String>(
+    'source_marker',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _attemptCountMeta = const VerificationMeta(
+    'attemptCount',
+  );
+  @override
+  late final GeneratedColumn<int> attemptCount = GeneratedColumn<int>(
+    'attempt_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextAttemptAtEpochMsMeta =
+      const VerificationMeta('nextAttemptAtEpochMs');
+  @override
+  late final GeneratedColumn<int> nextAttemptAtEpochMs = GeneratedColumn<int>(
+    'next_attempt_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _leaseUntilEpochMsMeta = const VerificationMeta(
+    'leaseUntilEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> leaseUntilEpochMs = GeneratedColumn<int>(
+    'lease_until_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastHttpStatusMeta = const VerificationMeta(
+    'lastHttpStatus',
+  );
+  @override
+  late final GeneratedColumn<int> lastHttpStatus = GeneratedColumn<int>(
+    'last_http_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _walletCorrelationIdMeta =
+      const VerificationMeta('walletCorrelationId');
+  @override
+  late final GeneratedColumn<String> walletCorrelationId =
+      GeneratedColumn<String>(
+        'wallet_correlation_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    operation,
+    operationKind,
     payload,
     state,
     lineageKey,
     fingerprint,
     createdAtEpochMs,
     updatedAtEpochMs,
+    candidateId,
+    operationRevision,
+    lineageGeneration,
+    payloadJsonCiphertext,
+    sourceMarker,
+    attemptCount,
+    nextAttemptAtEpochMs,
+    leaseUntilEpochMs,
+    lastHttpStatus,
+    walletCorrelationId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -7482,14 +7670,6 @@ class $WalletMutationsTable extends WalletMutations
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('operation')) {
-      context.handle(
-        _operationMeta,
-        operation.isAcceptableOrUnknown(data['operation']!, _operationMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_operationMeta);
-    }
     if (data.containsKey('payload')) {
       context.handle(
         _payloadMeta,
@@ -7497,14 +7677,6 @@ class $WalletMutationsTable extends WalletMutations
       );
     } else if (isInserting) {
       context.missing(_payloadMeta);
-    }
-    if (data.containsKey('state')) {
-      context.handle(
-        _stateMeta,
-        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_stateMeta);
     }
     if (data.containsKey('lineage_key')) {
       context.handle(
@@ -7547,6 +7719,96 @@ class $WalletMutationsTable extends WalletMutations
     } else if (isInserting) {
       context.missing(_updatedAtEpochMsMeta);
     }
+    if (data.containsKey('candidate_id')) {
+      context.handle(
+        _candidateIdMeta,
+        candidateId.isAcceptableOrUnknown(
+          data['candidate_id']!,
+          _candidateIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('operation_revision')) {
+      context.handle(
+        _operationRevisionMeta,
+        operationRevision.isAcceptableOrUnknown(
+          data['operation_revision']!,
+          _operationRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lineage_generation')) {
+      context.handle(
+        _lineageGenerationMeta,
+        lineageGeneration.isAcceptableOrUnknown(
+          data['lineage_generation']!,
+          _lineageGenerationMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload_json_ciphertext')) {
+      context.handle(
+        _payloadJsonCiphertextMeta,
+        payloadJsonCiphertext.isAcceptableOrUnknown(
+          data['payload_json_ciphertext']!,
+          _payloadJsonCiphertextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_marker')) {
+      context.handle(
+        _sourceMarkerMeta,
+        sourceMarker.isAcceptableOrUnknown(
+          data['source_marker']!,
+          _sourceMarkerMeta,
+        ),
+      );
+    }
+    if (data.containsKey('attempt_count')) {
+      context.handle(
+        _attemptCountMeta,
+        attemptCount.isAcceptableOrUnknown(
+          data['attempt_count']!,
+          _attemptCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('next_attempt_at_epoch_ms')) {
+      context.handle(
+        _nextAttemptAtEpochMsMeta,
+        nextAttemptAtEpochMs.isAcceptableOrUnknown(
+          data['next_attempt_at_epoch_ms']!,
+          _nextAttemptAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lease_until_epoch_ms')) {
+      context.handle(
+        _leaseUntilEpochMsMeta,
+        leaseUntilEpochMs.isAcceptableOrUnknown(
+          data['lease_until_epoch_ms']!,
+          _leaseUntilEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_http_status')) {
+      context.handle(
+        _lastHttpStatusMeta,
+        lastHttpStatus.isAcceptableOrUnknown(
+          data['last_http_status']!,
+          _lastHttpStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wallet_correlation_id')) {
+      context.handle(
+        _walletCorrelationIdMeta,
+        walletCorrelationId.isAcceptableOrUnknown(
+          data['wallet_correlation_id']!,
+          _walletCorrelationIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -7560,18 +7822,22 @@ class $WalletMutationsTable extends WalletMutations
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      operation: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}operation'],
-      )!,
+      operationKind: $WalletMutationsTable.$converteroperationKind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}operation_kind'],
+        )!,
+      ),
       payload: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}payload'],
       )!,
-      state: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}state'],
-      )!,
+      state: $WalletMutationsTable.$converterstate.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}state'],
+        )!,
+      ),
       lineageKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}lineage_key'],
@@ -7588,6 +7854,46 @@ class $WalletMutationsTable extends WalletMutations
         DriftSqlType.int,
         data['${effectivePrefix}updated_at_epoch_ms'],
       )!,
+      candidateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}candidate_id'],
+      ),
+      operationRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}operation_revision'],
+      ),
+      lineageGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lineage_generation'],
+      ),
+      payloadJsonCiphertext: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_json_ciphertext'],
+      ),
+      sourceMarker: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_marker'],
+      ),
+      attemptCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempt_count'],
+      ),
+      nextAttemptAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}next_attempt_at_epoch_ms'],
+      ),
+      leaseUntilEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}lease_until_epoch_ms'],
+      ),
+      lastHttpStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_http_status'],
+      ),
+      walletCorrelationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_correlation_id'],
+      ),
     );
   }
 
@@ -7595,51 +7901,146 @@ class $WalletMutationsTable extends WalletMutations
   $WalletMutationsTable createAlias(String alias) {
     return $WalletMutationsTable(attachedDatabase, alias);
   }
+
+  static JsonTypeConverter2<WalletMutationOperation, String, String>
+  $converteroperationKind = const EnumNameConverter<WalletMutationOperation>(
+    WalletMutationOperation.values,
+  );
+  static TypeConverter<WalletMutationState, String> $converterstate =
+      const WalletMutationStateConverter();
 }
 
 class WalletMutation extends DataClass implements Insertable<WalletMutation> {
   final String id;
-  final String operation;
+  final WalletMutationOperation operationKind;
   final String payload;
-  final String state;
+  final WalletMutationState state;
   final String lineageKey;
   final String fingerprint;
   final int createdAtEpochMs;
   final int updatedAtEpochMs;
+  final String? candidateId;
+  final int? operationRevision;
+  final int? lineageGeneration;
+  final String? payloadJsonCiphertext;
+  final String? sourceMarker;
+  final int? attemptCount;
+  final int? nextAttemptAtEpochMs;
+  final int? leaseUntilEpochMs;
+  final int? lastHttpStatus;
+  final String? walletCorrelationId;
   const WalletMutation({
     required this.id,
-    required this.operation,
+    required this.operationKind,
     required this.payload,
     required this.state,
     required this.lineageKey,
     required this.fingerprint,
     required this.createdAtEpochMs,
     required this.updatedAtEpochMs,
+    this.candidateId,
+    this.operationRevision,
+    this.lineageGeneration,
+    this.payloadJsonCiphertext,
+    this.sourceMarker,
+    this.attemptCount,
+    this.nextAttemptAtEpochMs,
+    this.leaseUntilEpochMs,
+    this.lastHttpStatus,
+    this.walletCorrelationId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['operation'] = Variable<String>(operation);
+    {
+      map['operation_kind'] = Variable<String>(
+        $WalletMutationsTable.$converteroperationKind.toSql(operationKind),
+      );
+    }
     map['payload'] = Variable<String>(payload);
-    map['state'] = Variable<String>(state);
+    {
+      map['state'] = Variable<String>(
+        $WalletMutationsTable.$converterstate.toSql(state),
+      );
+    }
     map['lineage_key'] = Variable<String>(lineageKey);
     map['fingerprint'] = Variable<String>(fingerprint);
     map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
     map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs);
+    if (!nullToAbsent || candidateId != null) {
+      map['candidate_id'] = Variable<String>(candidateId);
+    }
+    if (!nullToAbsent || operationRevision != null) {
+      map['operation_revision'] = Variable<int>(operationRevision);
+    }
+    if (!nullToAbsent || lineageGeneration != null) {
+      map['lineage_generation'] = Variable<int>(lineageGeneration);
+    }
+    if (!nullToAbsent || payloadJsonCiphertext != null) {
+      map['payload_json_ciphertext'] = Variable<String>(payloadJsonCiphertext);
+    }
+    if (!nullToAbsent || sourceMarker != null) {
+      map['source_marker'] = Variable<String>(sourceMarker);
+    }
+    if (!nullToAbsent || attemptCount != null) {
+      map['attempt_count'] = Variable<int>(attemptCount);
+    }
+    if (!nullToAbsent || nextAttemptAtEpochMs != null) {
+      map['next_attempt_at_epoch_ms'] = Variable<int>(nextAttemptAtEpochMs);
+    }
+    if (!nullToAbsent || leaseUntilEpochMs != null) {
+      map['lease_until_epoch_ms'] = Variable<int>(leaseUntilEpochMs);
+    }
+    if (!nullToAbsent || lastHttpStatus != null) {
+      map['last_http_status'] = Variable<int>(lastHttpStatus);
+    }
+    if (!nullToAbsent || walletCorrelationId != null) {
+      map['wallet_correlation_id'] = Variable<String>(walletCorrelationId);
+    }
     return map;
   }
 
   WalletMutationsCompanion toCompanion(bool nullToAbsent) {
     return WalletMutationsCompanion(
       id: Value(id),
-      operation: Value(operation),
+      operationKind: Value(operationKind),
       payload: Value(payload),
       state: Value(state),
       lineageKey: Value(lineageKey),
       fingerprint: Value(fingerprint),
       createdAtEpochMs: Value(createdAtEpochMs),
       updatedAtEpochMs: Value(updatedAtEpochMs),
+      candidateId: candidateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(candidateId),
+      operationRevision: operationRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(operationRevision),
+      lineageGeneration: lineageGeneration == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lineageGeneration),
+      payloadJsonCiphertext: payloadJsonCiphertext == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payloadJsonCiphertext),
+      sourceMarker: sourceMarker == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceMarker),
+      attemptCount: attemptCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(attemptCount),
+      nextAttemptAtEpochMs: nextAttemptAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextAttemptAtEpochMs),
+      leaseUntilEpochMs: leaseUntilEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(leaseUntilEpochMs),
+      lastHttpStatus: lastHttpStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastHttpStatus),
+      walletCorrelationId: walletCorrelationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(walletCorrelationId),
     );
   }
 
@@ -7650,13 +8051,31 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return WalletMutation(
       id: serializer.fromJson<String>(json['id']),
-      operation: serializer.fromJson<String>(json['operation']),
+      operationKind: $WalletMutationsTable.$converteroperationKind.fromJson(
+        serializer.fromJson<String>(json['operationKind']),
+      ),
       payload: serializer.fromJson<String>(json['payload']),
-      state: serializer.fromJson<String>(json['state']),
+      state: serializer.fromJson<WalletMutationState>(json['state']),
       lineageKey: serializer.fromJson<String>(json['lineageKey']),
       fingerprint: serializer.fromJson<String>(json['fingerprint']),
       createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
       updatedAtEpochMs: serializer.fromJson<int>(json['updatedAtEpochMs']),
+      candidateId: serializer.fromJson<String?>(json['candidateId']),
+      operationRevision: serializer.fromJson<int?>(json['operationRevision']),
+      lineageGeneration: serializer.fromJson<int?>(json['lineageGeneration']),
+      payloadJsonCiphertext: serializer.fromJson<String?>(
+        json['payloadJsonCiphertext'],
+      ),
+      sourceMarker: serializer.fromJson<String?>(json['sourceMarker']),
+      attemptCount: serializer.fromJson<int?>(json['attemptCount']),
+      nextAttemptAtEpochMs: serializer.fromJson<int?>(
+        json['nextAttemptAtEpochMs'],
+      ),
+      leaseUntilEpochMs: serializer.fromJson<int?>(json['leaseUntilEpochMs']),
+      lastHttpStatus: serializer.fromJson<int?>(json['lastHttpStatus']),
+      walletCorrelationId: serializer.fromJson<String?>(
+        json['walletCorrelationId'],
+      ),
     );
   }
   @override
@@ -7664,39 +8083,89 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'operation': serializer.toJson<String>(operation),
+      'operationKind': serializer.toJson<String>(
+        $WalletMutationsTable.$converteroperationKind.toJson(operationKind),
+      ),
       'payload': serializer.toJson<String>(payload),
-      'state': serializer.toJson<String>(state),
+      'state': serializer.toJson<WalletMutationState>(state),
       'lineageKey': serializer.toJson<String>(lineageKey),
       'fingerprint': serializer.toJson<String>(fingerprint),
       'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
       'updatedAtEpochMs': serializer.toJson<int>(updatedAtEpochMs),
+      'candidateId': serializer.toJson<String?>(candidateId),
+      'operationRevision': serializer.toJson<int?>(operationRevision),
+      'lineageGeneration': serializer.toJson<int?>(lineageGeneration),
+      'payloadJsonCiphertext': serializer.toJson<String?>(
+        payloadJsonCiphertext,
+      ),
+      'sourceMarker': serializer.toJson<String?>(sourceMarker),
+      'attemptCount': serializer.toJson<int?>(attemptCount),
+      'nextAttemptAtEpochMs': serializer.toJson<int?>(nextAttemptAtEpochMs),
+      'leaseUntilEpochMs': serializer.toJson<int?>(leaseUntilEpochMs),
+      'lastHttpStatus': serializer.toJson<int?>(lastHttpStatus),
+      'walletCorrelationId': serializer.toJson<String?>(walletCorrelationId),
     };
   }
 
   WalletMutation copyWith({
     String? id,
-    String? operation,
+    WalletMutationOperation? operationKind,
     String? payload,
-    String? state,
+    WalletMutationState? state,
     String? lineageKey,
     String? fingerprint,
     int? createdAtEpochMs,
     int? updatedAtEpochMs,
+    Value<String?> candidateId = const Value.absent(),
+    Value<int?> operationRevision = const Value.absent(),
+    Value<int?> lineageGeneration = const Value.absent(),
+    Value<String?> payloadJsonCiphertext = const Value.absent(),
+    Value<String?> sourceMarker = const Value.absent(),
+    Value<int?> attemptCount = const Value.absent(),
+    Value<int?> nextAttemptAtEpochMs = const Value.absent(),
+    Value<int?> leaseUntilEpochMs = const Value.absent(),
+    Value<int?> lastHttpStatus = const Value.absent(),
+    Value<String?> walletCorrelationId = const Value.absent(),
   }) => WalletMutation(
     id: id ?? this.id,
-    operation: operation ?? this.operation,
+    operationKind: operationKind ?? this.operationKind,
     payload: payload ?? this.payload,
     state: state ?? this.state,
     lineageKey: lineageKey ?? this.lineageKey,
     fingerprint: fingerprint ?? this.fingerprint,
     createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
     updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+    candidateId: candidateId.present ? candidateId.value : this.candidateId,
+    operationRevision: operationRevision.present
+        ? operationRevision.value
+        : this.operationRevision,
+    lineageGeneration: lineageGeneration.present
+        ? lineageGeneration.value
+        : this.lineageGeneration,
+    payloadJsonCiphertext: payloadJsonCiphertext.present
+        ? payloadJsonCiphertext.value
+        : this.payloadJsonCiphertext,
+    sourceMarker: sourceMarker.present ? sourceMarker.value : this.sourceMarker,
+    attemptCount: attemptCount.present ? attemptCount.value : this.attemptCount,
+    nextAttemptAtEpochMs: nextAttemptAtEpochMs.present
+        ? nextAttemptAtEpochMs.value
+        : this.nextAttemptAtEpochMs,
+    leaseUntilEpochMs: leaseUntilEpochMs.present
+        ? leaseUntilEpochMs.value
+        : this.leaseUntilEpochMs,
+    lastHttpStatus: lastHttpStatus.present
+        ? lastHttpStatus.value
+        : this.lastHttpStatus,
+    walletCorrelationId: walletCorrelationId.present
+        ? walletCorrelationId.value
+        : this.walletCorrelationId,
   );
   WalletMutation copyWithCompanion(WalletMutationsCompanion data) {
     return WalletMutation(
       id: data.id.present ? data.id.value : this.id,
-      operation: data.operation.present ? data.operation.value : this.operation,
+      operationKind: data.operationKind.present
+          ? data.operationKind.value
+          : this.operationKind,
       payload: data.payload.present ? data.payload.value : this.payload,
       state: data.state.present ? data.state.value : this.state,
       lineageKey: data.lineageKey.present
@@ -7711,6 +8180,36 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
       updatedAtEpochMs: data.updatedAtEpochMs.present
           ? data.updatedAtEpochMs.value
           : this.updatedAtEpochMs,
+      candidateId: data.candidateId.present
+          ? data.candidateId.value
+          : this.candidateId,
+      operationRevision: data.operationRevision.present
+          ? data.operationRevision.value
+          : this.operationRevision,
+      lineageGeneration: data.lineageGeneration.present
+          ? data.lineageGeneration.value
+          : this.lineageGeneration,
+      payloadJsonCiphertext: data.payloadJsonCiphertext.present
+          ? data.payloadJsonCiphertext.value
+          : this.payloadJsonCiphertext,
+      sourceMarker: data.sourceMarker.present
+          ? data.sourceMarker.value
+          : this.sourceMarker,
+      attemptCount: data.attemptCount.present
+          ? data.attemptCount.value
+          : this.attemptCount,
+      nextAttemptAtEpochMs: data.nextAttemptAtEpochMs.present
+          ? data.nextAttemptAtEpochMs.value
+          : this.nextAttemptAtEpochMs,
+      leaseUntilEpochMs: data.leaseUntilEpochMs.present
+          ? data.leaseUntilEpochMs.value
+          : this.leaseUntilEpochMs,
+      lastHttpStatus: data.lastHttpStatus.present
+          ? data.lastHttpStatus.value
+          : this.lastHttpStatus,
+      walletCorrelationId: data.walletCorrelationId.present
+          ? data.walletCorrelationId.value
+          : this.walletCorrelationId,
     );
   }
 
@@ -7718,13 +8217,23 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
   String toString() {
     return (StringBuffer('WalletMutation(')
           ..write('id: $id, ')
-          ..write('operation: $operation, ')
+          ..write('operationKind: $operationKind, ')
           ..write('payload: $payload, ')
           ..write('state: $state, ')
           ..write('lineageKey: $lineageKey, ')
           ..write('fingerprint: $fingerprint, ')
           ..write('createdAtEpochMs: $createdAtEpochMs, ')
-          ..write('updatedAtEpochMs: $updatedAtEpochMs')
+          ..write('updatedAtEpochMs: $updatedAtEpochMs, ')
+          ..write('candidateId: $candidateId, ')
+          ..write('operationRevision: $operationRevision, ')
+          ..write('lineageGeneration: $lineageGeneration, ')
+          ..write('payloadJsonCiphertext: $payloadJsonCiphertext, ')
+          ..write('sourceMarker: $sourceMarker, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('nextAttemptAtEpochMs: $nextAttemptAtEpochMs, ')
+          ..write('leaseUntilEpochMs: $leaseUntilEpochMs, ')
+          ..write('lastHttpStatus: $lastHttpStatus, ')
+          ..write('walletCorrelationId: $walletCorrelationId')
           ..write(')'))
         .toString();
   }
@@ -7732,61 +8241,111 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
   @override
   int get hashCode => Object.hash(
     id,
-    operation,
+    operationKind,
     payload,
     state,
     lineageKey,
     fingerprint,
     createdAtEpochMs,
     updatedAtEpochMs,
+    candidateId,
+    operationRevision,
+    lineageGeneration,
+    payloadJsonCiphertext,
+    sourceMarker,
+    attemptCount,
+    nextAttemptAtEpochMs,
+    leaseUntilEpochMs,
+    lastHttpStatus,
+    walletCorrelationId,
   );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is WalletMutation &&
           other.id == this.id &&
-          other.operation == this.operation &&
+          other.operationKind == this.operationKind &&
           other.payload == this.payload &&
           other.state == this.state &&
           other.lineageKey == this.lineageKey &&
           other.fingerprint == this.fingerprint &&
           other.createdAtEpochMs == this.createdAtEpochMs &&
-          other.updatedAtEpochMs == this.updatedAtEpochMs);
+          other.updatedAtEpochMs == this.updatedAtEpochMs &&
+          other.candidateId == this.candidateId &&
+          other.operationRevision == this.operationRevision &&
+          other.lineageGeneration == this.lineageGeneration &&
+          other.payloadJsonCiphertext == this.payloadJsonCiphertext &&
+          other.sourceMarker == this.sourceMarker &&
+          other.attemptCount == this.attemptCount &&
+          other.nextAttemptAtEpochMs == this.nextAttemptAtEpochMs &&
+          other.leaseUntilEpochMs == this.leaseUntilEpochMs &&
+          other.lastHttpStatus == this.lastHttpStatus &&
+          other.walletCorrelationId == this.walletCorrelationId);
 }
 
 class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
   final Value<String> id;
-  final Value<String> operation;
+  final Value<WalletMutationOperation> operationKind;
   final Value<String> payload;
-  final Value<String> state;
+  final Value<WalletMutationState> state;
   final Value<String> lineageKey;
   final Value<String> fingerprint;
   final Value<int> createdAtEpochMs;
   final Value<int> updatedAtEpochMs;
+  final Value<String?> candidateId;
+  final Value<int?> operationRevision;
+  final Value<int?> lineageGeneration;
+  final Value<String?> payloadJsonCiphertext;
+  final Value<String?> sourceMarker;
+  final Value<int?> attemptCount;
+  final Value<int?> nextAttemptAtEpochMs;
+  final Value<int?> leaseUntilEpochMs;
+  final Value<int?> lastHttpStatus;
+  final Value<String?> walletCorrelationId;
   final Value<int> rowid;
   const WalletMutationsCompanion({
     this.id = const Value.absent(),
-    this.operation = const Value.absent(),
+    this.operationKind = const Value.absent(),
     this.payload = const Value.absent(),
     this.state = const Value.absent(),
     this.lineageKey = const Value.absent(),
     this.fingerprint = const Value.absent(),
     this.createdAtEpochMs = const Value.absent(),
     this.updatedAtEpochMs = const Value.absent(),
+    this.candidateId = const Value.absent(),
+    this.operationRevision = const Value.absent(),
+    this.lineageGeneration = const Value.absent(),
+    this.payloadJsonCiphertext = const Value.absent(),
+    this.sourceMarker = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.nextAttemptAtEpochMs = const Value.absent(),
+    this.leaseUntilEpochMs = const Value.absent(),
+    this.lastHttpStatus = const Value.absent(),
+    this.walletCorrelationId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WalletMutationsCompanion.insert({
     required String id,
-    required String operation,
+    required WalletMutationOperation operationKind,
     required String payload,
-    required String state,
+    required WalletMutationState state,
     required String lineageKey,
     required String fingerprint,
     required int createdAtEpochMs,
     required int updatedAtEpochMs,
+    this.candidateId = const Value.absent(),
+    this.operationRevision = const Value.absent(),
+    this.lineageGeneration = const Value.absent(),
+    this.payloadJsonCiphertext = const Value.absent(),
+    this.sourceMarker = const Value.absent(),
+    this.attemptCount = const Value.absent(),
+    this.nextAttemptAtEpochMs = const Value.absent(),
+    this.leaseUntilEpochMs = const Value.absent(),
+    this.lastHttpStatus = const Value.absent(),
+    this.walletCorrelationId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
-       operation = Value(operation),
+       operationKind = Value(operationKind),
        payload = Value(payload),
        state = Value(state),
        lineageKey = Value(lineageKey),
@@ -7795,48 +8354,92 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
        updatedAtEpochMs = Value(updatedAtEpochMs);
   static Insertable<WalletMutation> custom({
     Expression<String>? id,
-    Expression<String>? operation,
+    Expression<String>? operationKind,
     Expression<String>? payload,
     Expression<String>? state,
     Expression<String>? lineageKey,
     Expression<String>? fingerprint,
     Expression<int>? createdAtEpochMs,
     Expression<int>? updatedAtEpochMs,
+    Expression<String>? candidateId,
+    Expression<int>? operationRevision,
+    Expression<int>? lineageGeneration,
+    Expression<String>? payloadJsonCiphertext,
+    Expression<String>? sourceMarker,
+    Expression<int>? attemptCount,
+    Expression<int>? nextAttemptAtEpochMs,
+    Expression<int>? leaseUntilEpochMs,
+    Expression<int>? lastHttpStatus,
+    Expression<String>? walletCorrelationId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (operation != null) 'operation': operation,
+      if (operationKind != null) 'operation_kind': operationKind,
       if (payload != null) 'payload': payload,
       if (state != null) 'state': state,
       if (lineageKey != null) 'lineage_key': lineageKey,
       if (fingerprint != null) 'fingerprint': fingerprint,
       if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
       if (updatedAtEpochMs != null) 'updated_at_epoch_ms': updatedAtEpochMs,
+      if (candidateId != null) 'candidate_id': candidateId,
+      if (operationRevision != null) 'operation_revision': operationRevision,
+      if (lineageGeneration != null) 'lineage_generation': lineageGeneration,
+      if (payloadJsonCiphertext != null)
+        'payload_json_ciphertext': payloadJsonCiphertext,
+      if (sourceMarker != null) 'source_marker': sourceMarker,
+      if (attemptCount != null) 'attempt_count': attemptCount,
+      if (nextAttemptAtEpochMs != null)
+        'next_attempt_at_epoch_ms': nextAttemptAtEpochMs,
+      if (leaseUntilEpochMs != null) 'lease_until_epoch_ms': leaseUntilEpochMs,
+      if (lastHttpStatus != null) 'last_http_status': lastHttpStatus,
+      if (walletCorrelationId != null)
+        'wallet_correlation_id': walletCorrelationId,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   WalletMutationsCompanion copyWith({
     Value<String>? id,
-    Value<String>? operation,
+    Value<WalletMutationOperation>? operationKind,
     Value<String>? payload,
-    Value<String>? state,
+    Value<WalletMutationState>? state,
     Value<String>? lineageKey,
     Value<String>? fingerprint,
     Value<int>? createdAtEpochMs,
     Value<int>? updatedAtEpochMs,
+    Value<String?>? candidateId,
+    Value<int?>? operationRevision,
+    Value<int?>? lineageGeneration,
+    Value<String?>? payloadJsonCiphertext,
+    Value<String?>? sourceMarker,
+    Value<int?>? attemptCount,
+    Value<int?>? nextAttemptAtEpochMs,
+    Value<int?>? leaseUntilEpochMs,
+    Value<int?>? lastHttpStatus,
+    Value<String?>? walletCorrelationId,
     Value<int>? rowid,
   }) {
     return WalletMutationsCompanion(
       id: id ?? this.id,
-      operation: operation ?? this.operation,
+      operationKind: operationKind ?? this.operationKind,
       payload: payload ?? this.payload,
       state: state ?? this.state,
       lineageKey: lineageKey ?? this.lineageKey,
       fingerprint: fingerprint ?? this.fingerprint,
       createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
       updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+      candidateId: candidateId ?? this.candidateId,
+      operationRevision: operationRevision ?? this.operationRevision,
+      lineageGeneration: lineageGeneration ?? this.lineageGeneration,
+      payloadJsonCiphertext:
+          payloadJsonCiphertext ?? this.payloadJsonCiphertext,
+      sourceMarker: sourceMarker ?? this.sourceMarker,
+      attemptCount: attemptCount ?? this.attemptCount,
+      nextAttemptAtEpochMs: nextAttemptAtEpochMs ?? this.nextAttemptAtEpochMs,
+      leaseUntilEpochMs: leaseUntilEpochMs ?? this.leaseUntilEpochMs,
+      lastHttpStatus: lastHttpStatus ?? this.lastHttpStatus,
+      walletCorrelationId: walletCorrelationId ?? this.walletCorrelationId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7847,14 +8450,20 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (operation.present) {
-      map['operation'] = Variable<String>(operation.value);
+    if (operationKind.present) {
+      map['operation_kind'] = Variable<String>(
+        $WalletMutationsTable.$converteroperationKind.toSql(
+          operationKind.value,
+        ),
+      );
     }
     if (payload.present) {
       map['payload'] = Variable<String>(payload.value);
     }
     if (state.present) {
-      map['state'] = Variable<String>(state.value);
+      map['state'] = Variable<String>(
+        $WalletMutationsTable.$converterstate.toSql(state.value),
+      );
     }
     if (lineageKey.present) {
       map['lineage_key'] = Variable<String>(lineageKey.value);
@@ -7868,6 +8477,42 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     if (updatedAtEpochMs.present) {
       map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs.value);
     }
+    if (candidateId.present) {
+      map['candidate_id'] = Variable<String>(candidateId.value);
+    }
+    if (operationRevision.present) {
+      map['operation_revision'] = Variable<int>(operationRevision.value);
+    }
+    if (lineageGeneration.present) {
+      map['lineage_generation'] = Variable<int>(lineageGeneration.value);
+    }
+    if (payloadJsonCiphertext.present) {
+      map['payload_json_ciphertext'] = Variable<String>(
+        payloadJsonCiphertext.value,
+      );
+    }
+    if (sourceMarker.present) {
+      map['source_marker'] = Variable<String>(sourceMarker.value);
+    }
+    if (attemptCount.present) {
+      map['attempt_count'] = Variable<int>(attemptCount.value);
+    }
+    if (nextAttemptAtEpochMs.present) {
+      map['next_attempt_at_epoch_ms'] = Variable<int>(
+        nextAttemptAtEpochMs.value,
+      );
+    }
+    if (leaseUntilEpochMs.present) {
+      map['lease_until_epoch_ms'] = Variable<int>(leaseUntilEpochMs.value);
+    }
+    if (lastHttpStatus.present) {
+      map['last_http_status'] = Variable<int>(lastHttpStatus.value);
+    }
+    if (walletCorrelationId.present) {
+      map['wallet_correlation_id'] = Variable<String>(
+        walletCorrelationId.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7878,13 +8523,23 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
   String toString() {
     return (StringBuffer('WalletMutationsCompanion(')
           ..write('id: $id, ')
-          ..write('operation: $operation, ')
+          ..write('operationKind: $operationKind, ')
           ..write('payload: $payload, ')
           ..write('state: $state, ')
           ..write('lineageKey: $lineageKey, ')
           ..write('fingerprint: $fingerprint, ')
           ..write('createdAtEpochMs: $createdAtEpochMs, ')
           ..write('updatedAtEpochMs: $updatedAtEpochMs, ')
+          ..write('candidateId: $candidateId, ')
+          ..write('operationRevision: $operationRevision, ')
+          ..write('lineageGeneration: $lineageGeneration, ')
+          ..write('payloadJsonCiphertext: $payloadJsonCiphertext, ')
+          ..write('sourceMarker: $sourceMarker, ')
+          ..write('attemptCount: $attemptCount, ')
+          ..write('nextAttemptAtEpochMs: $nextAttemptAtEpochMs, ')
+          ..write('leaseUntilEpochMs: $leaseUntilEpochMs, ')
+          ..write('lastHttpStatus: $lastHttpStatus, ')
+          ..write('walletCorrelationId: $walletCorrelationId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7938,8 +8593,113 @@ class $WalletRecordLinksTable extends WalletRecordLinks
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _candidateIdMeta = const VerificationMeta(
+    'candidateId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, appId, remoteId, createdAtEpochMs];
+  late final GeneratedColumn<String> candidateId = GeneratedColumn<String>(
+    'candidate_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<WalletItemLegRole?, String>
+  legRole =
+      GeneratedColumn<String>(
+        'leg_role',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<WalletItemLegRole?>(
+        $WalletRecordLinksTable.$converterlegRolen,
+      );
+  static const VerificationMeta _pairGroupIdMeta = const VerificationMeta(
+    'pairGroupId',
+  );
+  @override
+  late final GeneratedColumn<String> pairGroupId = GeneratedColumn<String>(
+    'pair_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastKnownRevisionMeta = const VerificationMeta(
+    'lastKnownRevision',
+  );
+  @override
+  late final GeneratedColumn<int> lastKnownRevision = GeneratedColumn<int>(
+    'last_known_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastKnownStateMeta = const VerificationMeta(
+    'lastKnownState',
+  );
+  @override
+  late final GeneratedColumn<String> lastKnownState = GeneratedColumn<String>(
+    'last_known_state',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _updatedAtEpochMsMeta = const VerificationMeta(
+    'updatedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtEpochMs = GeneratedColumn<int>(
+    'updated_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletedAtEpochMsMeta = const VerificationMeta(
+    'deletedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> deletedAtEpochMs = GeneratedColumn<int>(
+    'deleted_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _remoteDeletedTombstoneMeta =
+      const VerificationMeta('remoteDeletedTombstone');
+  @override
+  late final GeneratedColumn<bool> remoteDeletedTombstone =
+      GeneratedColumn<bool>(
+        'remote_deleted_tombstone',
+        aliasedName,
+        true,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("remote_deleted_tombstone" IN (0, 1))',
+        ),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    appId,
+    remoteId,
+    createdAtEpochMs,
+    candidateId,
+    legRole,
+    pairGroupId,
+    lastKnownRevision,
+    lastKnownState,
+    updatedAtEpochMs,
+    deletedAtEpochMs,
+    remoteDeletedTombstone,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -7982,6 +8742,69 @@ class $WalletRecordLinksTable extends WalletRecordLinks
     } else if (isInserting) {
       context.missing(_createdAtEpochMsMeta);
     }
+    if (data.containsKey('candidate_id')) {
+      context.handle(
+        _candidateIdMeta,
+        candidateId.isAcceptableOrUnknown(
+          data['candidate_id']!,
+          _candidateIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pair_group_id')) {
+      context.handle(
+        _pairGroupIdMeta,
+        pairGroupId.isAcceptableOrUnknown(
+          data['pair_group_id']!,
+          _pairGroupIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_known_revision')) {
+      context.handle(
+        _lastKnownRevisionMeta,
+        lastKnownRevision.isAcceptableOrUnknown(
+          data['last_known_revision']!,
+          _lastKnownRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_known_state')) {
+      context.handle(
+        _lastKnownStateMeta,
+        lastKnownState.isAcceptableOrUnknown(
+          data['last_known_state']!,
+          _lastKnownStateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at_epoch_ms')) {
+      context.handle(
+        _updatedAtEpochMsMeta,
+        updatedAtEpochMs.isAcceptableOrUnknown(
+          data['updated_at_epoch_ms']!,
+          _updatedAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('deleted_at_epoch_ms')) {
+      context.handle(
+        _deletedAtEpochMsMeta,
+        deletedAtEpochMs.isAcceptableOrUnknown(
+          data['deleted_at_epoch_ms']!,
+          _deletedAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('remote_deleted_tombstone')) {
+      context.handle(
+        _remoteDeletedTombstoneMeta,
+        remoteDeletedTombstone.isAcceptableOrUnknown(
+          data['remote_deleted_tombstone']!,
+          _remoteDeletedTombstoneMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -8007,6 +8830,40 @@ class $WalletRecordLinksTable extends WalletRecordLinks
         DriftSqlType.int,
         data['${effectivePrefix}created_at_epoch_ms'],
       )!,
+      candidateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}candidate_id'],
+      ),
+      legRole: $WalletRecordLinksTable.$converterlegRolen.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}leg_role'],
+        ),
+      ),
+      pairGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pair_group_id'],
+      ),
+      lastKnownRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_known_revision'],
+      ),
+      lastKnownState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_known_state'],
+      ),
+      updatedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_epoch_ms'],
+      ),
+      deletedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}deleted_at_epoch_ms'],
+      ),
+      remoteDeletedTombstone: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}remote_deleted_tombstone'],
+      ),
     );
   }
 
@@ -8014,6 +8871,11 @@ class $WalletRecordLinksTable extends WalletRecordLinks
   $WalletRecordLinksTable createAlias(String alias) {
     return $WalletRecordLinksTable(attachedDatabase, alias);
   }
+
+  static TypeConverter<WalletItemLegRole, String> $converterlegRole =
+      const WalletItemLegRoleConverter();
+  static TypeConverter<WalletItemLegRole?, String?> $converterlegRolen =
+      NullAwareTypeConverter.wrap($converterlegRole);
 }
 
 class WalletRecordLink extends DataClass
@@ -8022,11 +8884,27 @@ class WalletRecordLink extends DataClass
   final String appId;
   final String? remoteId;
   final int createdAtEpochMs;
+  final String? candidateId;
+  final WalletItemLegRole? legRole;
+  final String? pairGroupId;
+  final int? lastKnownRevision;
+  final String? lastKnownState;
+  final int? updatedAtEpochMs;
+  final int? deletedAtEpochMs;
+  final bool? remoteDeletedTombstone;
   const WalletRecordLink({
     required this.id,
     required this.appId,
     this.remoteId,
     required this.createdAtEpochMs,
+    this.candidateId,
+    this.legRole,
+    this.pairGroupId,
+    this.lastKnownRevision,
+    this.lastKnownState,
+    this.updatedAtEpochMs,
+    this.deletedAtEpochMs,
+    this.remoteDeletedTombstone,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8037,6 +8915,32 @@ class WalletRecordLink extends DataClass
       map['remote_id'] = Variable<String>(remoteId);
     }
     map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
+    if (!nullToAbsent || candidateId != null) {
+      map['candidate_id'] = Variable<String>(candidateId);
+    }
+    if (!nullToAbsent || legRole != null) {
+      map['leg_role'] = Variable<String>(
+        $WalletRecordLinksTable.$converterlegRolen.toSql(legRole),
+      );
+    }
+    if (!nullToAbsent || pairGroupId != null) {
+      map['pair_group_id'] = Variable<String>(pairGroupId);
+    }
+    if (!nullToAbsent || lastKnownRevision != null) {
+      map['last_known_revision'] = Variable<int>(lastKnownRevision);
+    }
+    if (!nullToAbsent || lastKnownState != null) {
+      map['last_known_state'] = Variable<String>(lastKnownState);
+    }
+    if (!nullToAbsent || updatedAtEpochMs != null) {
+      map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs);
+    }
+    if (!nullToAbsent || deletedAtEpochMs != null) {
+      map['deleted_at_epoch_ms'] = Variable<int>(deletedAtEpochMs);
+    }
+    if (!nullToAbsent || remoteDeletedTombstone != null) {
+      map['remote_deleted_tombstone'] = Variable<bool>(remoteDeletedTombstone);
+    }
     return map;
   }
 
@@ -8048,6 +8952,30 @@ class WalletRecordLink extends DataClass
           ? const Value.absent()
           : Value(remoteId),
       createdAtEpochMs: Value(createdAtEpochMs),
+      candidateId: candidateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(candidateId),
+      legRole: legRole == null && nullToAbsent
+          ? const Value.absent()
+          : Value(legRole),
+      pairGroupId: pairGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairGroupId),
+      lastKnownRevision: lastKnownRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastKnownRevision),
+      lastKnownState: lastKnownState == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastKnownState),
+      updatedAtEpochMs: updatedAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAtEpochMs),
+      deletedAtEpochMs: deletedAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAtEpochMs),
+      remoteDeletedTombstone: remoteDeletedTombstone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(remoteDeletedTombstone),
     );
   }
 
@@ -8061,6 +8989,16 @@ class WalletRecordLink extends DataClass
       appId: serializer.fromJson<String>(json['appId']),
       remoteId: serializer.fromJson<String?>(json['remoteId']),
       createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
+      candidateId: serializer.fromJson<String?>(json['candidateId']),
+      legRole: serializer.fromJson<WalletItemLegRole?>(json['legRole']),
+      pairGroupId: serializer.fromJson<String?>(json['pairGroupId']),
+      lastKnownRevision: serializer.fromJson<int?>(json['lastKnownRevision']),
+      lastKnownState: serializer.fromJson<String?>(json['lastKnownState']),
+      updatedAtEpochMs: serializer.fromJson<int?>(json['updatedAtEpochMs']),
+      deletedAtEpochMs: serializer.fromJson<int?>(json['deletedAtEpochMs']),
+      remoteDeletedTombstone: serializer.fromJson<bool?>(
+        json['remoteDeletedTombstone'],
+      ),
     );
   }
   @override
@@ -8071,6 +9009,16 @@ class WalletRecordLink extends DataClass
       'appId': serializer.toJson<String>(appId),
       'remoteId': serializer.toJson<String?>(remoteId),
       'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
+      'candidateId': serializer.toJson<String?>(candidateId),
+      'legRole': serializer.toJson<WalletItemLegRole?>(legRole),
+      'pairGroupId': serializer.toJson<String?>(pairGroupId),
+      'lastKnownRevision': serializer.toJson<int?>(lastKnownRevision),
+      'lastKnownState': serializer.toJson<String?>(lastKnownState),
+      'updatedAtEpochMs': serializer.toJson<int?>(updatedAtEpochMs),
+      'deletedAtEpochMs': serializer.toJson<int?>(deletedAtEpochMs),
+      'remoteDeletedTombstone': serializer.toJson<bool?>(
+        remoteDeletedTombstone,
+      ),
     };
   }
 
@@ -8079,11 +9027,37 @@ class WalletRecordLink extends DataClass
     String? appId,
     Value<String?> remoteId = const Value.absent(),
     int? createdAtEpochMs,
+    Value<String?> candidateId = const Value.absent(),
+    Value<WalletItemLegRole?> legRole = const Value.absent(),
+    Value<String?> pairGroupId = const Value.absent(),
+    Value<int?> lastKnownRevision = const Value.absent(),
+    Value<String?> lastKnownState = const Value.absent(),
+    Value<int?> updatedAtEpochMs = const Value.absent(),
+    Value<int?> deletedAtEpochMs = const Value.absent(),
+    Value<bool?> remoteDeletedTombstone = const Value.absent(),
   }) => WalletRecordLink(
     id: id ?? this.id,
     appId: appId ?? this.appId,
     remoteId: remoteId.present ? remoteId.value : this.remoteId,
     createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    candidateId: candidateId.present ? candidateId.value : this.candidateId,
+    legRole: legRole.present ? legRole.value : this.legRole,
+    pairGroupId: pairGroupId.present ? pairGroupId.value : this.pairGroupId,
+    lastKnownRevision: lastKnownRevision.present
+        ? lastKnownRevision.value
+        : this.lastKnownRevision,
+    lastKnownState: lastKnownState.present
+        ? lastKnownState.value
+        : this.lastKnownState,
+    updatedAtEpochMs: updatedAtEpochMs.present
+        ? updatedAtEpochMs.value
+        : this.updatedAtEpochMs,
+    deletedAtEpochMs: deletedAtEpochMs.present
+        ? deletedAtEpochMs.value
+        : this.deletedAtEpochMs,
+    remoteDeletedTombstone: remoteDeletedTombstone.present
+        ? remoteDeletedTombstone.value
+        : this.remoteDeletedTombstone,
   );
   WalletRecordLink copyWithCompanion(WalletRecordLinksCompanion data) {
     return WalletRecordLink(
@@ -8093,6 +9067,28 @@ class WalletRecordLink extends DataClass
       createdAtEpochMs: data.createdAtEpochMs.present
           ? data.createdAtEpochMs.value
           : this.createdAtEpochMs,
+      candidateId: data.candidateId.present
+          ? data.candidateId.value
+          : this.candidateId,
+      legRole: data.legRole.present ? data.legRole.value : this.legRole,
+      pairGroupId: data.pairGroupId.present
+          ? data.pairGroupId.value
+          : this.pairGroupId,
+      lastKnownRevision: data.lastKnownRevision.present
+          ? data.lastKnownRevision.value
+          : this.lastKnownRevision,
+      lastKnownState: data.lastKnownState.present
+          ? data.lastKnownState.value
+          : this.lastKnownState,
+      updatedAtEpochMs: data.updatedAtEpochMs.present
+          ? data.updatedAtEpochMs.value
+          : this.updatedAtEpochMs,
+      deletedAtEpochMs: data.deletedAtEpochMs.present
+          ? data.deletedAtEpochMs.value
+          : this.deletedAtEpochMs,
+      remoteDeletedTombstone: data.remoteDeletedTombstone.present
+          ? data.remoteDeletedTombstone.value
+          : this.remoteDeletedTombstone,
     );
   }
 
@@ -8102,13 +9098,34 @@ class WalletRecordLink extends DataClass
           ..write('id: $id, ')
           ..write('appId: $appId, ')
           ..write('remoteId: $remoteId, ')
-          ..write('createdAtEpochMs: $createdAtEpochMs')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('candidateId: $candidateId, ')
+          ..write('legRole: $legRole, ')
+          ..write('pairGroupId: $pairGroupId, ')
+          ..write('lastKnownRevision: $lastKnownRevision, ')
+          ..write('lastKnownState: $lastKnownState, ')
+          ..write('updatedAtEpochMs: $updatedAtEpochMs, ')
+          ..write('deletedAtEpochMs: $deletedAtEpochMs, ')
+          ..write('remoteDeletedTombstone: $remoteDeletedTombstone')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, appId, remoteId, createdAtEpochMs);
+  int get hashCode => Object.hash(
+    id,
+    appId,
+    remoteId,
+    createdAtEpochMs,
+    candidateId,
+    legRole,
+    pairGroupId,
+    lastKnownRevision,
+    lastKnownState,
+    updatedAtEpochMs,
+    deletedAtEpochMs,
+    remoteDeletedTombstone,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -8116,7 +9133,15 @@ class WalletRecordLink extends DataClass
           other.id == this.id &&
           other.appId == this.appId &&
           other.remoteId == this.remoteId &&
-          other.createdAtEpochMs == this.createdAtEpochMs);
+          other.createdAtEpochMs == this.createdAtEpochMs &&
+          other.candidateId == this.candidateId &&
+          other.legRole == this.legRole &&
+          other.pairGroupId == this.pairGroupId &&
+          other.lastKnownRevision == this.lastKnownRevision &&
+          other.lastKnownState == this.lastKnownState &&
+          other.updatedAtEpochMs == this.updatedAtEpochMs &&
+          other.deletedAtEpochMs == this.deletedAtEpochMs &&
+          other.remoteDeletedTombstone == this.remoteDeletedTombstone);
 }
 
 class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
@@ -8124,12 +9149,28 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
   final Value<String> appId;
   final Value<String?> remoteId;
   final Value<int> createdAtEpochMs;
+  final Value<String?> candidateId;
+  final Value<WalletItemLegRole?> legRole;
+  final Value<String?> pairGroupId;
+  final Value<int?> lastKnownRevision;
+  final Value<String?> lastKnownState;
+  final Value<int?> updatedAtEpochMs;
+  final Value<int?> deletedAtEpochMs;
+  final Value<bool?> remoteDeletedTombstone;
   final Value<int> rowid;
   const WalletRecordLinksCompanion({
     this.id = const Value.absent(),
     this.appId = const Value.absent(),
     this.remoteId = const Value.absent(),
     this.createdAtEpochMs = const Value.absent(),
+    this.candidateId = const Value.absent(),
+    this.legRole = const Value.absent(),
+    this.pairGroupId = const Value.absent(),
+    this.lastKnownRevision = const Value.absent(),
+    this.lastKnownState = const Value.absent(),
+    this.updatedAtEpochMs = const Value.absent(),
+    this.deletedAtEpochMs = const Value.absent(),
+    this.remoteDeletedTombstone = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WalletRecordLinksCompanion.insert({
@@ -8137,6 +9178,14 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
     required String appId,
     this.remoteId = const Value.absent(),
     required int createdAtEpochMs,
+    this.candidateId = const Value.absent(),
+    this.legRole = const Value.absent(),
+    this.pairGroupId = const Value.absent(),
+    this.lastKnownRevision = const Value.absent(),
+    this.lastKnownState = const Value.absent(),
+    this.updatedAtEpochMs = const Value.absent(),
+    this.deletedAtEpochMs = const Value.absent(),
+    this.remoteDeletedTombstone = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        appId = Value(appId),
@@ -8146,6 +9195,14 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
     Expression<String>? appId,
     Expression<String>? remoteId,
     Expression<int>? createdAtEpochMs,
+    Expression<String>? candidateId,
+    Expression<String>? legRole,
+    Expression<String>? pairGroupId,
+    Expression<int>? lastKnownRevision,
+    Expression<String>? lastKnownState,
+    Expression<int>? updatedAtEpochMs,
+    Expression<int>? deletedAtEpochMs,
+    Expression<bool>? remoteDeletedTombstone,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8153,6 +9210,15 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
       if (appId != null) 'app_id': appId,
       if (remoteId != null) 'remote_id': remoteId,
       if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
+      if (candidateId != null) 'candidate_id': candidateId,
+      if (legRole != null) 'leg_role': legRole,
+      if (pairGroupId != null) 'pair_group_id': pairGroupId,
+      if (lastKnownRevision != null) 'last_known_revision': lastKnownRevision,
+      if (lastKnownState != null) 'last_known_state': lastKnownState,
+      if (updatedAtEpochMs != null) 'updated_at_epoch_ms': updatedAtEpochMs,
+      if (deletedAtEpochMs != null) 'deleted_at_epoch_ms': deletedAtEpochMs,
+      if (remoteDeletedTombstone != null)
+        'remote_deleted_tombstone': remoteDeletedTombstone,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8162,6 +9228,14 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
     Value<String>? appId,
     Value<String?>? remoteId,
     Value<int>? createdAtEpochMs,
+    Value<String?>? candidateId,
+    Value<WalletItemLegRole?>? legRole,
+    Value<String?>? pairGroupId,
+    Value<int?>? lastKnownRevision,
+    Value<String?>? lastKnownState,
+    Value<int?>? updatedAtEpochMs,
+    Value<int?>? deletedAtEpochMs,
+    Value<bool?>? remoteDeletedTombstone,
     Value<int>? rowid,
   }) {
     return WalletRecordLinksCompanion(
@@ -8169,6 +9243,15 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
       appId: appId ?? this.appId,
       remoteId: remoteId ?? this.remoteId,
       createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+      candidateId: candidateId ?? this.candidateId,
+      legRole: legRole ?? this.legRole,
+      pairGroupId: pairGroupId ?? this.pairGroupId,
+      lastKnownRevision: lastKnownRevision ?? this.lastKnownRevision,
+      lastKnownState: lastKnownState ?? this.lastKnownState,
+      updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+      deletedAtEpochMs: deletedAtEpochMs ?? this.deletedAtEpochMs,
+      remoteDeletedTombstone:
+          remoteDeletedTombstone ?? this.remoteDeletedTombstone,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8188,6 +9271,34 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
     if (createdAtEpochMs.present) {
       map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs.value);
     }
+    if (candidateId.present) {
+      map['candidate_id'] = Variable<String>(candidateId.value);
+    }
+    if (legRole.present) {
+      map['leg_role'] = Variable<String>(
+        $WalletRecordLinksTable.$converterlegRolen.toSql(legRole.value),
+      );
+    }
+    if (pairGroupId.present) {
+      map['pair_group_id'] = Variable<String>(pairGroupId.value);
+    }
+    if (lastKnownRevision.present) {
+      map['last_known_revision'] = Variable<int>(lastKnownRevision.value);
+    }
+    if (lastKnownState.present) {
+      map['last_known_state'] = Variable<String>(lastKnownState.value);
+    }
+    if (updatedAtEpochMs.present) {
+      map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs.value);
+    }
+    if (deletedAtEpochMs.present) {
+      map['deleted_at_epoch_ms'] = Variable<int>(deletedAtEpochMs.value);
+    }
+    if (remoteDeletedTombstone.present) {
+      map['remote_deleted_tombstone'] = Variable<bool>(
+        remoteDeletedTombstone.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -8201,7 +9312,1726 @@ class WalletRecordLinksCompanion extends UpdateCompanion<WalletRecordLink> {
           ..write('appId: $appId, ')
           ..write('remoteId: $remoteId, ')
           ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('candidateId: $candidateId, ')
+          ..write('legRole: $legRole, ')
+          ..write('pairGroupId: $pairGroupId, ')
+          ..write('lastKnownRevision: $lastKnownRevision, ')
+          ..write('lastKnownState: $lastKnownState, ')
+          ..write('updatedAtEpochMs: $updatedAtEpochMs, ')
+          ..write('deletedAtEpochMs: $deletedAtEpochMs, ')
+          ..write('remoteDeletedTombstone: $remoteDeletedTombstone, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MappingRulesTable extends MappingRules
+    with TableInfo<$MappingRulesTable, MappingRuleRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MappingRulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _senderMatcherMeta = const VerificationMeta(
+    'senderMatcher',
+  );
+  @override
+  late final GeneratedColumn<String> senderMatcher = GeneratedColumn<String>(
+    'sender_matcher',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _parserFamilyMeta = const VerificationMeta(
+    'parserFamily',
+  );
+  @override
+  late final GeneratedColumn<String> parserFamily = GeneratedColumn<String>(
+    'parser_family',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _instrumentSuffixHashMeta =
+      const VerificationMeta('instrumentSuffixHash');
+  @override
+  late final GeneratedColumn<String> instrumentSuffixHash =
+      GeneratedColumn<String>(
+        'instrument_suffix_hash',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<TransactionDirection?, String>
+  direction =
+      GeneratedColumn<String>(
+        'direction',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<TransactionDirection?>(
+        $MappingRulesTable.$converterdirectionn,
+      );
+  static const VerificationMeta _merchantMatcherMeta = const VerificationMeta(
+    'merchantMatcher',
+  );
+  @override
+  late final GeneratedColumn<String> merchantMatcher = GeneratedColumn<String>(
+    'merchant_matcher',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _walletAccountIdMeta = const VerificationMeta(
+    'walletAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> walletAccountId = GeneratedColumn<String>(
+    'wallet_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _walletCategoryIdMeta = const VerificationMeta(
+    'walletCategoryId',
+  );
+  @override
+  late final GeneratedColumn<String> walletCategoryId = GeneratedColumn<String>(
+    'wallet_category_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _paymentTypeMeta = const VerificationMeta(
+    'paymentType',
+  );
+  @override
+  late final GeneratedColumn<String> paymentType = GeneratedColumn<String>(
+    'payment_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<MappingSyncMode, String>
+  syncMode = GeneratedColumn<String>(
+    'sync_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  ).withConverter<MappingSyncMode>($MappingRulesTable.$convertersyncMode);
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _minConfidenceBasisPointsMeta =
+      const VerificationMeta('minConfidenceBasisPoints');
+  @override
+  late final GeneratedColumn<int> minConfidenceBasisPoints =
+      GeneratedColumn<int>(
+        'min_confidence_basis_points',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _ruleVersionMeta = const VerificationMeta(
+    'ruleVersion',
+  );
+  @override
+  late final GeneratedColumn<int> ruleVersion = GeneratedColumn<int>(
+    'rule_version',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _supersededByRuleIdMeta =
+      const VerificationMeta('supersededByRuleId');
+  @override
+  late final GeneratedColumn<String> supersededByRuleId =
+      GeneratedColumn<String>(
+        'superseded_by_rule_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtEpochMsMeta = const VerificationMeta(
+    'createdAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> createdAtEpochMs = GeneratedColumn<int>(
+    'created_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtEpochMsMeta = const VerificationMeta(
+    'updatedAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> updatedAtEpochMs = GeneratedColumn<int>(
+    'updated_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    enabled,
+    senderMatcher,
+    parserFamily,
+    instrumentSuffixHash,
+    direction,
+    merchantMatcher,
+    walletAccountId,
+    walletCategoryId,
+    paymentType,
+    syncMode,
+    priority,
+    minConfidenceBasisPoints,
+    ruleVersion,
+    supersededByRuleId,
+    createdAtEpochMs,
+    updatedAtEpochMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'mapping_rule';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MappingRuleRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_enabledMeta);
+    }
+    if (data.containsKey('sender_matcher')) {
+      context.handle(
+        _senderMatcherMeta,
+        senderMatcher.isAcceptableOrUnknown(
+          data['sender_matcher']!,
+          _senderMatcherMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderMatcherMeta);
+    }
+    if (data.containsKey('parser_family')) {
+      context.handle(
+        _parserFamilyMeta,
+        parserFamily.isAcceptableOrUnknown(
+          data['parser_family']!,
+          _parserFamilyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('instrument_suffix_hash')) {
+      context.handle(
+        _instrumentSuffixHashMeta,
+        instrumentSuffixHash.isAcceptableOrUnknown(
+          data['instrument_suffix_hash']!,
+          _instrumentSuffixHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('merchant_matcher')) {
+      context.handle(
+        _merchantMatcherMeta,
+        merchantMatcher.isAcceptableOrUnknown(
+          data['merchant_matcher']!,
+          _merchantMatcherMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wallet_account_id')) {
+      context.handle(
+        _walletAccountIdMeta,
+        walletAccountId.isAcceptableOrUnknown(
+          data['wallet_account_id']!,
+          _walletAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_walletAccountIdMeta);
+    }
+    if (data.containsKey('wallet_category_id')) {
+      context.handle(
+        _walletCategoryIdMeta,
+        walletCategoryId.isAcceptableOrUnknown(
+          data['wallet_category_id']!,
+          _walletCategoryIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payment_type')) {
+      context.handle(
+        _paymentTypeMeta,
+        paymentType.isAcceptableOrUnknown(
+          data['payment_type']!,
+          _paymentTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_paymentTypeMeta);
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_priorityMeta);
+    }
+    if (data.containsKey('min_confidence_basis_points')) {
+      context.handle(
+        _minConfidenceBasisPointsMeta,
+        minConfidenceBasisPoints.isAcceptableOrUnknown(
+          data['min_confidence_basis_points']!,
+          _minConfidenceBasisPointsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rule_version')) {
+      context.handle(
+        _ruleVersionMeta,
+        ruleVersion.isAcceptableOrUnknown(
+          data['rule_version']!,
+          _ruleVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ruleVersionMeta);
+    }
+    if (data.containsKey('superseded_by_rule_id')) {
+      context.handle(
+        _supersededByRuleIdMeta,
+        supersededByRuleId.isAcceptableOrUnknown(
+          data['superseded_by_rule_id']!,
+          _supersededByRuleIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at_epoch_ms')) {
+      context.handle(
+        _createdAtEpochMsMeta,
+        createdAtEpochMs.isAcceptableOrUnknown(
+          data['created_at_epoch_ms']!,
+          _createdAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtEpochMsMeta);
+    }
+    if (data.containsKey('updated_at_epoch_ms')) {
+      context.handle(
+        _updatedAtEpochMsMeta,
+        updatedAtEpochMs.isAcceptableOrUnknown(
+          data['updated_at_epoch_ms']!,
+          _updatedAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtEpochMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id, ruleVersion};
+  @override
+  MappingRuleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MappingRuleRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      enabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}enabled'],
+      )!,
+      senderMatcher: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_matcher'],
+      )!,
+      parserFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parser_family'],
+      ),
+      instrumentSuffixHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}instrument_suffix_hash'],
+      ),
+      direction: $MappingRulesTable.$converterdirectionn.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}direction'],
+        ),
+      ),
+      merchantMatcher: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}merchant_matcher'],
+      ),
+      walletAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_account_id'],
+      )!,
+      walletCategoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_category_id'],
+      ),
+      paymentType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_type'],
+      )!,
+      syncMode: $MappingRulesTable.$convertersyncMode.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}sync_mode'],
+        )!,
+      ),
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      minConfidenceBasisPoints: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}min_confidence_basis_points'],
+      ),
+      ruleVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rule_version'],
+      )!,
+      supersededByRuleId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}superseded_by_rule_id'],
+      ),
+      createdAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}created_at_epoch_ms'],
+      )!,
+      updatedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}updated_at_epoch_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $MappingRulesTable createAlias(String alias) {
+    return $MappingRulesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<TransactionDirection, String, String>
+  $converterdirection = const EnumNameConverter<TransactionDirection>(
+    TransactionDirection.values,
+  );
+  static JsonTypeConverter2<TransactionDirection?, String?, String?>
+  $converterdirectionn = JsonTypeConverter2.asNullable($converterdirection);
+  static JsonTypeConverter2<MappingSyncMode, String, String>
+  $convertersyncMode = const EnumNameConverter<MappingSyncMode>(
+    MappingSyncMode.values,
+  );
+}
+
+class MappingRuleRow extends DataClass implements Insertable<MappingRuleRow> {
+  final String id;
+  final String name;
+  final bool enabled;
+  final String senderMatcher;
+  final String? parserFamily;
+  final String? instrumentSuffixHash;
+  final TransactionDirection? direction;
+  final String? merchantMatcher;
+  final String walletAccountId;
+  final String? walletCategoryId;
+  final String paymentType;
+  final MappingSyncMode syncMode;
+  final int priority;
+  final int? minConfidenceBasisPoints;
+  final int ruleVersion;
+  final String? supersededByRuleId;
+  final int createdAtEpochMs;
+  final int updatedAtEpochMs;
+  const MappingRuleRow({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.senderMatcher,
+    this.parserFamily,
+    this.instrumentSuffixHash,
+    this.direction,
+    this.merchantMatcher,
+    required this.walletAccountId,
+    this.walletCategoryId,
+    required this.paymentType,
+    required this.syncMode,
+    required this.priority,
+    this.minConfidenceBasisPoints,
+    required this.ruleVersion,
+    this.supersededByRuleId,
+    required this.createdAtEpochMs,
+    required this.updatedAtEpochMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['enabled'] = Variable<bool>(enabled);
+    map['sender_matcher'] = Variable<String>(senderMatcher);
+    if (!nullToAbsent || parserFamily != null) {
+      map['parser_family'] = Variable<String>(parserFamily);
+    }
+    if (!nullToAbsent || instrumentSuffixHash != null) {
+      map['instrument_suffix_hash'] = Variable<String>(instrumentSuffixHash);
+    }
+    if (!nullToAbsent || direction != null) {
+      map['direction'] = Variable<String>(
+        $MappingRulesTable.$converterdirectionn.toSql(direction),
+      );
+    }
+    if (!nullToAbsent || merchantMatcher != null) {
+      map['merchant_matcher'] = Variable<String>(merchantMatcher);
+    }
+    map['wallet_account_id'] = Variable<String>(walletAccountId);
+    if (!nullToAbsent || walletCategoryId != null) {
+      map['wallet_category_id'] = Variable<String>(walletCategoryId);
+    }
+    map['payment_type'] = Variable<String>(paymentType);
+    {
+      map['sync_mode'] = Variable<String>(
+        $MappingRulesTable.$convertersyncMode.toSql(syncMode),
+      );
+    }
+    map['priority'] = Variable<int>(priority);
+    if (!nullToAbsent || minConfidenceBasisPoints != null) {
+      map['min_confidence_basis_points'] = Variable<int>(
+        minConfidenceBasisPoints,
+      );
+    }
+    map['rule_version'] = Variable<int>(ruleVersion);
+    if (!nullToAbsent || supersededByRuleId != null) {
+      map['superseded_by_rule_id'] = Variable<String>(supersededByRuleId);
+    }
+    map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs);
+    map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs);
+    return map;
+  }
+
+  MappingRulesCompanion toCompanion(bool nullToAbsent) {
+    return MappingRulesCompanion(
+      id: Value(id),
+      name: Value(name),
+      enabled: Value(enabled),
+      senderMatcher: Value(senderMatcher),
+      parserFamily: parserFamily == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parserFamily),
+      instrumentSuffixHash: instrumentSuffixHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(instrumentSuffixHash),
+      direction: direction == null && nullToAbsent
+          ? const Value.absent()
+          : Value(direction),
+      merchantMatcher: merchantMatcher == null && nullToAbsent
+          ? const Value.absent()
+          : Value(merchantMatcher),
+      walletAccountId: Value(walletAccountId),
+      walletCategoryId: walletCategoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(walletCategoryId),
+      paymentType: Value(paymentType),
+      syncMode: Value(syncMode),
+      priority: Value(priority),
+      minConfidenceBasisPoints: minConfidenceBasisPoints == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minConfidenceBasisPoints),
+      ruleVersion: Value(ruleVersion),
+      supersededByRuleId: supersededByRuleId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(supersededByRuleId),
+      createdAtEpochMs: Value(createdAtEpochMs),
+      updatedAtEpochMs: Value(updatedAtEpochMs),
+    );
+  }
+
+  factory MappingRuleRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MappingRuleRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      senderMatcher: serializer.fromJson<String>(json['senderMatcher']),
+      parserFamily: serializer.fromJson<String?>(json['parserFamily']),
+      instrumentSuffixHash: serializer.fromJson<String?>(
+        json['instrumentSuffixHash'],
+      ),
+      direction: $MappingRulesTable.$converterdirectionn.fromJson(
+        serializer.fromJson<String?>(json['direction']),
+      ),
+      merchantMatcher: serializer.fromJson<String?>(json['merchantMatcher']),
+      walletAccountId: serializer.fromJson<String>(json['walletAccountId']),
+      walletCategoryId: serializer.fromJson<String?>(json['walletCategoryId']),
+      paymentType: serializer.fromJson<String>(json['paymentType']),
+      syncMode: $MappingRulesTable.$convertersyncMode.fromJson(
+        serializer.fromJson<String>(json['syncMode']),
+      ),
+      priority: serializer.fromJson<int>(json['priority']),
+      minConfidenceBasisPoints: serializer.fromJson<int?>(
+        json['minConfidenceBasisPoints'],
+      ),
+      ruleVersion: serializer.fromJson<int>(json['ruleVersion']),
+      supersededByRuleId: serializer.fromJson<String?>(
+        json['supersededByRuleId'],
+      ),
+      createdAtEpochMs: serializer.fromJson<int>(json['createdAtEpochMs']),
+      updatedAtEpochMs: serializer.fromJson<int>(json['updatedAtEpochMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'enabled': serializer.toJson<bool>(enabled),
+      'senderMatcher': serializer.toJson<String>(senderMatcher),
+      'parserFamily': serializer.toJson<String?>(parserFamily),
+      'instrumentSuffixHash': serializer.toJson<String?>(instrumentSuffixHash),
+      'direction': serializer.toJson<String?>(
+        $MappingRulesTable.$converterdirectionn.toJson(direction),
+      ),
+      'merchantMatcher': serializer.toJson<String?>(merchantMatcher),
+      'walletAccountId': serializer.toJson<String>(walletAccountId),
+      'walletCategoryId': serializer.toJson<String?>(walletCategoryId),
+      'paymentType': serializer.toJson<String>(paymentType),
+      'syncMode': serializer.toJson<String>(
+        $MappingRulesTable.$convertersyncMode.toJson(syncMode),
+      ),
+      'priority': serializer.toJson<int>(priority),
+      'minConfidenceBasisPoints': serializer.toJson<int?>(
+        minConfidenceBasisPoints,
+      ),
+      'ruleVersion': serializer.toJson<int>(ruleVersion),
+      'supersededByRuleId': serializer.toJson<String?>(supersededByRuleId),
+      'createdAtEpochMs': serializer.toJson<int>(createdAtEpochMs),
+      'updatedAtEpochMs': serializer.toJson<int>(updatedAtEpochMs),
+    };
+  }
+
+  MappingRuleRow copyWith({
+    String? id,
+    String? name,
+    bool? enabled,
+    String? senderMatcher,
+    Value<String?> parserFamily = const Value.absent(),
+    Value<String?> instrumentSuffixHash = const Value.absent(),
+    Value<TransactionDirection?> direction = const Value.absent(),
+    Value<String?> merchantMatcher = const Value.absent(),
+    String? walletAccountId,
+    Value<String?> walletCategoryId = const Value.absent(),
+    String? paymentType,
+    MappingSyncMode? syncMode,
+    int? priority,
+    Value<int?> minConfidenceBasisPoints = const Value.absent(),
+    int? ruleVersion,
+    Value<String?> supersededByRuleId = const Value.absent(),
+    int? createdAtEpochMs,
+    int? updatedAtEpochMs,
+  }) => MappingRuleRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    senderMatcher: senderMatcher ?? this.senderMatcher,
+    parserFamily: parserFamily.present ? parserFamily.value : this.parserFamily,
+    instrumentSuffixHash: instrumentSuffixHash.present
+        ? instrumentSuffixHash.value
+        : this.instrumentSuffixHash,
+    direction: direction.present ? direction.value : this.direction,
+    merchantMatcher: merchantMatcher.present
+        ? merchantMatcher.value
+        : this.merchantMatcher,
+    walletAccountId: walletAccountId ?? this.walletAccountId,
+    walletCategoryId: walletCategoryId.present
+        ? walletCategoryId.value
+        : this.walletCategoryId,
+    paymentType: paymentType ?? this.paymentType,
+    syncMode: syncMode ?? this.syncMode,
+    priority: priority ?? this.priority,
+    minConfidenceBasisPoints: minConfidenceBasisPoints.present
+        ? minConfidenceBasisPoints.value
+        : this.minConfidenceBasisPoints,
+    ruleVersion: ruleVersion ?? this.ruleVersion,
+    supersededByRuleId: supersededByRuleId.present
+        ? supersededByRuleId.value
+        : this.supersededByRuleId,
+    createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+  );
+  MappingRuleRow copyWithCompanion(MappingRulesCompanion data) {
+    return MappingRuleRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      senderMatcher: data.senderMatcher.present
+          ? data.senderMatcher.value
+          : this.senderMatcher,
+      parserFamily: data.parserFamily.present
+          ? data.parserFamily.value
+          : this.parserFamily,
+      instrumentSuffixHash: data.instrumentSuffixHash.present
+          ? data.instrumentSuffixHash.value
+          : this.instrumentSuffixHash,
+      direction: data.direction.present ? data.direction.value : this.direction,
+      merchantMatcher: data.merchantMatcher.present
+          ? data.merchantMatcher.value
+          : this.merchantMatcher,
+      walletAccountId: data.walletAccountId.present
+          ? data.walletAccountId.value
+          : this.walletAccountId,
+      walletCategoryId: data.walletCategoryId.present
+          ? data.walletCategoryId.value
+          : this.walletCategoryId,
+      paymentType: data.paymentType.present
+          ? data.paymentType.value
+          : this.paymentType,
+      syncMode: data.syncMode.present ? data.syncMode.value : this.syncMode,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      minConfidenceBasisPoints: data.minConfidenceBasisPoints.present
+          ? data.minConfidenceBasisPoints.value
+          : this.minConfidenceBasisPoints,
+      ruleVersion: data.ruleVersion.present
+          ? data.ruleVersion.value
+          : this.ruleVersion,
+      supersededByRuleId: data.supersededByRuleId.present
+          ? data.supersededByRuleId.value
+          : this.supersededByRuleId,
+      createdAtEpochMs: data.createdAtEpochMs.present
+          ? data.createdAtEpochMs.value
+          : this.createdAtEpochMs,
+      updatedAtEpochMs: data.updatedAtEpochMs.present
+          ? data.updatedAtEpochMs.value
+          : this.updatedAtEpochMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MappingRuleRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('enabled: $enabled, ')
+          ..write('senderMatcher: $senderMatcher, ')
+          ..write('parserFamily: $parserFamily, ')
+          ..write('instrumentSuffixHash: $instrumentSuffixHash, ')
+          ..write('direction: $direction, ')
+          ..write('merchantMatcher: $merchantMatcher, ')
+          ..write('walletAccountId: $walletAccountId, ')
+          ..write('walletCategoryId: $walletCategoryId, ')
+          ..write('paymentType: $paymentType, ')
+          ..write('syncMode: $syncMode, ')
+          ..write('priority: $priority, ')
+          ..write('minConfidenceBasisPoints: $minConfidenceBasisPoints, ')
+          ..write('ruleVersion: $ruleVersion, ')
+          ..write('supersededByRuleId: $supersededByRuleId, ')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('updatedAtEpochMs: $updatedAtEpochMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    enabled,
+    senderMatcher,
+    parserFamily,
+    instrumentSuffixHash,
+    direction,
+    merchantMatcher,
+    walletAccountId,
+    walletCategoryId,
+    paymentType,
+    syncMode,
+    priority,
+    minConfidenceBasisPoints,
+    ruleVersion,
+    supersededByRuleId,
+    createdAtEpochMs,
+    updatedAtEpochMs,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MappingRuleRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.enabled == this.enabled &&
+          other.senderMatcher == this.senderMatcher &&
+          other.parserFamily == this.parserFamily &&
+          other.instrumentSuffixHash == this.instrumentSuffixHash &&
+          other.direction == this.direction &&
+          other.merchantMatcher == this.merchantMatcher &&
+          other.walletAccountId == this.walletAccountId &&
+          other.walletCategoryId == this.walletCategoryId &&
+          other.paymentType == this.paymentType &&
+          other.syncMode == this.syncMode &&
+          other.priority == this.priority &&
+          other.minConfidenceBasisPoints == this.minConfidenceBasisPoints &&
+          other.ruleVersion == this.ruleVersion &&
+          other.supersededByRuleId == this.supersededByRuleId &&
+          other.createdAtEpochMs == this.createdAtEpochMs &&
+          other.updatedAtEpochMs == this.updatedAtEpochMs);
+}
+
+class MappingRulesCompanion extends UpdateCompanion<MappingRuleRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<bool> enabled;
+  final Value<String> senderMatcher;
+  final Value<String?> parserFamily;
+  final Value<String?> instrumentSuffixHash;
+  final Value<TransactionDirection?> direction;
+  final Value<String?> merchantMatcher;
+  final Value<String> walletAccountId;
+  final Value<String?> walletCategoryId;
+  final Value<String> paymentType;
+  final Value<MappingSyncMode> syncMode;
+  final Value<int> priority;
+  final Value<int?> minConfidenceBasisPoints;
+  final Value<int> ruleVersion;
+  final Value<String?> supersededByRuleId;
+  final Value<int> createdAtEpochMs;
+  final Value<int> updatedAtEpochMs;
+  final Value<int> rowid;
+  const MappingRulesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.senderMatcher = const Value.absent(),
+    this.parserFamily = const Value.absent(),
+    this.instrumentSuffixHash = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.merchantMatcher = const Value.absent(),
+    this.walletAccountId = const Value.absent(),
+    this.walletCategoryId = const Value.absent(),
+    this.paymentType = const Value.absent(),
+    this.syncMode = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.minConfidenceBasisPoints = const Value.absent(),
+    this.ruleVersion = const Value.absent(),
+    this.supersededByRuleId = const Value.absent(),
+    this.createdAtEpochMs = const Value.absent(),
+    this.updatedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MappingRulesCompanion.insert({
+    required String id,
+    required String name,
+    required bool enabled,
+    required String senderMatcher,
+    this.parserFamily = const Value.absent(),
+    this.instrumentSuffixHash = const Value.absent(),
+    this.direction = const Value.absent(),
+    this.merchantMatcher = const Value.absent(),
+    required String walletAccountId,
+    this.walletCategoryId = const Value.absent(),
+    required String paymentType,
+    required MappingSyncMode syncMode,
+    required int priority,
+    this.minConfidenceBasisPoints = const Value.absent(),
+    required int ruleVersion,
+    this.supersededByRuleId = const Value.absent(),
+    required int createdAtEpochMs,
+    required int updatedAtEpochMs,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       enabled = Value(enabled),
+       senderMatcher = Value(senderMatcher),
+       walletAccountId = Value(walletAccountId),
+       paymentType = Value(paymentType),
+       syncMode = Value(syncMode),
+       priority = Value(priority),
+       ruleVersion = Value(ruleVersion),
+       createdAtEpochMs = Value(createdAtEpochMs),
+       updatedAtEpochMs = Value(updatedAtEpochMs);
+  static Insertable<MappingRuleRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<bool>? enabled,
+    Expression<String>? senderMatcher,
+    Expression<String>? parserFamily,
+    Expression<String>? instrumentSuffixHash,
+    Expression<String>? direction,
+    Expression<String>? merchantMatcher,
+    Expression<String>? walletAccountId,
+    Expression<String>? walletCategoryId,
+    Expression<String>? paymentType,
+    Expression<String>? syncMode,
+    Expression<int>? priority,
+    Expression<int>? minConfidenceBasisPoints,
+    Expression<int>? ruleVersion,
+    Expression<String>? supersededByRuleId,
+    Expression<int>? createdAtEpochMs,
+    Expression<int>? updatedAtEpochMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (enabled != null) 'enabled': enabled,
+      if (senderMatcher != null) 'sender_matcher': senderMatcher,
+      if (parserFamily != null) 'parser_family': parserFamily,
+      if (instrumentSuffixHash != null)
+        'instrument_suffix_hash': instrumentSuffixHash,
+      if (direction != null) 'direction': direction,
+      if (merchantMatcher != null) 'merchant_matcher': merchantMatcher,
+      if (walletAccountId != null) 'wallet_account_id': walletAccountId,
+      if (walletCategoryId != null) 'wallet_category_id': walletCategoryId,
+      if (paymentType != null) 'payment_type': paymentType,
+      if (syncMode != null) 'sync_mode': syncMode,
+      if (priority != null) 'priority': priority,
+      if (minConfidenceBasisPoints != null)
+        'min_confidence_basis_points': minConfidenceBasisPoints,
+      if (ruleVersion != null) 'rule_version': ruleVersion,
+      if (supersededByRuleId != null)
+        'superseded_by_rule_id': supersededByRuleId,
+      if (createdAtEpochMs != null) 'created_at_epoch_ms': createdAtEpochMs,
+      if (updatedAtEpochMs != null) 'updated_at_epoch_ms': updatedAtEpochMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MappingRulesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<bool>? enabled,
+    Value<String>? senderMatcher,
+    Value<String?>? parserFamily,
+    Value<String?>? instrumentSuffixHash,
+    Value<TransactionDirection?>? direction,
+    Value<String?>? merchantMatcher,
+    Value<String>? walletAccountId,
+    Value<String?>? walletCategoryId,
+    Value<String>? paymentType,
+    Value<MappingSyncMode>? syncMode,
+    Value<int>? priority,
+    Value<int?>? minConfidenceBasisPoints,
+    Value<int>? ruleVersion,
+    Value<String?>? supersededByRuleId,
+    Value<int>? createdAtEpochMs,
+    Value<int>? updatedAtEpochMs,
+    Value<int>? rowid,
+  }) {
+    return MappingRulesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      enabled: enabled ?? this.enabled,
+      senderMatcher: senderMatcher ?? this.senderMatcher,
+      parserFamily: parserFamily ?? this.parserFamily,
+      instrumentSuffixHash: instrumentSuffixHash ?? this.instrumentSuffixHash,
+      direction: direction ?? this.direction,
+      merchantMatcher: merchantMatcher ?? this.merchantMatcher,
+      walletAccountId: walletAccountId ?? this.walletAccountId,
+      walletCategoryId: walletCategoryId ?? this.walletCategoryId,
+      paymentType: paymentType ?? this.paymentType,
+      syncMode: syncMode ?? this.syncMode,
+      priority: priority ?? this.priority,
+      minConfidenceBasisPoints:
+          minConfidenceBasisPoints ?? this.minConfidenceBasisPoints,
+      ruleVersion: ruleVersion ?? this.ruleVersion,
+      supersededByRuleId: supersededByRuleId ?? this.supersededByRuleId,
+      createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+      updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (senderMatcher.present) {
+      map['sender_matcher'] = Variable<String>(senderMatcher.value);
+    }
+    if (parserFamily.present) {
+      map['parser_family'] = Variable<String>(parserFamily.value);
+    }
+    if (instrumentSuffixHash.present) {
+      map['instrument_suffix_hash'] = Variable<String>(
+        instrumentSuffixHash.value,
+      );
+    }
+    if (direction.present) {
+      map['direction'] = Variable<String>(
+        $MappingRulesTable.$converterdirectionn.toSql(direction.value),
+      );
+    }
+    if (merchantMatcher.present) {
+      map['merchant_matcher'] = Variable<String>(merchantMatcher.value);
+    }
+    if (walletAccountId.present) {
+      map['wallet_account_id'] = Variable<String>(walletAccountId.value);
+    }
+    if (walletCategoryId.present) {
+      map['wallet_category_id'] = Variable<String>(walletCategoryId.value);
+    }
+    if (paymentType.present) {
+      map['payment_type'] = Variable<String>(paymentType.value);
+    }
+    if (syncMode.present) {
+      map['sync_mode'] = Variable<String>(
+        $MappingRulesTable.$convertersyncMode.toSql(syncMode.value),
+      );
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (minConfidenceBasisPoints.present) {
+      map['min_confidence_basis_points'] = Variable<int>(
+        minConfidenceBasisPoints.value,
+      );
+    }
+    if (ruleVersion.present) {
+      map['rule_version'] = Variable<int>(ruleVersion.value);
+    }
+    if (supersededByRuleId.present) {
+      map['superseded_by_rule_id'] = Variable<String>(supersededByRuleId.value);
+    }
+    if (createdAtEpochMs.present) {
+      map['created_at_epoch_ms'] = Variable<int>(createdAtEpochMs.value);
+    }
+    if (updatedAtEpochMs.present) {
+      map['updated_at_epoch_ms'] = Variable<int>(updatedAtEpochMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MappingRulesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('enabled: $enabled, ')
+          ..write('senderMatcher: $senderMatcher, ')
+          ..write('parserFamily: $parserFamily, ')
+          ..write('instrumentSuffixHash: $instrumentSuffixHash, ')
+          ..write('direction: $direction, ')
+          ..write('merchantMatcher: $merchantMatcher, ')
+          ..write('walletAccountId: $walletAccountId, ')
+          ..write('walletCategoryId: $walletCategoryId, ')
+          ..write('paymentType: $paymentType, ')
+          ..write('syncMode: $syncMode, ')
+          ..write('priority: $priority, ')
+          ..write('minConfidenceBasisPoints: $minConfidenceBasisPoints, ')
+          ..write('ruleVersion: $ruleVersion, ')
+          ..write('supersededByRuleId: $supersededByRuleId, ')
+          ..write('createdAtEpochMs: $createdAtEpochMs, ')
+          ..write('updatedAtEpochMs: $updatedAtEpochMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WalletMutationItemsTable extends WalletMutationItems
+    with TableInfo<$WalletMutationItemsTable, WalletMutationItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WalletMutationItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _walletMutationIdMeta = const VerificationMeta(
+    'walletMutationId',
+  );
+  @override
+  late final GeneratedColumn<String> walletMutationId = GeneratedColumn<String>(
+    'wallet_mutation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES wallet_mutations (id)',
+    ),
+  );
+  static const VerificationMeta _itemIndexMeta = const VerificationMeta(
+    'itemIndex',
+  );
+  @override
+  late final GeneratedColumn<int> itemIndex = GeneratedColumn<int>(
+    'item_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<WalletItemLegRole, String>
+  legRole =
+      GeneratedColumn<String>(
+        'leg_role',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<WalletItemLegRole>(
+        $WalletMutationItemsTable.$converterlegRole,
+      );
+  static const VerificationMeta _walletRecordIdMeta = const VerificationMeta(
+    'walletRecordId',
+  );
+  @override
+  late final GeneratedColumn<String> walletRecordId = GeneratedColumn<String>(
+    'wallet_record_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expectedRemoteRevisionMeta =
+      const VerificationMeta('expectedRemoteRevision');
+  @override
+  late final GeneratedColumn<int> expectedRemoteRevision = GeneratedColumn<int>(
+    'expected_remote_revision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _payloadCiphertextMeta = const VerificationMeta(
+    'payloadCiphertext',
+  );
+  @override
+  late final GeneratedColumn<String> payloadCiphertext =
+      GeneratedColumn<String>(
+        'payload_ciphertext',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  @override
+  late final GeneratedColumnWithTypeConverter<WalletMutationState, String>
+  state =
+      GeneratedColumn<String>(
+        'state',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<WalletMutationState>(
+        $WalletMutationItemsTable.$converterstate,
+      );
+  static const VerificationMeta _safeErrorCodeMeta = const VerificationMeta(
+    'safeErrorCode',
+  );
+  @override
+  late final GeneratedColumn<String> safeErrorCode = GeneratedColumn<String>(
+    'safe_error_code',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    walletMutationId,
+    itemIndex,
+    legRole,
+    walletRecordId,
+    expectedRemoteRevision,
+    payloadCiphertext,
+    state,
+    safeErrorCode,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wallet_mutation_item';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WalletMutationItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('wallet_mutation_id')) {
+      context.handle(
+        _walletMutationIdMeta,
+        walletMutationId.isAcceptableOrUnknown(
+          data['wallet_mutation_id']!,
+          _walletMutationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_walletMutationIdMeta);
+    }
+    if (data.containsKey('item_index')) {
+      context.handle(
+        _itemIndexMeta,
+        itemIndex.isAcceptableOrUnknown(data['item_index']!, _itemIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIndexMeta);
+    }
+    if (data.containsKey('wallet_record_id')) {
+      context.handle(
+        _walletRecordIdMeta,
+        walletRecordId.isAcceptableOrUnknown(
+          data['wallet_record_id']!,
+          _walletRecordIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expected_remote_revision')) {
+      context.handle(
+        _expectedRemoteRevisionMeta,
+        expectedRemoteRevision.isAcceptableOrUnknown(
+          data['expected_remote_revision']!,
+          _expectedRemoteRevisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('payload_ciphertext')) {
+      context.handle(
+        _payloadCiphertextMeta,
+        payloadCiphertext.isAcceptableOrUnknown(
+          data['payload_ciphertext']!,
+          _payloadCiphertextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadCiphertextMeta);
+    }
+    if (data.containsKey('safe_error_code')) {
+      context.handle(
+        _safeErrorCodeMeta,
+        safeErrorCode.isAcceptableOrUnknown(
+          data['safe_error_code']!,
+          _safeErrorCodeMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {walletMutationId, itemIndex},
+  ];
+  @override
+  WalletMutationItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WalletMutationItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      walletMutationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_mutation_id'],
+      )!,
+      itemIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}item_index'],
+      )!,
+      legRole: $WalletMutationItemsTable.$converterlegRole.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}leg_role'],
+        )!,
+      ),
+      walletRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wallet_record_id'],
+      ),
+      expectedRemoteRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}expected_remote_revision'],
+      ),
+      payloadCiphertext: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload_ciphertext'],
+      )!,
+      state: $WalletMutationItemsTable.$converterstate.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}state'],
+        )!,
+      ),
+      safeErrorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}safe_error_code'],
+      ),
+    );
+  }
+
+  @override
+  $WalletMutationItemsTable createAlias(String alias) {
+    return $WalletMutationItemsTable(attachedDatabase, alias);
+  }
+
+  static TypeConverter<WalletItemLegRole, String> $converterlegRole =
+      const WalletItemLegRoleConverter();
+  static TypeConverter<WalletMutationState, String> $converterstate =
+      const WalletMutationStateConverter();
+}
+
+class WalletMutationItem extends DataClass
+    implements Insertable<WalletMutationItem> {
+  final int id;
+  final String walletMutationId;
+  final int itemIndex;
+  final WalletItemLegRole legRole;
+  final String? walletRecordId;
+  final int? expectedRemoteRevision;
+  final String payloadCiphertext;
+  final WalletMutationState state;
+  final String? safeErrorCode;
+  const WalletMutationItem({
+    required this.id,
+    required this.walletMutationId,
+    required this.itemIndex,
+    required this.legRole,
+    this.walletRecordId,
+    this.expectedRemoteRevision,
+    required this.payloadCiphertext,
+    required this.state,
+    this.safeErrorCode,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['wallet_mutation_id'] = Variable<String>(walletMutationId);
+    map['item_index'] = Variable<int>(itemIndex);
+    {
+      map['leg_role'] = Variable<String>(
+        $WalletMutationItemsTable.$converterlegRole.toSql(legRole),
+      );
+    }
+    if (!nullToAbsent || walletRecordId != null) {
+      map['wallet_record_id'] = Variable<String>(walletRecordId);
+    }
+    if (!nullToAbsent || expectedRemoteRevision != null) {
+      map['expected_remote_revision'] = Variable<int>(expectedRemoteRevision);
+    }
+    map['payload_ciphertext'] = Variable<String>(payloadCiphertext);
+    {
+      map['state'] = Variable<String>(
+        $WalletMutationItemsTable.$converterstate.toSql(state),
+      );
+    }
+    if (!nullToAbsent || safeErrorCode != null) {
+      map['safe_error_code'] = Variable<String>(safeErrorCode);
+    }
+    return map;
+  }
+
+  WalletMutationItemsCompanion toCompanion(bool nullToAbsent) {
+    return WalletMutationItemsCompanion(
+      id: Value(id),
+      walletMutationId: Value(walletMutationId),
+      itemIndex: Value(itemIndex),
+      legRole: Value(legRole),
+      walletRecordId: walletRecordId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(walletRecordId),
+      expectedRemoteRevision: expectedRemoteRevision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expectedRemoteRevision),
+      payloadCiphertext: Value(payloadCiphertext),
+      state: Value(state),
+      safeErrorCode: safeErrorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(safeErrorCode),
+    );
+  }
+
+  factory WalletMutationItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WalletMutationItem(
+      id: serializer.fromJson<int>(json['id']),
+      walletMutationId: serializer.fromJson<String>(json['walletMutationId']),
+      itemIndex: serializer.fromJson<int>(json['itemIndex']),
+      legRole: serializer.fromJson<WalletItemLegRole>(json['legRole']),
+      walletRecordId: serializer.fromJson<String?>(json['walletRecordId']),
+      expectedRemoteRevision: serializer.fromJson<int?>(
+        json['expectedRemoteRevision'],
+      ),
+      payloadCiphertext: serializer.fromJson<String>(json['payloadCiphertext']),
+      state: serializer.fromJson<WalletMutationState>(json['state']),
+      safeErrorCode: serializer.fromJson<String?>(json['safeErrorCode']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'walletMutationId': serializer.toJson<String>(walletMutationId),
+      'itemIndex': serializer.toJson<int>(itemIndex),
+      'legRole': serializer.toJson<WalletItemLegRole>(legRole),
+      'walletRecordId': serializer.toJson<String?>(walletRecordId),
+      'expectedRemoteRevision': serializer.toJson<int?>(expectedRemoteRevision),
+      'payloadCiphertext': serializer.toJson<String>(payloadCiphertext),
+      'state': serializer.toJson<WalletMutationState>(state),
+      'safeErrorCode': serializer.toJson<String?>(safeErrorCode),
+    };
+  }
+
+  WalletMutationItem copyWith({
+    int? id,
+    String? walletMutationId,
+    int? itemIndex,
+    WalletItemLegRole? legRole,
+    Value<String?> walletRecordId = const Value.absent(),
+    Value<int?> expectedRemoteRevision = const Value.absent(),
+    String? payloadCiphertext,
+    WalletMutationState? state,
+    Value<String?> safeErrorCode = const Value.absent(),
+  }) => WalletMutationItem(
+    id: id ?? this.id,
+    walletMutationId: walletMutationId ?? this.walletMutationId,
+    itemIndex: itemIndex ?? this.itemIndex,
+    legRole: legRole ?? this.legRole,
+    walletRecordId: walletRecordId.present
+        ? walletRecordId.value
+        : this.walletRecordId,
+    expectedRemoteRevision: expectedRemoteRevision.present
+        ? expectedRemoteRevision.value
+        : this.expectedRemoteRevision,
+    payloadCiphertext: payloadCiphertext ?? this.payloadCiphertext,
+    state: state ?? this.state,
+    safeErrorCode: safeErrorCode.present
+        ? safeErrorCode.value
+        : this.safeErrorCode,
+  );
+  WalletMutationItem copyWithCompanion(WalletMutationItemsCompanion data) {
+    return WalletMutationItem(
+      id: data.id.present ? data.id.value : this.id,
+      walletMutationId: data.walletMutationId.present
+          ? data.walletMutationId.value
+          : this.walletMutationId,
+      itemIndex: data.itemIndex.present ? data.itemIndex.value : this.itemIndex,
+      legRole: data.legRole.present ? data.legRole.value : this.legRole,
+      walletRecordId: data.walletRecordId.present
+          ? data.walletRecordId.value
+          : this.walletRecordId,
+      expectedRemoteRevision: data.expectedRemoteRevision.present
+          ? data.expectedRemoteRevision.value
+          : this.expectedRemoteRevision,
+      payloadCiphertext: data.payloadCiphertext.present
+          ? data.payloadCiphertext.value
+          : this.payloadCiphertext,
+      state: data.state.present ? data.state.value : this.state,
+      safeErrorCode: data.safeErrorCode.present
+          ? data.safeErrorCode.value
+          : this.safeErrorCode,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WalletMutationItem(')
+          ..write('id: $id, ')
+          ..write('walletMutationId: $walletMutationId, ')
+          ..write('itemIndex: $itemIndex, ')
+          ..write('legRole: $legRole, ')
+          ..write('walletRecordId: $walletRecordId, ')
+          ..write('expectedRemoteRevision: $expectedRemoteRevision, ')
+          ..write('payloadCiphertext: $payloadCiphertext, ')
+          ..write('state: $state, ')
+          ..write('safeErrorCode: $safeErrorCode')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    walletMutationId,
+    itemIndex,
+    legRole,
+    walletRecordId,
+    expectedRemoteRevision,
+    payloadCiphertext,
+    state,
+    safeErrorCode,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WalletMutationItem &&
+          other.id == this.id &&
+          other.walletMutationId == this.walletMutationId &&
+          other.itemIndex == this.itemIndex &&
+          other.legRole == this.legRole &&
+          other.walletRecordId == this.walletRecordId &&
+          other.expectedRemoteRevision == this.expectedRemoteRevision &&
+          other.payloadCiphertext == this.payloadCiphertext &&
+          other.state == this.state &&
+          other.safeErrorCode == this.safeErrorCode);
+}
+
+class WalletMutationItemsCompanion extends UpdateCompanion<WalletMutationItem> {
+  final Value<int> id;
+  final Value<String> walletMutationId;
+  final Value<int> itemIndex;
+  final Value<WalletItemLegRole> legRole;
+  final Value<String?> walletRecordId;
+  final Value<int?> expectedRemoteRevision;
+  final Value<String> payloadCiphertext;
+  final Value<WalletMutationState> state;
+  final Value<String?> safeErrorCode;
+  const WalletMutationItemsCompanion({
+    this.id = const Value.absent(),
+    this.walletMutationId = const Value.absent(),
+    this.itemIndex = const Value.absent(),
+    this.legRole = const Value.absent(),
+    this.walletRecordId = const Value.absent(),
+    this.expectedRemoteRevision = const Value.absent(),
+    this.payloadCiphertext = const Value.absent(),
+    this.state = const Value.absent(),
+    this.safeErrorCode = const Value.absent(),
+  });
+  WalletMutationItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required String walletMutationId,
+    required int itemIndex,
+    required WalletItemLegRole legRole,
+    this.walletRecordId = const Value.absent(),
+    this.expectedRemoteRevision = const Value.absent(),
+    required String payloadCiphertext,
+    required WalletMutationState state,
+    this.safeErrorCode = const Value.absent(),
+  }) : walletMutationId = Value(walletMutationId),
+       itemIndex = Value(itemIndex),
+       legRole = Value(legRole),
+       payloadCiphertext = Value(payloadCiphertext),
+       state = Value(state);
+  static Insertable<WalletMutationItem> custom({
+    Expression<int>? id,
+    Expression<String>? walletMutationId,
+    Expression<int>? itemIndex,
+    Expression<String>? legRole,
+    Expression<String>? walletRecordId,
+    Expression<int>? expectedRemoteRevision,
+    Expression<String>? payloadCiphertext,
+    Expression<String>? state,
+    Expression<String>? safeErrorCode,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (walletMutationId != null) 'wallet_mutation_id': walletMutationId,
+      if (itemIndex != null) 'item_index': itemIndex,
+      if (legRole != null) 'leg_role': legRole,
+      if (walletRecordId != null) 'wallet_record_id': walletRecordId,
+      if (expectedRemoteRevision != null)
+        'expected_remote_revision': expectedRemoteRevision,
+      if (payloadCiphertext != null) 'payload_ciphertext': payloadCiphertext,
+      if (state != null) 'state': state,
+      if (safeErrorCode != null) 'safe_error_code': safeErrorCode,
+    });
+  }
+
+  WalletMutationItemsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? walletMutationId,
+    Value<int>? itemIndex,
+    Value<WalletItemLegRole>? legRole,
+    Value<String?>? walletRecordId,
+    Value<int?>? expectedRemoteRevision,
+    Value<String>? payloadCiphertext,
+    Value<WalletMutationState>? state,
+    Value<String?>? safeErrorCode,
+  }) {
+    return WalletMutationItemsCompanion(
+      id: id ?? this.id,
+      walletMutationId: walletMutationId ?? this.walletMutationId,
+      itemIndex: itemIndex ?? this.itemIndex,
+      legRole: legRole ?? this.legRole,
+      walletRecordId: walletRecordId ?? this.walletRecordId,
+      expectedRemoteRevision:
+          expectedRemoteRevision ?? this.expectedRemoteRevision,
+      payloadCiphertext: payloadCiphertext ?? this.payloadCiphertext,
+      state: state ?? this.state,
+      safeErrorCode: safeErrorCode ?? this.safeErrorCode,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (walletMutationId.present) {
+      map['wallet_mutation_id'] = Variable<String>(walletMutationId.value);
+    }
+    if (itemIndex.present) {
+      map['item_index'] = Variable<int>(itemIndex.value);
+    }
+    if (legRole.present) {
+      map['leg_role'] = Variable<String>(
+        $WalletMutationItemsTable.$converterlegRole.toSql(legRole.value),
+      );
+    }
+    if (walletRecordId.present) {
+      map['wallet_record_id'] = Variable<String>(walletRecordId.value);
+    }
+    if (expectedRemoteRevision.present) {
+      map['expected_remote_revision'] = Variable<int>(
+        expectedRemoteRevision.value,
+      );
+    }
+    if (payloadCiphertext.present) {
+      map['payload_ciphertext'] = Variable<String>(payloadCiphertext.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(
+        $WalletMutationItemsTable.$converterstate.toSql(state.value),
+      );
+    }
+    if (safeErrorCode.present) {
+      map['safe_error_code'] = Variable<String>(safeErrorCode.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WalletMutationItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('walletMutationId: $walletMutationId, ')
+          ..write('itemIndex: $itemIndex, ')
+          ..write('legRole: $legRole, ')
+          ..write('walletRecordId: $walletRecordId, ')
+          ..write('expectedRemoteRevision: $expectedRemoteRevision, ')
+          ..write('payloadCiphertext: $payloadCiphertext, ')
+          ..write('state: $state, ')
+          ..write('safeErrorCode: $safeErrorCode')
           ..write(')'))
         .toString();
   }
@@ -10068,6 +12898,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $WalletRecordLinksTable walletRecordLinks =
       $WalletRecordLinksTable(this);
+  late final $MappingRulesTable mappingRules = $MappingRulesTable(this);
+  late final $WalletMutationItemsTable walletMutationItems =
+      $WalletMutationItemsTable(this);
   late final $CapabilityLedgerTable capabilityLedger = $CapabilityLedgerTable(
     this,
   );
@@ -10085,6 +12918,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final Index idxSmsEventsSenderReceived = Index(
     'idx_sms_events_sender_received',
     'CREATE INDEX idx_sms_events_sender_received ON sms_events (sender_key, received_at_epoch_ms, id)',
+  );
+  late final Index idxMappingRulesLookup = Index(
+    'idx_mapping_rules_lookup',
+    'CREATE INDEX idx_mapping_rules_lookup ON mapping_rule (sender_matcher, parser_family, instrument_suffix_hash, enabled)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -10106,12 +12943,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     walletConnectionStatus,
     walletMutations,
     walletRecordLinks,
+    mappingRules,
+    walletMutationItems,
     capabilityLedger,
     rulePacks,
     ingestionCheckpoints,
     idxParserRulesSenderFamily,
     idxSmsEventsReceivedDesc,
     idxSmsEventsSenderReceived,
+    idxMappingRulesLookup,
   ];
 }
 
@@ -11488,6 +14328,7 @@ typedef $$SmsEventsTableProcessedTableManager =
 typedef $$TransactionCandidatesTableCreateCompanionBuilder =
     TransactionCandidatesCompanion Function({
       Value<int> id,
+      Value<String?> candidateId,
       required int smsEventId,
       required CandidateRecordState state,
       required String encryptedPayload,
@@ -11520,6 +14361,7 @@ typedef $$TransactionCandidatesTableCreateCompanionBuilder =
 typedef $$TransactionCandidatesTableUpdateCompanionBuilder =
     TransactionCandidatesCompanion Function({
       Value<int> id,
+      Value<String?> candidateId,
       Value<int> smsEventId,
       Value<CandidateRecordState> state,
       Value<String> encryptedPayload,
@@ -11610,6 +14452,11 @@ class $$TransactionCandidatesTableFilterComposer
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11827,6 +14674,11 @@ class $$TransactionCandidatesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get state => $composableBuilder(
     column: $table.state,
     builder: (column) => ColumnOrderings(column),
@@ -11997,6 +14849,11 @@ class $$TransactionCandidatesTableAnnotationComposer
   });
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => column,
+  );
 
   GeneratedColumnWithTypeConverter<CandidateRecordState, String> get state =>
       $composableBuilder(column: $table.state, builder: (column) => column);
@@ -12213,6 +15070,7 @@ class $$TransactionCandidatesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String?> candidateId = const Value.absent(),
                 Value<int> smsEventId = const Value.absent(),
                 Value<CandidateRecordState> state = const Value.absent(),
                 Value<String> encryptedPayload = const Value.absent(),
@@ -12243,6 +15101,7 @@ class $$TransactionCandidatesTableTableManager
                 Value<String?> transactionFingerprint = const Value.absent(),
               }) => TransactionCandidatesCompanion(
                 id: id,
+                candidateId: candidateId,
                 smsEventId: smsEventId,
                 state: state,
                 encryptedPayload: encryptedPayload,
@@ -12275,6 +15134,7 @@ class $$TransactionCandidatesTableTableManager
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String?> candidateId = const Value.absent(),
                 required int smsEventId,
                 required CandidateRecordState state,
                 required String encryptedPayload,
@@ -12305,6 +15165,7 @@ class $$TransactionCandidatesTableTableManager
                 Value<String?> transactionFingerprint = const Value.absent(),
               }) => TransactionCandidatesCompanion.insert(
                 id: id,
+                candidateId: candidateId,
                 smsEventId: smsEventId,
                 state: state,
                 encryptedPayload: encryptedPayload,
@@ -14205,27 +17066,85 @@ typedef $$WalletConnectionStatusTableProcessedTableManager =
 typedef $$WalletMutationsTableCreateCompanionBuilder =
     WalletMutationsCompanion Function({
       required String id,
-      required String operation,
+      required WalletMutationOperation operationKind,
       required String payload,
-      required String state,
+      required WalletMutationState state,
       required String lineageKey,
       required String fingerprint,
       required int createdAtEpochMs,
       required int updatedAtEpochMs,
+      Value<String?> candidateId,
+      Value<int?> operationRevision,
+      Value<int?> lineageGeneration,
+      Value<String?> payloadJsonCiphertext,
+      Value<String?> sourceMarker,
+      Value<int?> attemptCount,
+      Value<int?> nextAttemptAtEpochMs,
+      Value<int?> leaseUntilEpochMs,
+      Value<int?> lastHttpStatus,
+      Value<String?> walletCorrelationId,
       Value<int> rowid,
     });
 typedef $$WalletMutationsTableUpdateCompanionBuilder =
     WalletMutationsCompanion Function({
       Value<String> id,
-      Value<String> operation,
+      Value<WalletMutationOperation> operationKind,
       Value<String> payload,
-      Value<String> state,
+      Value<WalletMutationState> state,
       Value<String> lineageKey,
       Value<String> fingerprint,
       Value<int> createdAtEpochMs,
       Value<int> updatedAtEpochMs,
+      Value<String?> candidateId,
+      Value<int?> operationRevision,
+      Value<int?> lineageGeneration,
+      Value<String?> payloadJsonCiphertext,
+      Value<String?> sourceMarker,
+      Value<int?> attemptCount,
+      Value<int?> nextAttemptAtEpochMs,
+      Value<int?> leaseUntilEpochMs,
+      Value<int?> lastHttpStatus,
+      Value<String?> walletCorrelationId,
       Value<int> rowid,
     });
+
+final class $$WalletMutationsTableReferences
+    extends
+        BaseReferences<_$AppDatabase, $WalletMutationsTable, WalletMutation> {
+  $$WalletMutationsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static MultiTypedResultKey<
+    $WalletMutationItemsTable,
+    List<WalletMutationItem>
+  >
+  _walletMutationItemsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.walletMutationItems,
+        aliasName:
+            'wallet_mutations__id__wallet_mutation_item__wallet_mutation_id',
+      );
+
+  $$WalletMutationItemsTableProcessedTableManager get walletMutationItemsRefs {
+    final manager =
+        $$WalletMutationItemsTableTableManager(
+          $_db,
+          $_db.walletMutationItems,
+        ).filter(
+          (f) => f.walletMutationId.id.sqlEquals($_itemColumn<String>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _walletMutationItemsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
 
 class $$WalletMutationsTableFilterComposer
     extends Composer<_$AppDatabase, $WalletMutationsTable> {
@@ -14241,9 +17160,14 @@ class $$WalletMutationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get operation => $composableBuilder(
-    column: $table.operation,
-    builder: (column) => ColumnFilters(column),
+  ColumnWithTypeConverterFilters<
+    WalletMutationOperation,
+    WalletMutationOperation,
+    String
+  >
+  get operationKind => $composableBuilder(
+    column: $table.operationKind,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get payload => $composableBuilder(
@@ -14251,9 +17175,14 @@ class $$WalletMutationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get state => $composableBuilder(
+  ColumnWithTypeConverterFilters<
+    WalletMutationState,
+    WalletMutationState,
+    String
+  >
+  get state => $composableBuilder(
     column: $table.state,
-    builder: (column) => ColumnFilters(column),
+    builder: (column) => ColumnWithTypeConverterFilters(column),
   );
 
   ColumnFilters<String> get lineageKey => $composableBuilder(
@@ -14275,6 +17204,81 @@ class $$WalletMutationsTableFilterComposer
     column: $table.updatedAtEpochMs,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get operationRevision => $composableBuilder(
+    column: $table.operationRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lineageGeneration => $composableBuilder(
+    column: $table.lineageGeneration,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadJsonCiphertext => $composableBuilder(
+    column: $table.payloadJsonCiphertext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceMarker => $composableBuilder(
+    column: $table.sourceMarker,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get nextAttemptAtEpochMs => $composableBuilder(
+    column: $table.nextAttemptAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get leaseUntilEpochMs => $composableBuilder(
+    column: $table.leaseUntilEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastHttpStatus => $composableBuilder(
+    column: $table.lastHttpStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get walletCorrelationId => $composableBuilder(
+    column: $table.walletCorrelationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> walletMutationItemsRefs(
+    Expression<bool> Function($$WalletMutationItemsTableFilterComposer f) f,
+  ) {
+    final $$WalletMutationItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.walletMutationItems,
+      getReferencedColumn: (t) => t.walletMutationId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WalletMutationItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.walletMutationItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$WalletMutationsTableOrderingComposer
@@ -14291,8 +17295,8 @@ class $$WalletMutationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get operation => $composableBuilder(
-    column: $table.operation,
+  ColumnOrderings<String> get operationKind => $composableBuilder(
+    column: $table.operationKind,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -14325,6 +17329,56 @@ class $$WalletMutationsTableOrderingComposer
     column: $table.updatedAtEpochMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get operationRevision => $composableBuilder(
+    column: $table.operationRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lineageGeneration => $composableBuilder(
+    column: $table.lineageGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadJsonCiphertext => $composableBuilder(
+    column: $table.payloadJsonCiphertext,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceMarker => $composableBuilder(
+    column: $table.sourceMarker,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get nextAttemptAtEpochMs => $composableBuilder(
+    column: $table.nextAttemptAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get leaseUntilEpochMs => $composableBuilder(
+    column: $table.leaseUntilEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastHttpStatus => $composableBuilder(
+    column: $table.lastHttpStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get walletCorrelationId => $composableBuilder(
+    column: $table.walletCorrelationId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WalletMutationsTableAnnotationComposer
@@ -14339,13 +17393,16 @@ class $$WalletMutationsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get operation =>
-      $composableBuilder(column: $table.operation, builder: (column) => column);
+  GeneratedColumnWithTypeConverter<WalletMutationOperation, String>
+  get operationKind => $composableBuilder(
+    column: $table.operationKind,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get payload =>
       $composableBuilder(column: $table.payload, builder: (column) => column);
 
-  GeneratedColumn<String> get state =>
+  GeneratedColumnWithTypeConverter<WalletMutationState, String> get state =>
       $composableBuilder(column: $table.state, builder: (column) => column);
 
   GeneratedColumn<String> get lineageKey => $composableBuilder(
@@ -14367,6 +17424,82 @@ class $$WalletMutationsTableAnnotationComposer
     column: $table.updatedAtEpochMs,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get operationRevision => $composableBuilder(
+    column: $table.operationRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lineageGeneration => $composableBuilder(
+    column: $table.lineageGeneration,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadJsonCiphertext => $composableBuilder(
+    column: $table.payloadJsonCiphertext,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceMarker => $composableBuilder(
+    column: $table.sourceMarker,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get attemptCount => $composableBuilder(
+    column: $table.attemptCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get nextAttemptAtEpochMs => $composableBuilder(
+    column: $table.nextAttemptAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get leaseUntilEpochMs => $composableBuilder(
+    column: $table.leaseUntilEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastHttpStatus => $composableBuilder(
+    column: $table.lastHttpStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get walletCorrelationId => $composableBuilder(
+    column: $table.walletCorrelationId,
+    builder: (column) => column,
+  );
+
+  Expression<T> walletMutationItemsRefs<T extends Object>(
+    Expression<T> Function($$WalletMutationItemsTableAnnotationComposer a) f,
+  ) {
+    final $$WalletMutationItemsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.walletMutationItems,
+          getReferencedColumn: (t) => t.walletMutationId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$WalletMutationItemsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.walletMutationItems,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$WalletMutationsTableTableManager
@@ -14380,16 +17513,9 @@ class $$WalletMutationsTableTableManager
           $$WalletMutationsTableAnnotationComposer,
           $$WalletMutationsTableCreateCompanionBuilder,
           $$WalletMutationsTableUpdateCompanionBuilder,
-          (
-            WalletMutation,
-            BaseReferences<
-              _$AppDatabase,
-              $WalletMutationsTable,
-              WalletMutation
-            >,
-          ),
+          (WalletMutation, $$WalletMutationsTableReferences),
           WalletMutation,
-          PrefetchHooks Function()
+          PrefetchHooks Function({bool walletMutationItemsRefs})
         > {
   $$WalletMutationsTableTableManager(
     _$AppDatabase db,
@@ -14407,51 +17533,130 @@ class $$WalletMutationsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String> operation = const Value.absent(),
+                Value<WalletMutationOperation> operationKind =
+                    const Value.absent(),
                 Value<String> payload = const Value.absent(),
-                Value<String> state = const Value.absent(),
+                Value<WalletMutationState> state = const Value.absent(),
                 Value<String> lineageKey = const Value.absent(),
                 Value<String> fingerprint = const Value.absent(),
                 Value<int> createdAtEpochMs = const Value.absent(),
                 Value<int> updatedAtEpochMs = const Value.absent(),
+                Value<String?> candidateId = const Value.absent(),
+                Value<int?> operationRevision = const Value.absent(),
+                Value<int?> lineageGeneration = const Value.absent(),
+                Value<String?> payloadJsonCiphertext = const Value.absent(),
+                Value<String?> sourceMarker = const Value.absent(),
+                Value<int?> attemptCount = const Value.absent(),
+                Value<int?> nextAttemptAtEpochMs = const Value.absent(),
+                Value<int?> leaseUntilEpochMs = const Value.absent(),
+                Value<int?> lastHttpStatus = const Value.absent(),
+                Value<String?> walletCorrelationId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletMutationsCompanion(
                 id: id,
-                operation: operation,
+                operationKind: operationKind,
                 payload: payload,
                 state: state,
                 lineageKey: lineageKey,
                 fingerprint: fingerprint,
                 createdAtEpochMs: createdAtEpochMs,
                 updatedAtEpochMs: updatedAtEpochMs,
+                candidateId: candidateId,
+                operationRevision: operationRevision,
+                lineageGeneration: lineageGeneration,
+                payloadJsonCiphertext: payloadJsonCiphertext,
+                sourceMarker: sourceMarker,
+                attemptCount: attemptCount,
+                nextAttemptAtEpochMs: nextAttemptAtEpochMs,
+                leaseUntilEpochMs: leaseUntilEpochMs,
+                lastHttpStatus: lastHttpStatus,
+                walletCorrelationId: walletCorrelationId,
                 rowid: rowid,
               ),
           createCompanionCallback:
               ({
                 required String id,
-                required String operation,
+                required WalletMutationOperation operationKind,
                 required String payload,
-                required String state,
+                required WalletMutationState state,
                 required String lineageKey,
                 required String fingerprint,
                 required int createdAtEpochMs,
                 required int updatedAtEpochMs,
+                Value<String?> candidateId = const Value.absent(),
+                Value<int?> operationRevision = const Value.absent(),
+                Value<int?> lineageGeneration = const Value.absent(),
+                Value<String?> payloadJsonCiphertext = const Value.absent(),
+                Value<String?> sourceMarker = const Value.absent(),
+                Value<int?> attemptCount = const Value.absent(),
+                Value<int?> nextAttemptAtEpochMs = const Value.absent(),
+                Value<int?> leaseUntilEpochMs = const Value.absent(),
+                Value<int?> lastHttpStatus = const Value.absent(),
+                Value<String?> walletCorrelationId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletMutationsCompanion.insert(
                 id: id,
-                operation: operation,
+                operationKind: operationKind,
                 payload: payload,
                 state: state,
                 lineageKey: lineageKey,
                 fingerprint: fingerprint,
                 createdAtEpochMs: createdAtEpochMs,
                 updatedAtEpochMs: updatedAtEpochMs,
+                candidateId: candidateId,
+                operationRevision: operationRevision,
+                lineageGeneration: lineageGeneration,
+                payloadJsonCiphertext: payloadJsonCiphertext,
+                sourceMarker: sourceMarker,
+                attemptCount: attemptCount,
+                nextAttemptAtEpochMs: nextAttemptAtEpochMs,
+                leaseUntilEpochMs: leaseUntilEpochMs,
+                lastHttpStatus: lastHttpStatus,
+                walletCorrelationId: walletCorrelationId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$WalletMutationsTableReferences(db, table, e),
+                ),
+              )
               .toList(),
-          prefetchHooksCallback: null,
+          prefetchHooksCallback: ({walletMutationItemsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (walletMutationItemsRefs) db.walletMutationItems,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (walletMutationItemsRefs)
+                    await $_getPrefetchedData<
+                      WalletMutation,
+                      $WalletMutationsTable,
+                      WalletMutationItem
+                    >(
+                      currentTable: table,
+                      referencedTable: $$WalletMutationsTableReferences
+                          ._walletMutationItemsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$WalletMutationsTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).walletMutationItemsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where(
+                            (e) => e.walletMutationId == item.id,
+                          ),
+                      typedResults: items,
+                    ),
+                ];
+              },
+            );
+          },
         ),
       );
 }
@@ -14466,12 +17671,9 @@ typedef $$WalletMutationsTableProcessedTableManager =
       $$WalletMutationsTableAnnotationComposer,
       $$WalletMutationsTableCreateCompanionBuilder,
       $$WalletMutationsTableUpdateCompanionBuilder,
-      (
-        WalletMutation,
-        BaseReferences<_$AppDatabase, $WalletMutationsTable, WalletMutation>,
-      ),
+      (WalletMutation, $$WalletMutationsTableReferences),
       WalletMutation,
-      PrefetchHooks Function()
+      PrefetchHooks Function({bool walletMutationItemsRefs})
     >;
 typedef $$WalletRecordLinksTableCreateCompanionBuilder =
     WalletRecordLinksCompanion Function({
@@ -14479,6 +17681,14 @@ typedef $$WalletRecordLinksTableCreateCompanionBuilder =
       required String appId,
       Value<String?> remoteId,
       required int createdAtEpochMs,
+      Value<String?> candidateId,
+      Value<WalletItemLegRole?> legRole,
+      Value<String?> pairGroupId,
+      Value<int?> lastKnownRevision,
+      Value<String?> lastKnownState,
+      Value<int?> updatedAtEpochMs,
+      Value<int?> deletedAtEpochMs,
+      Value<bool?> remoteDeletedTombstone,
       Value<int> rowid,
     });
 typedef $$WalletRecordLinksTableUpdateCompanionBuilder =
@@ -14487,6 +17697,14 @@ typedef $$WalletRecordLinksTableUpdateCompanionBuilder =
       Value<String> appId,
       Value<String?> remoteId,
       Value<int> createdAtEpochMs,
+      Value<String?> candidateId,
+      Value<WalletItemLegRole?> legRole,
+      Value<String?> pairGroupId,
+      Value<int?> lastKnownRevision,
+      Value<String?> lastKnownState,
+      Value<int?> updatedAtEpochMs,
+      Value<int?> deletedAtEpochMs,
+      Value<bool?> remoteDeletedTombstone,
       Value<int> rowid,
     });
 
@@ -14516,6 +17734,47 @@ class $$WalletRecordLinksTableFilterComposer
 
   ColumnFilters<int> get createdAtEpochMs => $composableBuilder(
     column: $table.createdAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<WalletItemLegRole?, WalletItemLegRole, String>
+  get legRole => $composableBuilder(
+    column: $table.legRole,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get pairGroupId => $composableBuilder(
+    column: $table.pairGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastKnownRevision => $composableBuilder(
+    column: $table.lastKnownRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastKnownState => $composableBuilder(
+    column: $table.lastKnownState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletedAtEpochMs => $composableBuilder(
+    column: $table.deletedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get remoteDeletedTombstone => $composableBuilder(
+    column: $table.remoteDeletedTombstone,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14548,6 +17807,46 @@ class $$WalletRecordLinksTableOrderingComposer
     column: $table.createdAtEpochMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get legRole => $composableBuilder(
+    column: $table.legRole,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pairGroupId => $composableBuilder(
+    column: $table.pairGroupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastKnownRevision => $composableBuilder(
+    column: $table.lastKnownRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastKnownState => $composableBuilder(
+    column: $table.lastKnownState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletedAtEpochMs => $composableBuilder(
+    column: $table.deletedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get remoteDeletedTombstone => $composableBuilder(
+    column: $table.remoteDeletedTombstone,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WalletRecordLinksTableAnnotationComposer
@@ -14570,6 +17869,44 @@ class $$WalletRecordLinksTableAnnotationComposer
 
   GeneratedColumn<int> get createdAtEpochMs => $composableBuilder(
     column: $table.createdAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get candidateId => $composableBuilder(
+    column: $table.candidateId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<WalletItemLegRole?, String> get legRole =>
+      $composableBuilder(column: $table.legRole, builder: (column) => column);
+
+  GeneratedColumn<String> get pairGroupId => $composableBuilder(
+    column: $table.pairGroupId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastKnownRevision => $composableBuilder(
+    column: $table.lastKnownRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastKnownState => $composableBuilder(
+    column: $table.lastKnownState,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletedAtEpochMs => $composableBuilder(
+    column: $table.deletedAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get remoteDeletedTombstone => $composableBuilder(
+    column: $table.remoteDeletedTombstone,
     builder: (column) => column,
   );
 }
@@ -14618,12 +17955,28 @@ class $$WalletRecordLinksTableTableManager
                 Value<String> appId = const Value.absent(),
                 Value<String?> remoteId = const Value.absent(),
                 Value<int> createdAtEpochMs = const Value.absent(),
+                Value<String?> candidateId = const Value.absent(),
+                Value<WalletItemLegRole?> legRole = const Value.absent(),
+                Value<String?> pairGroupId = const Value.absent(),
+                Value<int?> lastKnownRevision = const Value.absent(),
+                Value<String?> lastKnownState = const Value.absent(),
+                Value<int?> updatedAtEpochMs = const Value.absent(),
+                Value<int?> deletedAtEpochMs = const Value.absent(),
+                Value<bool?> remoteDeletedTombstone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletRecordLinksCompanion(
                 id: id,
                 appId: appId,
                 remoteId: remoteId,
                 createdAtEpochMs: createdAtEpochMs,
+                candidateId: candidateId,
+                legRole: legRole,
+                pairGroupId: pairGroupId,
+                lastKnownRevision: lastKnownRevision,
+                lastKnownState: lastKnownState,
+                updatedAtEpochMs: updatedAtEpochMs,
+                deletedAtEpochMs: deletedAtEpochMs,
+                remoteDeletedTombstone: remoteDeletedTombstone,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14632,12 +17985,28 @@ class $$WalletRecordLinksTableTableManager
                 required String appId,
                 Value<String?> remoteId = const Value.absent(),
                 required int createdAtEpochMs,
+                Value<String?> candidateId = const Value.absent(),
+                Value<WalletItemLegRole?> legRole = const Value.absent(),
+                Value<String?> pairGroupId = const Value.absent(),
+                Value<int?> lastKnownRevision = const Value.absent(),
+                Value<String?> lastKnownState = const Value.absent(),
+                Value<int?> updatedAtEpochMs = const Value.absent(),
+                Value<int?> deletedAtEpochMs = const Value.absent(),
+                Value<bool?> remoteDeletedTombstone = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletRecordLinksCompanion.insert(
                 id: id,
                 appId: appId,
                 remoteId: remoteId,
                 createdAtEpochMs: createdAtEpochMs,
+                candidateId: candidateId,
+                legRole: legRole,
+                pairGroupId: pairGroupId,
+                lastKnownRevision: lastKnownRevision,
+                lastKnownState: lastKnownState,
+                updatedAtEpochMs: updatedAtEpochMs,
+                deletedAtEpochMs: deletedAtEpochMs,
+                remoteDeletedTombstone: remoteDeletedTombstone,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -14668,6 +18037,906 @@ typedef $$WalletRecordLinksTableProcessedTableManager =
       ),
       WalletRecordLink,
       PrefetchHooks Function()
+    >;
+typedef $$MappingRulesTableCreateCompanionBuilder =
+    MappingRulesCompanion Function({
+      required String id,
+      required String name,
+      required bool enabled,
+      required String senderMatcher,
+      Value<String?> parserFamily,
+      Value<String?> instrumentSuffixHash,
+      Value<TransactionDirection?> direction,
+      Value<String?> merchantMatcher,
+      required String walletAccountId,
+      Value<String?> walletCategoryId,
+      required String paymentType,
+      required MappingSyncMode syncMode,
+      required int priority,
+      Value<int?> minConfidenceBasisPoints,
+      required int ruleVersion,
+      Value<String?> supersededByRuleId,
+      required int createdAtEpochMs,
+      required int updatedAtEpochMs,
+      Value<int> rowid,
+    });
+typedef $$MappingRulesTableUpdateCompanionBuilder =
+    MappingRulesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<bool> enabled,
+      Value<String> senderMatcher,
+      Value<String?> parserFamily,
+      Value<String?> instrumentSuffixHash,
+      Value<TransactionDirection?> direction,
+      Value<String?> merchantMatcher,
+      Value<String> walletAccountId,
+      Value<String?> walletCategoryId,
+      Value<String> paymentType,
+      Value<MappingSyncMode> syncMode,
+      Value<int> priority,
+      Value<int?> minConfidenceBasisPoints,
+      Value<int> ruleVersion,
+      Value<String?> supersededByRuleId,
+      Value<int> createdAtEpochMs,
+      Value<int> updatedAtEpochMs,
+      Value<int> rowid,
+    });
+
+class $$MappingRulesTableFilterComposer
+    extends Composer<_$AppDatabase, $MappingRulesTable> {
+  $$MappingRulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderMatcher => $composableBuilder(
+    column: $table.senderMatcher,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parserFamily => $composableBuilder(
+    column: $table.parserFamily,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    TransactionDirection?,
+    TransactionDirection,
+    String
+  >
+  get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get merchantMatcher => $composableBuilder(
+    column: $table.merchantMatcher,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get walletAccountId => $composableBuilder(
+    column: $table.walletAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get walletCategoryId => $composableBuilder(
+    column: $table.walletCategoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<MappingSyncMode, MappingSyncMode, String>
+  get syncMode => $composableBuilder(
+    column: $table.syncMode,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get minConfidenceBasisPoints => $composableBuilder(
+    column: $table.minConfidenceBasisPoints,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ruleVersion => $composableBuilder(
+    column: $table.ruleVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get supersededByRuleId => $composableBuilder(
+    column: $table.supersededByRuleId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MappingRulesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MappingRulesTable> {
+  $$MappingRulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderMatcher => $composableBuilder(
+    column: $table.senderMatcher,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parserFamily => $composableBuilder(
+    column: $table.parserFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get direction => $composableBuilder(
+    column: $table.direction,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get merchantMatcher => $composableBuilder(
+    column: $table.merchantMatcher,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get walletAccountId => $composableBuilder(
+    column: $table.walletAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get walletCategoryId => $composableBuilder(
+    column: $table.walletCategoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncMode => $composableBuilder(
+    column: $table.syncMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get minConfidenceBasisPoints => $composableBuilder(
+    column: $table.minConfidenceBasisPoints,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ruleVersion => $composableBuilder(
+    column: $table.ruleVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get supersededByRuleId => $composableBuilder(
+    column: $table.supersededByRuleId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MappingRulesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MappingRulesTable> {
+  $$MappingRulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<String> get senderMatcher => $composableBuilder(
+    column: $table.senderMatcher,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parserFamily => $composableBuilder(
+    column: $table.parserFamily,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get instrumentSuffixHash => $composableBuilder(
+    column: $table.instrumentSuffixHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<TransactionDirection?, String>
+  get direction =>
+      $composableBuilder(column: $table.direction, builder: (column) => column);
+
+  GeneratedColumn<String> get merchantMatcher => $composableBuilder(
+    column: $table.merchantMatcher,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get walletAccountId => $composableBuilder(
+    column: $table.walletAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get walletCategoryId => $composableBuilder(
+    column: $table.walletCategoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get paymentType => $composableBuilder(
+    column: $table.paymentType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<MappingSyncMode, String> get syncMode =>
+      $composableBuilder(column: $table.syncMode, builder: (column) => column);
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get minConfidenceBasisPoints => $composableBuilder(
+    column: $table.minConfidenceBasisPoints,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ruleVersion => $composableBuilder(
+    column: $table.ruleVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get supersededByRuleId => $composableBuilder(
+    column: $table.supersededByRuleId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get createdAtEpochMs => $composableBuilder(
+    column: $table.createdAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get updatedAtEpochMs => $composableBuilder(
+    column: $table.updatedAtEpochMs,
+    builder: (column) => column,
+  );
+}
+
+class $$MappingRulesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MappingRulesTable,
+          MappingRuleRow,
+          $$MappingRulesTableFilterComposer,
+          $$MappingRulesTableOrderingComposer,
+          $$MappingRulesTableAnnotationComposer,
+          $$MappingRulesTableCreateCompanionBuilder,
+          $$MappingRulesTableUpdateCompanionBuilder,
+          (
+            MappingRuleRow,
+            BaseReferences<_$AppDatabase, $MappingRulesTable, MappingRuleRow>,
+          ),
+          MappingRuleRow,
+          PrefetchHooks Function()
+        > {
+  $$MappingRulesTableTableManager(_$AppDatabase db, $MappingRulesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MappingRulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MappingRulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MappingRulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<String> senderMatcher = const Value.absent(),
+                Value<String?> parserFamily = const Value.absent(),
+                Value<String?> instrumentSuffixHash = const Value.absent(),
+                Value<TransactionDirection?> direction = const Value.absent(),
+                Value<String?> merchantMatcher = const Value.absent(),
+                Value<String> walletAccountId = const Value.absent(),
+                Value<String?> walletCategoryId = const Value.absent(),
+                Value<String> paymentType = const Value.absent(),
+                Value<MappingSyncMode> syncMode = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int?> minConfidenceBasisPoints = const Value.absent(),
+                Value<int> ruleVersion = const Value.absent(),
+                Value<String?> supersededByRuleId = const Value.absent(),
+                Value<int> createdAtEpochMs = const Value.absent(),
+                Value<int> updatedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MappingRulesCompanion(
+                id: id,
+                name: name,
+                enabled: enabled,
+                senderMatcher: senderMatcher,
+                parserFamily: parserFamily,
+                instrumentSuffixHash: instrumentSuffixHash,
+                direction: direction,
+                merchantMatcher: merchantMatcher,
+                walletAccountId: walletAccountId,
+                walletCategoryId: walletCategoryId,
+                paymentType: paymentType,
+                syncMode: syncMode,
+                priority: priority,
+                minConfidenceBasisPoints: minConfidenceBasisPoints,
+                ruleVersion: ruleVersion,
+                supersededByRuleId: supersededByRuleId,
+                createdAtEpochMs: createdAtEpochMs,
+                updatedAtEpochMs: updatedAtEpochMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required bool enabled,
+                required String senderMatcher,
+                Value<String?> parserFamily = const Value.absent(),
+                Value<String?> instrumentSuffixHash = const Value.absent(),
+                Value<TransactionDirection?> direction = const Value.absent(),
+                Value<String?> merchantMatcher = const Value.absent(),
+                required String walletAccountId,
+                Value<String?> walletCategoryId = const Value.absent(),
+                required String paymentType,
+                required MappingSyncMode syncMode,
+                required int priority,
+                Value<int?> minConfidenceBasisPoints = const Value.absent(),
+                required int ruleVersion,
+                Value<String?> supersededByRuleId = const Value.absent(),
+                required int createdAtEpochMs,
+                required int updatedAtEpochMs,
+                Value<int> rowid = const Value.absent(),
+              }) => MappingRulesCompanion.insert(
+                id: id,
+                name: name,
+                enabled: enabled,
+                senderMatcher: senderMatcher,
+                parserFamily: parserFamily,
+                instrumentSuffixHash: instrumentSuffixHash,
+                direction: direction,
+                merchantMatcher: merchantMatcher,
+                walletAccountId: walletAccountId,
+                walletCategoryId: walletCategoryId,
+                paymentType: paymentType,
+                syncMode: syncMode,
+                priority: priority,
+                minConfidenceBasisPoints: minConfidenceBasisPoints,
+                ruleVersion: ruleVersion,
+                supersededByRuleId: supersededByRuleId,
+                createdAtEpochMs: createdAtEpochMs,
+                updatedAtEpochMs: updatedAtEpochMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MappingRulesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MappingRulesTable,
+      MappingRuleRow,
+      $$MappingRulesTableFilterComposer,
+      $$MappingRulesTableOrderingComposer,
+      $$MappingRulesTableAnnotationComposer,
+      $$MappingRulesTableCreateCompanionBuilder,
+      $$MappingRulesTableUpdateCompanionBuilder,
+      (
+        MappingRuleRow,
+        BaseReferences<_$AppDatabase, $MappingRulesTable, MappingRuleRow>,
+      ),
+      MappingRuleRow,
+      PrefetchHooks Function()
+    >;
+typedef $$WalletMutationItemsTableCreateCompanionBuilder =
+    WalletMutationItemsCompanion Function({
+      Value<int> id,
+      required String walletMutationId,
+      required int itemIndex,
+      required WalletItemLegRole legRole,
+      Value<String?> walletRecordId,
+      Value<int?> expectedRemoteRevision,
+      required String payloadCiphertext,
+      required WalletMutationState state,
+      Value<String?> safeErrorCode,
+    });
+typedef $$WalletMutationItemsTableUpdateCompanionBuilder =
+    WalletMutationItemsCompanion Function({
+      Value<int> id,
+      Value<String> walletMutationId,
+      Value<int> itemIndex,
+      Value<WalletItemLegRole> legRole,
+      Value<String?> walletRecordId,
+      Value<int?> expectedRemoteRevision,
+      Value<String> payloadCiphertext,
+      Value<WalletMutationState> state,
+      Value<String?> safeErrorCode,
+    });
+
+final class $$WalletMutationItemsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $WalletMutationItemsTable,
+          WalletMutationItem
+        > {
+  $$WalletMutationItemsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $WalletMutationsTable _walletMutationIdTable(_$AppDatabase db) =>
+      db.walletMutations.createAlias(
+        'wallet_mutation_item__wallet_mutation_id__wallet_mutations__id',
+      );
+
+  $$WalletMutationsTableProcessedTableManager get walletMutationId {
+    final $_column = $_itemColumn<String>('wallet_mutation_id')!;
+
+    final manager = $$WalletMutationsTableTableManager(
+      $_db,
+      $_db.walletMutations,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_walletMutationIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$WalletMutationItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $WalletMutationItemsTable> {
+  $$WalletMutationItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get itemIndex => $composableBuilder(
+    column: $table.itemIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<WalletItemLegRole, WalletItemLegRole, String>
+  get legRole => $composableBuilder(
+    column: $table.legRole,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get walletRecordId => $composableBuilder(
+    column: $table.walletRecordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get expectedRemoteRevision => $composableBuilder(
+    column: $table.expectedRemoteRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payloadCiphertext => $composableBuilder(
+    column: $table.payloadCiphertext,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<
+    WalletMutationState,
+    WalletMutationState,
+    String
+  >
+  get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get safeErrorCode => $composableBuilder(
+    column: $table.safeErrorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$WalletMutationsTableFilterComposer get walletMutationId {
+    final $$WalletMutationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.walletMutationId,
+      referencedTable: $db.walletMutations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WalletMutationsTableFilterComposer(
+            $db: $db,
+            $table: $db.walletMutations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WalletMutationItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WalletMutationItemsTable> {
+  $$WalletMutationItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get itemIndex => $composableBuilder(
+    column: $table.itemIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get legRole => $composableBuilder(
+    column: $table.legRole,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get walletRecordId => $composableBuilder(
+    column: $table.walletRecordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get expectedRemoteRevision => $composableBuilder(
+    column: $table.expectedRemoteRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payloadCiphertext => $composableBuilder(
+    column: $table.payloadCiphertext,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get safeErrorCode => $composableBuilder(
+    column: $table.safeErrorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$WalletMutationsTableOrderingComposer get walletMutationId {
+    final $$WalletMutationsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.walletMutationId,
+      referencedTable: $db.walletMutations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WalletMutationsTableOrderingComposer(
+            $db: $db,
+            $table: $db.walletMutations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WalletMutationItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WalletMutationItemsTable> {
+  $$WalletMutationItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get itemIndex =>
+      $composableBuilder(column: $table.itemIndex, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<WalletItemLegRole, String> get legRole =>
+      $composableBuilder(column: $table.legRole, builder: (column) => column);
+
+  GeneratedColumn<String> get walletRecordId => $composableBuilder(
+    column: $table.walletRecordId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get expectedRemoteRevision => $composableBuilder(
+    column: $table.expectedRemoteRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get payloadCiphertext => $composableBuilder(
+    column: $table.payloadCiphertext,
+    builder: (column) => column,
+  );
+
+  GeneratedColumnWithTypeConverter<WalletMutationState, String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get safeErrorCode => $composableBuilder(
+    column: $table.safeErrorCode,
+    builder: (column) => column,
+  );
+
+  $$WalletMutationsTableAnnotationComposer get walletMutationId {
+    final $$WalletMutationsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.walletMutationId,
+      referencedTable: $db.walletMutations,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WalletMutationsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.walletMutations,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WalletMutationItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WalletMutationItemsTable,
+          WalletMutationItem,
+          $$WalletMutationItemsTableFilterComposer,
+          $$WalletMutationItemsTableOrderingComposer,
+          $$WalletMutationItemsTableAnnotationComposer,
+          $$WalletMutationItemsTableCreateCompanionBuilder,
+          $$WalletMutationItemsTableUpdateCompanionBuilder,
+          (WalletMutationItem, $$WalletMutationItemsTableReferences),
+          WalletMutationItem,
+          PrefetchHooks Function({bool walletMutationId})
+        > {
+  $$WalletMutationItemsTableTableManager(
+    _$AppDatabase db,
+    $WalletMutationItemsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WalletMutationItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WalletMutationItemsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$WalletMutationItemsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> walletMutationId = const Value.absent(),
+                Value<int> itemIndex = const Value.absent(),
+                Value<WalletItemLegRole> legRole = const Value.absent(),
+                Value<String?> walletRecordId = const Value.absent(),
+                Value<int?> expectedRemoteRevision = const Value.absent(),
+                Value<String> payloadCiphertext = const Value.absent(),
+                Value<WalletMutationState> state = const Value.absent(),
+                Value<String?> safeErrorCode = const Value.absent(),
+              }) => WalletMutationItemsCompanion(
+                id: id,
+                walletMutationId: walletMutationId,
+                itemIndex: itemIndex,
+                legRole: legRole,
+                walletRecordId: walletRecordId,
+                expectedRemoteRevision: expectedRemoteRevision,
+                payloadCiphertext: payloadCiphertext,
+                state: state,
+                safeErrorCode: safeErrorCode,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String walletMutationId,
+                required int itemIndex,
+                required WalletItemLegRole legRole,
+                Value<String?> walletRecordId = const Value.absent(),
+                Value<int?> expectedRemoteRevision = const Value.absent(),
+                required String payloadCiphertext,
+                required WalletMutationState state,
+                Value<String?> safeErrorCode = const Value.absent(),
+              }) => WalletMutationItemsCompanion.insert(
+                id: id,
+                walletMutationId: walletMutationId,
+                itemIndex: itemIndex,
+                legRole: legRole,
+                walletRecordId: walletRecordId,
+                expectedRemoteRevision: expectedRemoteRevision,
+                payloadCiphertext: payloadCiphertext,
+                state: state,
+                safeErrorCode: safeErrorCode,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$WalletMutationItemsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({walletMutationId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (walletMutationId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.walletMutationId,
+                                referencedTable:
+                                    $$WalletMutationItemsTableReferences
+                                        ._walletMutationIdTable(db),
+                                referencedColumn:
+                                    $$WalletMutationItemsTableReferences
+                                        ._walletMutationIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$WalletMutationItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WalletMutationItemsTable,
+      WalletMutationItem,
+      $$WalletMutationItemsTableFilterComposer,
+      $$WalletMutationItemsTableOrderingComposer,
+      $$WalletMutationItemsTableAnnotationComposer,
+      $$WalletMutationItemsTableCreateCompanionBuilder,
+      $$WalletMutationItemsTableUpdateCompanionBuilder,
+      (WalletMutationItem, $$WalletMutationItemsTableReferences),
+      WalletMutationItem,
+      PrefetchHooks Function({bool walletMutationId})
     >;
 typedef $$CapabilityLedgerTableCreateCompanionBuilder =
     CapabilityLedgerCompanion Function({
@@ -15606,6 +19875,10 @@ class $AppDatabaseManager {
       $$WalletMutationsTableTableManager(_db, _db.walletMutations);
   $$WalletRecordLinksTableTableManager get walletRecordLinks =>
       $$WalletRecordLinksTableTableManager(_db, _db.walletRecordLinks);
+  $$MappingRulesTableTableManager get mappingRules =>
+      $$MappingRulesTableTableManager(_db, _db.mappingRules);
+  $$WalletMutationItemsTableTableManager get walletMutationItems =>
+      $$WalletMutationItemsTableTableManager(_db, _db.walletMutationItems);
   $$CapabilityLedgerTableTableManager get capabilityLedger =>
       $$CapabilityLedgerTableTableManager(_db, _db.capabilityLedger);
   $$RulePacksTableTableManager get rulePacks =>
