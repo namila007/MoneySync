@@ -1,8 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
-import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/domain/resolve_onboarding_entry.dart';
@@ -15,19 +16,22 @@ final onboardingStateProvider =
 class OnboardingNotifier extends Notifier<OnboardingState> {
   var _loaded = false;
 
+  bool get _smsAccessAvailable => ref
+      .read(appConfigProvider)
+      .capabilities
+      .isEnabled(AppCapability.smsPermission);
+
   @override
   OnboardingState build() {
     _loadFromDrift();
-    return OnboardingState.initial();
+    return OnboardingState.initial(smsAccessAvailable: _smsAccessAvailable);
   }
 
   Future<void> _loadFromDrift() async {
     final log = Logger('onboarding');
     try {
-      final dbAsync = ref.read(appDatabaseProvider);
-      final db = dbAsync.requireValue;
+      final repo = await ref.read(onboardingRepositoryProvider.future);
       log.info('Database available for onboarding load');
-      final repo = DriftOnboardingRepository(database: db);
       final persisted = await repo.load();
       if (persisted == null) {
         log.info(
@@ -46,7 +50,14 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
         case OnboardingEntrySupplement():
           if (!_loaded) {
             _loaded = true;
-            state = OnboardingState.supplementAt(entry.startAt);
+            state = OnboardingState.supplementAt(
+              entry.startAt,
+              smsAccessAvailable: _smsAccessAvailable,
+            );
+            if (!_smsAccessAvailable) {
+              // playManual never renders the disclosure step (M4.3).
+              state = state.nextStep();
+            }
             log.info(
               'Onboarding supplement: starting at ${entry.startAt.name}',
             );
@@ -95,6 +106,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
         disclosureRevision: state.disclosureRevision,
         isComplete: true,
         onboardingRevision: kOnboardingRevision,
+        smsAccessAvailable: state.smsAccessAvailable,
       );
       log.info('Advanced to complete state');
     } else {
@@ -102,8 +114,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       return;
     }
     try {
-      final db = ref.read(appDatabaseProvider).requireValue;
-      final repo = DriftOnboardingRepository(database: db);
+      final repo = await ref.read(onboardingRepositoryProvider.future);
       await repo.complete(disclosureRevision: state.disclosureRevision);
       log.info('Onboarding persisted to Drift');
     } catch (e, s) {
@@ -116,12 +127,14 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     final log = Logger('onboarding');
     log.info('User granted SMS access consent');
     try {
-      final db = ref.read(appDatabaseProvider).requireValue;
-      final repo = DriftOnboardingRepository(database: db);
-      await repo.acceptSmsDisclosure(smsDisclosureRevision: 1);
+      final repo = await ref.read(onboardingRepositoryProvider.future);
+      await repo.acceptSmsDisclosure(
+        smsDisclosureRevision: kSmsDisclosureRevision,
+      );
       log.info('SMS disclosure revision persisted');
     } catch (e, s) {
       log.error('Failed to persist SMS disclosure', e, s);
+      rethrow;
     }
     state = state.nextStep();
   }
@@ -129,20 +142,20 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   Future<void> skipSmsAccess() async {
     final log = Logger('onboarding');
     log.info('User skipped SMS access');
+    try {
+      final repo = await ref.read(onboardingRepositoryProvider.future);
+      await repo.acceptOnboardingRevision(
+        onboardingRevision: kOnboardingRevision,
+      );
+      log.info('Onboarding revision persisted after SMS skip');
+    } catch (e, s) {
+      log.error('Failed to persist onboarding revision after skip', e, s);
+      rethrow;
+    }
     state = state.nextStep();
   }
 
   void goBack() {
-    final steps = OnboardingStep.values;
-    final currentIndex = steps.indexOf(state.currentStep);
-    if (currentIndex > 0) {
-      final previous = steps[currentIndex - 1];
-      state = OnboardingState(
-        currentStep: previous,
-        disclosureRevision: state.disclosureRevision,
-        isComplete: false,
-        onboardingRevision: state.onboardingRevision,
-      );
-    }
+    state = state.goBack();
   }
 }

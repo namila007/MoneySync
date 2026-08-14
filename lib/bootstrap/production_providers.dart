@@ -8,6 +8,8 @@ import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
+import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
 import 'package:money_sync/features/sms_ingestion/data/native_source_identity_signer.dart';
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_repository.dart';
@@ -56,6 +58,13 @@ final appDatabaseProvider = FutureProvider<AppDatabase>((ref) async {
 
 final freshAuthPortProvider = FutureProvider<FreshAuthPort>((ref) async {
   return LocalAuthDeviceAuthenticator(auth: LocalAuthentication());
+});
+
+final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
+  ref,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return DriftOnboardingRepository(database: db);
 });
 
 /// Active rule packs as data: the `rule_packs` table's `enabled` flag decides

@@ -34,10 +34,7 @@ final class ManualInputRejected extends ManualInputResult {
   final ManualInputRejection reason;
 }
 
-String normalizeManualBody(String raw, {String? mimeType}) {
-  if (mimeType != null && mimeType != 'text/plain') {
-    return 'rejected:unsupportedMimeType';
-  }
+String normalizeManualBody(String raw) {
   var text = raw;
   text = _nfcNormalize(text);
   text = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
@@ -53,10 +50,10 @@ ManualInputResult validateManualInput(
   String? rawSender,
   String? mimeType,
 }) {
-  final normalized = normalizeManualBody(raw, mimeType: mimeType);
-  if (normalized.startsWith('rejected:')) {
+  if (mimeType != null && mimeType != 'text/plain') {
     return const ManualInputRejected(ManualInputRejection.unsupportedMimeType);
   }
+  final normalized = normalizeManualBody(raw);
   if (normalized.isEmpty) {
     return const ManualInputRejected(ManualInputRejection.empty);
   }

@@ -32,9 +32,29 @@ void main() {
     });
 
     test('rejects non text/plain mime', () {
-      var result = normalizeManualBody('text', mimeType: 'image/png');
-      expect(result, startsWith('rejected:'));
+      final result = validateManualInput(
+        'LKR 1,250.00 debited from account',
+        mimeType: 'image/png',
+      );
+      expect(
+        result,
+        const ManualInputRejected(ManualInputRejection.unsupportedMimeType),
+      );
     });
+
+    test(
+      'a body starting with "Rejected:" is still accepted as text/plain',
+      () {
+        final result = validateManualInput(
+          'Rejected: your card payment of LKR 500.00 was declined',
+        );
+        expect(result, isA<ManualInputAccepted>());
+        expect(
+          (result as ManualInputAccepted).normalizedBody,
+          startsWith('Rejected:'),
+        );
+      },
+    );
 
     test('empty sender becomes UNKNOWN', () {
       final result = validateManualInput(

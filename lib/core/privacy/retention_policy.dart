@@ -110,7 +110,7 @@ final class RawBodyRetentionSweep {
     await database.transaction(() async {
       final pendingEvents = await database
           .customSelect(
-            "SELECT * FROM sms_events WHERE raw_purge_state = 'pending'",
+            "SELECT * FROM sms_events WHERE raw_purge_state = '${RawPurgeState.pending.name}'",
             readsFrom: {database.smsEvents},
           )
           .get();

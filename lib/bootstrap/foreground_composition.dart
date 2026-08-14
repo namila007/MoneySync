@@ -16,17 +16,9 @@ import 'package:money_sync/features/data_control/application/clear_local_data.da
     as data_control;
 import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
-import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
-
-final onboardingRepositoryProvider = FutureProvider<OnboardingRepository>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return DriftOnboardingRepository(database: db);
-});
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   (ref) async {

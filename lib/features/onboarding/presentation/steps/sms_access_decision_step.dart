@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
-import 'package:money_sync/features/sms_permission/domain/request_sms_permission.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
@@ -95,13 +94,13 @@ class SmsAccessDecisionStep extends ConsumerWidget {
               showFinish: true,
               onFinish: onFinish,
               secondaryLabel: 'Try again',
-              onSecondary: () async {
-                final outcome = await ref
-                    .read(smsPermissionStatusProvider.notifier)
-                    .request(acceptedDisclosureRevision: 1);
-                if (outcome case SmsPermissionRequestCompleted _) {
-                  // status is already refreshed via controller
-                }
+              onSecondary: () {
+                // A request must never be issued while no SMS disclosure is
+                // recorded (M4.3 consent ordering). Going back re-shows the
+                // disclosure screen, whose Continue persists consent before
+                // the gateway is ever asked — the disclosure is always the
+                // screen immediately before the system dialog.
+                ref.read(onboardingStateProvider.notifier).goBack();
               },
             );
         }

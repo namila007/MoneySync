@@ -1,3 +1,5 @@
+import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
+
 enum OnboardingStep {
   welcome,
   privacyExplanation,
@@ -15,25 +17,36 @@ final class OnboardingState {
     required this.disclosureRevision,
     required this.isComplete,
     this.onboardingRevision,
+    this.smsAccessAvailable = true,
   });
 
-  factory OnboardingState.initial() => const OnboardingState(
-    currentStep: OnboardingStep.welcome,
-    disclosureRevision: 1,
-    isComplete: false,
-  );
+  factory OnboardingState.initial({bool smsAccessAvailable = true}) =>
+      OnboardingState(
+        currentStep: OnboardingStep.welcome,
+        disclosureRevision: 1,
+        isComplete: false,
+        smsAccessAvailable: smsAccessAvailable,
+      );
 
-  factory OnboardingState.supplementAt(OnboardingStep step) => OnboardingState(
+  factory OnboardingState.supplementAt(
+    OnboardingStep step, {
+    bool smsAccessAvailable = true,
+  }) => OnboardingState(
     currentStep: step,
     disclosureRevision: 1,
     isComplete: false,
-    onboardingRevision: 1,
+    onboardingRevision: kOnboardingRevision,
+    smsAccessAvailable: smsAccessAvailable,
   );
 
   final OnboardingStep currentStep;
   final int disclosureRevision;
   final bool isComplete;
   final int? onboardingRevision;
+
+  /// Whether this build can request SMS access at all. playManual cannot:
+  /// the disclosure step is skipped and never counted (M4.3 §Step machine).
+  final bool smsAccessAvailable;
 
   bool get isLastStep => currentStep == OnboardingStep.smsAccessDecision;
 
@@ -47,30 +60,63 @@ final class OnboardingState {
 
   OnboardingState nextStep() {
     if (isComplete) return this;
+    return _skipUnavailableDisclosure(_advance());
+  }
+
+  OnboardingState goBack() {
+    final steps = OnboardingStep.values;
+    final currentIndex = steps.indexOf(currentStep);
+    if (currentIndex <= 0) return this;
+    var previous = _withStep(steps[currentIndex - 1]);
+    if (!smsAccessAvailable &&
+        previous.currentStep == OnboardingStep.smsAccessDisclosure) {
+      previous = _withStep(steps[currentIndex - 2]);
+    }
+    return previous;
+  }
+
+  OnboardingState _advance() {
     final steps = OnboardingStep.values;
     final currentIndex = steps.indexOf(currentStep);
     if (currentIndex >= steps.length - 1) {
-      return OnboardingState(
-        currentStep: currentStep,
-        disclosureRevision: disclosureRevision,
-        isComplete: true,
-        onboardingRevision: onboardingRevision,
-      );
+      return _withStep(currentStep, isComplete: true);
     }
-    return OnboardingState(
-      currentStep: steps[currentIndex + 1],
-      disclosureRevision: disclosureRevision,
-      isComplete: false,
-      onboardingRevision: onboardingRevision,
-    );
+    return _withStep(steps[currentIndex + 1]);
   }
+
+  /// playManual never renders the SMS disclosure: stepping onto it advances
+  /// again immediately, so the disclosure is unreachable in the flow.
+  OnboardingState _skipUnavailableDisclosure(OnboardingState next) {
+    if (!smsAccessAvailable &&
+        next.currentStep == OnboardingStep.smsAccessDisclosure &&
+        !next.isComplete) {
+      return next._advance();
+    }
+    return next;
+  }
+
+  OnboardingState _withStep(OnboardingStep step, {bool? isComplete}) =>
+      OnboardingState(
+        currentStep: step,
+        disclosureRevision: disclosureRevision,
+        isComplete: isComplete ?? false,
+        onboardingRevision: onboardingRevision,
+        smsAccessAvailable: smsAccessAvailable,
+      );
 
   int get completedStepCount {
-    if (isComplete) return OnboardingStep.values.length;
-    return OnboardingStep.values.indexOf(currentStep);
+    if (isComplete) return totalStepCount;
+    final steps = OnboardingStep.values;
+    var index = steps.indexOf(currentStep);
+    if (!smsAccessAvailable &&
+        index > steps.indexOf(OnboardingStep.smsAccessDisclosure)) {
+      index -= 1;
+    }
+    return index;
   }
 
-  int get totalStepCount => OnboardingStep.values.length;
+  int get totalStepCount =>
+      OnboardingStep.values.length - (smsAccessAvailable ? 0 : 1);
 
   bool get hasAcceptedDisclosure => isComplete;
 }

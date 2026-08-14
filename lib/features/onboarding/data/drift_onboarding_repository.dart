@@ -58,4 +58,15 @@ final class DriftOnboardingRepository implements OnboardingRepository {
       AppSettingsCompanion(smsDisclosureRevision: Value(smsDisclosureRevision)),
     );
   }
+
+  @override
+  Future<void> acceptOnboardingRevision({
+    required int onboardingRevision,
+  }) async {
+    await (database.update(
+      database.appSettings,
+    )..where((row) => row.singletonId.equals(1))).write(
+      AppSettingsCompanion(onboardingRevision: Value(onboardingRevision)),
+    );
+  }
 }

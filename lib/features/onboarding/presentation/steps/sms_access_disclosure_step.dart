@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/features/onboarding/domain/onboarding_revisions.dart';
 import 'package:money_sync/features/onboarding/domain/sms_disclosure_copy.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
@@ -44,7 +45,9 @@ class SmsAccessDisclosureStep extends ConsumerWidget {
                 await ref
                     .read(onboardingStateProvider.notifier)
                     .grantSmsAccess();
-                await permissions.request(acceptedDisclosureRevision: 1);
+                await permissions.request(
+                  acceptedDisclosureRevision: kSmsDisclosureRevision,
+                );
               },
               child: const Text('Continue'),
             ),

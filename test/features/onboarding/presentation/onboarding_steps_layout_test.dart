@@ -15,8 +15,15 @@ import 'package:money_sync/features/sms_permission/presentation/sms_permission_c
 /// Column fails to lay out and renders nothing.
 ///
 /// See onboarding_page.dart:41-59.
-Widget _inOnboardingHost(Widget step) {
+Widget _inOnboardingHost(
+  Widget step, {
+  TextScaler textScaler = TextScaler.noScaling,
+}) {
   return MaterialApp(
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+      child: child!,
+    ),
     home: Scaffold(
       body: SafeArea(
         child: Padding(
@@ -120,6 +127,37 @@ void main() {
       },
     );
 
+    testWidgets('permanentlyDenied shows Open system settings, not Try again', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const SmsAccessDecisionStep()),
+          gateway: _FixedGateway(SmsPermissionStatus.permanentlyDenied),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open system settings'), findsOneWidget);
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('gateway failure still allows Finish', (tester) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const SmsAccessDecisionStep()),
+          gateway: _ThrowingGateway(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Message reading status unavailable'), findsOneWidget);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('renders the checking copy while the status is still loading', (
       tester,
     ) async {
@@ -133,6 +171,68 @@ void main() {
 
       expect(find.text('Checking message reading status'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('accessibility (M4.3 exit criteria)', () {
+    testWidgets('disclosure step is fully readable at 200% text scale', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(
+            const SmsAccessDisclosureStep(),
+            textScaler: const TextScaler.linear(2.0),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Reading your bank messages'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.textContaining('Not now'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('status glyph is excluded from semantics; the label carries '
+        'meaning', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const SmsAccessDecisionStep()),
+          gateway: _FixedGateway(SmsPermissionStatus.granted),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Message reading is on'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text('Message reading is on')).label,
+        contains('On'),
+      );
+      expect(find.bySemanticsLabel('\u25cf'), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('every action on the disclosure step has a >= 48dp touch '
+        'target', (tester) async {
+      await tester.pumpWidget(
+        _scoped(_inOnboardingHost(const SmsAccessDisclosureStep())),
+      );
+      await tester.pump();
+
+      for (final finder in [
+        find.byType(FilledButton),
+        find.byType(TextButton),
+      ]) {
+        for (final element in finder.evaluate()) {
+          final size = tester.getSize(
+            find.byWidget(element.widget, skipOffstage: false),
+          );
+          expect(size.height, greaterThanOrEqualTo(48));
+          expect(size.width, greaterThanOrEqualTo(48));
+        }
+      }
     });
   });
 }
@@ -160,6 +260,19 @@ final class _NeverCompletingGateway implements SmsPermissionGateway {
   @override
   Future<SmsPermissionStatus> request() =>
       Completer<SmsPermissionStatus>().future;
+
+  @override
+  Future<void> openAppSettings() async {}
+}
+
+final class _ThrowingGateway implements SmsPermissionGateway {
+  @override
+  Future<SmsPermissionStatus> current() async =>
+      throw StateError('platform channel unavailable');
+
+  @override
+  Future<SmsPermissionStatus> request() async =>
+      throw StateError('platform channel unavailable');
 
   @override
   Future<void> openAppSettings() async {}

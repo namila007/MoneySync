@@ -24,6 +24,21 @@ enum MoneyParseError {
   zeroAmount,
 }
 
+/// M4.6 rules 2–3: reject rather than guess when separators conflict —
+/// a comma after a dot (`1.234,56`, European convention) or a trailing
+/// two-digit comma group with no dot (`1,50`).
+bool _hasAmbiguousSeparators(String amountToken) {
+  final commaIndex = amountToken.indexOf(',');
+  if (commaIndex < 0) return false;
+  final dotIndex = amountToken.indexOf('.');
+  if (dotIndex >= 0 && commaIndex > dotIndex) return true;
+  if (dotIndex < 0 &&
+      RegExp(r'^\d{2}$').hasMatch(amountToken.substring(commaIndex + 1))) {
+    return true;
+  }
+  return false;
+}
+
 /// Parses an amount token into integer minor units. The currency comes from
 /// the text itself (leading `[A-Z]{3}`), with [currencyCode] as a caller-
 /// supplied fallback when a pack knows the currency without the message
@@ -37,6 +52,9 @@ MoneyParseResult parseMoney(String raw, {String? currencyCode}) {
     return const MoneyParseFailed(MoneyParseError.unsupportedCurrency);
   }
   final stripped = trimmed.replaceFirst(RegExp(r'^[A-Z]{3}\s*'), '');
+  if (_hasAmbiguousSeparators(stripped)) {
+    return const MoneyParseFailed(MoneyParseError.ambiguousSeparators);
+  }
   var cleaned = stripped.replaceAll(',', '');
   final dotIndex = cleaned.indexOf('.');
   int? decimals;

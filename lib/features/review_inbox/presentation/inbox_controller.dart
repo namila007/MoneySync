@@ -54,6 +54,8 @@ final class InboxViewState {
     Map<String, List<SmsEvent>>? senderMore,
     Map<String, bool>? senderHasMore,
     Map<String, bool>? senderLoadingMore,
+    String? senderFilter,
+    DateTimeRange? dateRangeFilter,
   }) {
     return InboxViewState(
       layout: layout ?? this.layout,
@@ -65,8 +67,8 @@ final class InboxViewState {
       senderMore: senderMore ?? this.senderMore,
       senderHasMore: senderHasMore ?? this.senderHasMore,
       senderLoadingMore: senderLoadingMore ?? this.senderLoadingMore,
-      senderFilter: senderFilter,
-      dateRangeFilter: dateRangeFilter,
+      senderFilter: senderFilter ?? this.senderFilter,
+      dateRangeFilter: dateRangeFilter ?? this.dateRangeFilter,
     );
   }
 }
