@@ -112,10 +112,6 @@ class _ActivityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWalletAction =
-        entry.code == ActivityEventCode.walletRecordCreated ||
-        entry.code == ActivityEventCode.logError;
-
     return ListTile(
       leading: Icon(_iconFor(entry.code)),
       title: Text(
@@ -133,8 +129,10 @@ class _ActivityTile extends StatelessWidget {
             _formatTimestamp(entry.occurredAt.toLocal()),
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          if (isWalletAction)
-            _RecoveryActions(entryId: entry.id),
+          // Recovery only for rows that reference a REAL outbox mutation; a
+          // fabricated id would target a non-existent row (M5.14 gap 5).
+          if (entry.mutationId case final mutationId?)
+            _RecoveryActions(mutationId: mutationId),
         ],
       ),
     );
@@ -142,14 +140,16 @@ class _ActivityTile extends StatelessWidget {
 }
 
 /// "Retry now" / "Verify in Wallet" dispatched through the recovery-actions
-/// port — the activity page never owns mutation logic (M5.12).
+/// port with the REAL outbox mutation id — the activity page never owns
+/// mutation logic (M5.12/M5.14).
 class _RecoveryActions extends ConsumerWidget {
-  const _RecoveryActions({required this.entryId});
+  const _RecoveryActions({required this.mutationId});
 
-  final int entryId;
+  final String mutationId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final actionsAsync = ref.watch(activityRecoveryActionsProvider);
     return Wrap(
       spacing: 4,
       children: [
@@ -158,9 +158,9 @@ class _RecoveryActions extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
-          onPressed: () => ref
-              .read(activityRecoveryActionsProvider)
-              .retryNow('mutation-$entryId'),
+          onPressed: actionsAsync.hasValue
+              ? () => actionsAsync.requireValue.retryNow(mutationId)
+              : null,
           icon: const Icon(Icons.refresh, size: 16),
           label: const Text('Retry'),
         ),
@@ -169,9 +169,9 @@ class _RecoveryActions extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
-          onPressed: () => ref
-              .read(activityRecoveryActionsProvider)
-              .verifyInWallet('mutation-$entryId'),
+          onPressed: actionsAsync.hasValue
+              ? () => actionsAsync.requireValue.verifyInWallet(mutationId)
+              : null,
           icon: const Icon(Icons.verified_user_outlined, size: 16),
           label: const Text('Verify'),
         ),

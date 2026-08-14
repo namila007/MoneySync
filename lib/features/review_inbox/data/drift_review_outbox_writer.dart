@@ -47,10 +47,22 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
     required DecisionTraceCode decisionTraceCode,
   }) {
     return _database.transaction(() async {
+      // The candidate row is created at ingest (`insertCandidateAndActivity
+      // Atomically`, sms_event_id UNIQUE). Reviewing must UPDATE that row in
+      // place (bump revision, approve state, keep its identity), not insert a
+      // second one — an insert would collide on the UNIQUE sms_event_id and
+      // surface as ReviewDuplicate on the primary path (M5.14 gap 1). UPSERT
+      // also covers candidates that were never parsed (review-only path).
       await _database.customInsert(
         'INSERT INTO transaction_candidates (sms_event_id, candidate_id, '
         'state, encrypted_payload, revision, created_at_epoch_ms) '
-        'VALUES (?, ?, ?, ?, ?, ?)',
+        'VALUES (?, ?, ?, ?, ?, ?) '
+        'ON CONFLICT(sms_event_id) DO UPDATE SET '
+        'candidate_id = excluded.candidate_id, '
+        'state = excluded.state, '
+        'encrypted_payload = excluded.encrypted_payload, '
+        'revision = excluded.revision, '
+        'created_at_epoch_ms = excluded.created_at_epoch_ms',
         variables: [
           Variable(smsEventId),
           Variable(intent.candidateId),
@@ -93,12 +105,14 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
       );
       await _database.customInsert(
         'INSERT INTO activity_events (event_type, sanitized_detail, '
-        'occurred_at_epoch_ms, privacy_epoch) VALUES (?, ?, ?, ?)',
+        'occurred_at_epoch_ms, privacy_epoch, mutation_id) '
+        'VALUES (?, ?, ?, ?, ?)',
         variables: [
           Variable(activityType.wireValue),
           Variable(safeDetailCode.name),
           Variable(createdAtEpochMs),
           Variable(privacyEpoch),
+          Variable(intent.id),
         ],
       );
       await _database.customInsert(
