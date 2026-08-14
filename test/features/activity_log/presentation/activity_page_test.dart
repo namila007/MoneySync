@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
+import 'package:money_sync/features/activity_log/domain/activity_recovery_actions.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_page.dart';
 
@@ -42,7 +43,7 @@ void main() {
       await tester.pumpWidget(_app(const []));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('No activity yet'), findsOneWidget);
+      expect(find.textContaining('No activity here yet'), findsOneWidget);
       expect(find.byType(ListTile), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -136,6 +137,90 @@ void main() {
 
       expect(find.textContaining('could not be read'), findsOneWidget);
     });
+
+    testWidgets('filters by event code chip (M5.12)', (tester) async {
+      await tester.pumpWidget(
+        _app([
+          _entry(
+            id: 3,
+            code: ActivityEventCode.walletRecordCreated,
+            detail: ActivityStateTransition.logEvent,
+            epochMs: 3000,
+          ),
+          _entry(
+            id: 2,
+            code: ActivityEventCode.candidateNeedsReview,
+            detail: ActivityStateTransition.needsReview,
+            epochMs: 2000,
+          ),
+          _entry(
+            id: 1,
+            code: ActivityEventCode.logError,
+            detail: ActivityStateTransition.logEvent,
+            epochMs: 1000,
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ListTile), findsNWidgets(3));
+      await tester.tap(find.text('Created'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ListTile), findsOneWidget);
+      expect(find.text('Wallet record created'), findsOneWidget);
+    });
+
+    testWidgets('dispatches retry now / verify in Wallet actions (M5.12)', (
+      tester,
+    ) async {
+      final actions = _SpyRecoveryActions();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activityLogRepositoryProvider.overrideWith(
+              (ref) async => _FakeRepo([
+                _entry(
+                  id: 7,
+                  code: ActivityEventCode.walletRecordCreated,
+                  detail: ActivityStateTransition.logEvent,
+                  epochMs: 1000,
+                ),
+              ]),
+            ),
+            activityRecoveryActionsProvider.overrideWith((ref) => actions),
+          ],
+          child: const MaterialApp(home: ActivityPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Verify'), findsOneWidget);
+
+      await tester.tap(find.text('Retry'));
+      await tester.tap(find.text('Verify'));
+      await tester.pumpAndSettle();
+
+      expect(actions.retries, ['mutation-7']);
+      expect(actions.verifies, ['mutation-7']);
+    });
+
+    testWidgets('non-wallet events show no recovery actions', (tester) async {
+      await tester.pumpWidget(
+        _app([
+          _entry(
+            id: 5,
+            code: ActivityEventCode.messageImported,
+            detail: ActivityStateTransition.logEvent,
+            epochMs: 1000,
+          ),
+        ]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('Verify'), findsNothing);
+    });
   });
 }
 
@@ -145,11 +230,33 @@ final class _FakeRepo implements ActivityLogRepository {
   final List<ActivityLogEntry> entries;
 
   @override
-  Future<List<ActivityLogEntry>> recent({int limit = 200}) async => entries;
+  Future<List<ActivityLogEntry>> recent({
+    int limit = 200,
+    ActivityEventCode? code,
+  }) async {
+    final filtered = code == null
+        ? entries
+        : entries.where((e) => e.code == code).toList();
+    return filtered.take(limit).toList();
+  }
 }
 
 final class _FailingRepo implements ActivityLogRepository {
   @override
-  Future<List<ActivityLogEntry>> recent({int limit = 200}) async =>
-      throw StateError('database unavailable');
+  Future<List<ActivityLogEntry>> recent({
+    int limit = 200,
+    ActivityEventCode? code,
+  }) async => throw StateError('database unavailable');
+}
+
+final class _SpyRecoveryActions implements ActivityRecoveryActions {
+  final List<String> retries = [];
+  final List<String> verifies = [];
+
+  @override
+  Future<void> retryNow(String mutationId) async => retries.add(mutationId);
+
+  @override
+  Future<void> verifyInWallet(String mutationId) async =>
+      verifies.add(mutationId);
 }

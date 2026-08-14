@@ -6,6 +6,7 @@ import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart'
     show StatusChip;
+import 'package:money_sync/features/review_inbox/presentation/review_transaction_panel.dart';
 
 /// Read-only summary of one stored candidate (M4.15 WP1). The candidate
 /// table's rich columns are not populated yet — the parser payload JSON is
@@ -57,10 +58,14 @@ final class CandidateSummaryView {
 }
 
 final class InboxDetailData {
-  const InboxDetailData({this.event, this.summary});
+  const InboxDetailData({this.event, this.summary, this.candidatePayload});
 
   final SmsEvent? event;
   final CandidateSummaryView? summary;
+
+  /// The raw candidate `encrypted_payload` JSON (already inside the encrypted
+  /// DB), passed to the review panel so it can re-serialize on submit.
+  final String? candidatePayload;
 }
 
 final inboxDetailProvider = FutureProvider.autoDispose
@@ -72,7 +77,11 @@ final inboxDetailProvider = FutureProvider.autoDispose
       final summary = candidate == null
           ? null
           : CandidateSummaryView.parse(candidate.encryptedPayload);
-      return InboxDetailData(event: event, summary: summary);
+      return InboxDetailData(
+        event: event,
+        summary: summary,
+        candidatePayload: candidate?.encryptedPayload,
+      );
     });
 
 class InboxDetailPage extends ConsumerWidget {
@@ -126,6 +135,12 @@ class InboxDetailPage extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _CandidateCard(summary: summary),
               ],
+              const SizedBox(height: 16),
+              ReviewTransactionPanel(
+                smsEventId: event.id,
+                encryptedPayload: detail.candidatePayload ?? '{}',
+                senderNormalized: event.senderKey,
+              ),
             ],
           );
         },

@@ -28,6 +28,10 @@ final class ActivityLogEntry {
 
 /// Read-only port over the local activity log.
 abstract interface class ActivityLogRepository {
-  /// Most recent entries first, capped at [limit].
-  Future<List<ActivityLogEntry>> recent({int limit});
+  /// Most recent entries first, capped at [limit]. When [code] is set, only
+  /// entries of that event type are returned (M5.12 filters).
+  Future<List<ActivityLogEntry>> recent({
+    int limit,
+    ActivityEventCode? code,
+  });
 }

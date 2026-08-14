@@ -5,41 +5,101 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 
-class ActivityPage extends ConsumerWidget {
+class ActivityPage extends ConsumerStatefulWidget {
   const ActivityPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final entriesAsync = ref.watch(activityLogProvider);
+  ConsumerState<ActivityPage> createState() => _ActivityPageState();
+}
+
+class _ActivityPageState extends ConsumerState<ActivityPage> {
+  ActivityEventCode? _filter;
+
+  @override
+  Widget build(BuildContext context) {
+    final entriesAsync = ref.watch(filteredActivityLogProvider(_filter));
 
     return Scaffold(
       appBar: const _ActivityAppBar(),
-      body: entriesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => const _ActivityMessage(
-          text:
-              'Activity could not be read from local storage. '
-              'Nothing has been lost — try again later.',
-        ),
-        data: (entries) {
-          if (entries.isEmpty) {
-            return const _ActivityMessage(
-              text:
-                  'No activity yet. Local events such as data deletion and '
-                  'retention clean-up will appear here.',
-            );
-          }
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(activityLogProvider),
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: entries.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) =>
-                  _ActivityTile(entry: entries[index]),
+      body: Column(
+        children: [
+          _FilterBar(
+            selected: _filter,
+            onChanged: (code) => setState(() => _filter = code),
+          ),
+          Expanded(
+            child: entriesAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => const _ActivityMessage(
+                text:
+                    'Activity could not be read from local storage. '
+                    'Nothing has been lost — try again later.',
+              ),
+              data: (entries) {
+                if (entries.isEmpty) {
+                  return const _ActivityMessage(
+                    text:
+                        'No activity here yet. Local events such as data '
+                        'deletion and retention clean-up will appear.',
+                  );
+                }
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(filteredActivityLogProvider(_filter));
+                    await ref.read(
+                      filteredActivityLogProvider(_filter).future,
+                    );
+                  },
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: entries.length,
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
+                    itemBuilder: (context, index) =>
+                        _ActivityTile(entry: entries[index]),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Filter chips by [ActivityEventCode] (M5.12). Null = all.
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({required this.selected, required this.onChanged});
+
+  final ActivityEventCode? selected;
+  final ValueChanged<ActivityEventCode?> onChanged;
+
+  static const _options = <(ActivityEventCode?, String)>[
+    (null, 'All'),
+    (ActivityEventCode.walletRecordCreated, 'Created'),
+    (ActivityEventCode.candidateNeedsReview, 'Review'),
+    (ActivityEventCode.logError, 'Errors'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        children: [
+          for (final (code, label) in _options)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: FilterChip(
+                label: Text(label),
+                selected: selected == code,
+                onSelected: (_) => onChanged(code),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -52,6 +112,10 @@ class _ActivityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isWalletAction =
+        entry.code == ActivityEventCode.walletRecordCreated ||
+        entry.code == ActivityEventCode.logError;
+
     return ListTile(
       leading: Icon(_iconFor(entry.code)),
       title: Text(
@@ -61,10 +125,57 @@ class _ActivityTile extends StatelessWidget {
             : _labelFor(entry.code),
       ),
       subtitle: Text(_detailFor(entry.detail)),
-      trailing: Text(
-        _formatTimestamp(entry.occurredAt.toLocal()),
-        style: Theme.of(context).textTheme.bodySmall,
+      trailing: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            _formatTimestamp(entry.occurredAt.toLocal()),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (isWalletAction)
+            _RecoveryActions(entryId: entry.id),
+        ],
       ),
+    );
+  }
+}
+
+/// "Retry now" / "Verify in Wallet" dispatched through the recovery-actions
+/// port — the activity page never owns mutation logic (M5.12).
+class _RecoveryActions extends ConsumerWidget {
+  const _RecoveryActions({required this.entryId});
+
+  final int entryId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Wrap(
+      spacing: 4,
+      children: [
+        TextButton.icon(
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          onPressed: () => ref
+              .read(activityRecoveryActionsProvider)
+              .retryNow('mutation-$entryId'),
+          icon: const Icon(Icons.refresh, size: 16),
+          label: const Text('Retry'),
+        ),
+        TextButton.icon(
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+          ),
+          onPressed: () => ref
+              .read(activityRecoveryActionsProvider)
+              .verifyInWallet('mutation-$entryId'),
+          icon: const Icon(Icons.verified_user_outlined, size: 16),
+          label: const Text('Verify'),
+        ),
+      ],
     );
   }
 }

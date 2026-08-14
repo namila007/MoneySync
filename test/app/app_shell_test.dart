@@ -5,6 +5,7 @@ import 'package:money_sync/app/app.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
@@ -39,7 +40,7 @@ final class _EmptyActivityLog implements ActivityLogRepository {
   const _EmptyActivityLog();
 
   @override
-  Future<List<ActivityLogEntry>> recent({int limit = 200}) async => const [];
+  Future<List<ActivityLogEntry>> recent({int limit = 200, ActivityEventCode? code}) async => const [];
 }
 
 final class _CompletedOnboardingNotifier extends OnboardingNotifier {

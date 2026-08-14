@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_controller.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
@@ -32,6 +33,8 @@ const _candidatePayload =
         return db;
       }),
       inboxViewProvider.overrideWith(InboxViewController.new),
+      walletCatalogProvider.overrideWith((ref) async => null),
+      mappingRuleListProvider.overrideWith((ref) async => []),
     ],
   );
   addTearDown(container.dispose);
