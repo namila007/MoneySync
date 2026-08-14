@@ -371,7 +371,9 @@ class _EventTile extends ConsumerWidget {
           onTap: () => context.push('/inbox/detail/${event.id}'),
           leading: const Icon(Icons.sms_outlined),
           title: Text(
-            event.redactedBody ?? '(no preview)',
+            // M4.16: the full original message is the review source; the
+            // masked preview is only a fallback for purged/filtered rows.
+            event.encryptedBody ?? event.redactedBody ?? '(no body)',
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

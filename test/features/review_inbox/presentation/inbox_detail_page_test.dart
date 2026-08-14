@@ -60,6 +60,7 @@ SmsEventsCompanion _event(
   String senderKey = 'SENDER_A',
   String? senderDisplay,
   int receivedAtEpochMs = 1000,
+  bool hasFullBody = true,
 }) {
   return SmsEventsCompanion.insert(
     sourceKey: 'k$i',
@@ -69,6 +70,7 @@ SmsEventsCompanion _event(
     receivedAtEpochMs: receivedAtEpochMs,
     status: SmsEventStatus.review,
     privacyEpoch: 0,
+    encryptedBody: hasFullBody ? Value('full body $i') : const Value(null),
     redactedBody: Value('redacted body $i'),
   );
 }
@@ -99,11 +101,11 @@ void main() {
     await tester.pumpWidget(widget);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('redacted body 1'));
+    await tester.tap(find.text('full body 1'));
     await tester.pumpAndSettle();
 
     expect(find.text('Message'), findsOneWidget);
-    expect(find.text('redacted body 1'), findsOneWidget);
+    expect(find.text('full body 1'), findsOneWidget);
     expect(find.textContaining('SENDER_A ·'), findsOneWidget);
     expect(find.text('Review'), findsOneWidget);
   });
@@ -115,12 +117,61 @@ void main() {
     await tester.pumpWidget(widget);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('redacted body 0'));
+    await tester.tap(find.text('full body 0'));
     await tester.pumpAndSettle();
 
     expect(find.text('BANKX'), findsOneWidget);
-    expect(find.text('redacted body 0'), findsOneWidget);
+    expect(find.text('full body 0'), findsOneWidget);
+    expect(find.text('redacted body 0'), findsNothing);
     expect(find.text('Review'), findsOneWidget); // status chip label
+  });
+
+  testWidgets(
+    'detail falls back to the masked preview when the body is purged',
+    (tester) async {
+      final (widget, _) = _app([
+        _event(
+          0,
+          senderKey: 'SENDER_A',
+          senderDisplay: 'BANKX',
+          hasFullBody: false,
+        ),
+      ]);
+      await tester.pumpWidget(widget);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('redacted body 0'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('redacted body 0'), findsOneWidget);
+      expect(find.text('full body 0'), findsNothing);
+      expect(find.text('(no body)'), findsNothing);
+    },
+  );
+
+  testWidgets('detail shows (no body) when both body and preview are absent', (
+    tester,
+  ) async {
+    final (widget, _) = _app([
+      SmsEventsCompanion.insert(
+        sourceKey: 'k0',
+        senderKey: 'SENDER_A',
+        senderDisplay: const Value(null),
+        ingestionSource: 'history_selection',
+        receivedAtEpochMs: 1000,
+        status: SmsEventStatus.review,
+        privacyEpoch: 0,
+        encryptedBody: const Value(null),
+        redactedBody: const Value(null),
+      ),
+    ]);
+    await tester.pumpWidget(widget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('(no body)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('(no body)'), findsOneWidget);
   });
 
   testWidgets(
@@ -132,7 +183,7 @@ void main() {
       await tester.pumpWidget(widget);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('redacted body 0'));
+      await tester.tap(find.text('full body 0'));
       await tester.pumpAndSettle();
 
       expect(find.text('Candidate summary'), findsOneWidget);
@@ -157,7 +208,7 @@ void main() {
     await tester.pumpWidget(widget);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('redacted body 0'));
+    await tester.tap(find.text('full body 0'));
     await tester.pumpAndSettle();
 
     expect(find.text('Candidate summary'), findsNothing);

@@ -178,7 +178,16 @@ class SmsEvents extends Table {
   /// for matching (plan/03:46).
   TextColumn get senderDisplay => text().nullable()();
 
+  /// Full normalized original message body — the primary review display
+  /// source (M4.16). Plaintext inside the SQLCipher-encrypted database;
+  /// the column name is historical and predates the at-rest encryption
+  /// design. Nullable: filtered OTP/unrelated rows store nothing, and the
+  /// retention sweep clears it when raw-copy consent is disabled.
   TextColumn get encryptedBody => text().nullable()();
+
+  /// Masked preview (amounts/dates/phone numbers redacted, ≤300 chars).
+  /// Fallback display source when [encryptedBody] is absent, and the
+  /// source for plan-mandated redacted surfaces (notifications).
   TextColumn get redactedBody => text().nullable()();
   TextColumn get ingestionSource => text()();
   IntColumn get receivedAtEpochMs => integer()();

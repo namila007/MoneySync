@@ -109,7 +109,12 @@ class InboxDetailPage extends ConsumerWidget {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Text(event.redactedBody ?? '(no preview)'),
+                  // M4.16: review with the ORIGINAL message. The full
+                  // normalized body is the primary display source; the masked
+                  // preview is only a fallback for purged/filtered rows.
+                  child: Text(
+                    event.encryptedBody ?? event.redactedBody ?? '(no body)',
+                  ),
                 ),
               ),
               const SizedBox(height: 8),

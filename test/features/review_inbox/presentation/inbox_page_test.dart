@@ -43,6 +43,7 @@ SmsEventsCompanion _event(
     receivedAtEpochMs: receivedAtEpochMs,
     status: SmsEventStatus.review,
     privacyEpoch: 0,
+    encryptedBody: Value('full body $i'),
     redactedBody: Value('redacted body $i'),
   );
 }
@@ -81,7 +82,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Show all (6)'), findsNothing);
-    expect(find.text('redacted body 0'), findsOneWidget);
+    expect(find.text('full body 0'), findsOneWidget);
   });
 
   testWidgets('grouped headers show the display form, never the key', (
@@ -93,6 +94,34 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.text('SAMPATHTX'), findsWidgets);
+  });
+
+  testWidgets('M4.16 inbox row shows the full original body, not the masked '
+      'preview', (tester) async {
+    await _pumpEvents(tester, [_event(0)]);
+
+    expect(find.text('full body 0'), findsOneWidget);
+    expect(find.text('redacted body 0'), findsNothing);
+  });
+
+  testWidgets('M4.16 inbox row falls back to the masked preview when the body '
+      'is purged', (tester) async {
+    await _pumpEvents(tester, [
+      SmsEventsCompanion.insert(
+        sourceKey: 'k0',
+        senderKey: 'SENDER_A',
+        senderDisplay: const Value(null),
+        ingestionSource: 'history_selection',
+        receivedAtEpochMs: 1000,
+        status: SmsEventStatus.review,
+        privacyEpoch: 0,
+        encryptedBody: const Value(null),
+        redactedBody: const Value('redacted body 0'),
+      ),
+    ]);
+
+    expect(find.text('redacted body 0'), findsOneWidget);
+    expect(find.text('(no body)'), findsNothing);
   });
 
   testWidgets('layout toggle switches to flat newest-first', (tester) async {
@@ -113,7 +142,7 @@ void main() {
   ) async {
     await _pumpEvents(tester, [for (var i = 0; i < 8; i++) _event(i)]);
 
-    await tester.drag(find.text('redacted body 7'), const Offset(-500, 0));
+    await tester.drag(find.text('full body 7'), const Offset(-500, 0));
     await tester.pumpAndSettle();
 
     expect(find.text('Delete this imported message?'), findsOneWidget);
@@ -121,7 +150,7 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(find.text('redacted body 7'), findsNothing);
+    expect(find.text('full body 7'), findsNothing);
   });
 
   testWidgets('empty inbox is pull-to-refreshable', (tester) async {
@@ -146,7 +175,7 @@ void main() {
         .insert(_event(1, senderKey: 'SENDER_A', receivedAtEpochMs: 5000));
     await tester.pumpAndSettle();
 
-    expect(find.text('redacted body 1'), findsOneWidget);
+    expect(find.text('full body 1'), findsOneWidget);
     expect(find.textContaining('No transaction candidates'), findsNothing);
   });
 
@@ -166,14 +195,14 @@ void main() {
     expect(view.flatHasMore, isFalse);
 
     await tester.scrollUntilVisible(
-      find.text('redacted body 0'),
+      find.text('full body 0'),
       300,
       scrollable: find.descendant(
         of: find.byType(ListView),
         matching: find.byType(Scrollable),
       ),
     );
-    expect(find.text('redacted body 0'), findsOneWidget);
+    expect(find.text('full body 0'), findsOneWidget);
   });
 
   testWidgets('Show all loads more for that sender only', (tester) async {
@@ -233,22 +262,22 @@ void main() {
         _event(1, senderKey: 'SENDER_B', senderDisplay: 'BANK B'),
       ]);
 
-      expect(find.text('redacted body 0'), findsOneWidget);
-      expect(find.text('redacted body 1'), findsOneWidget);
+      expect(find.text('full body 0'), findsOneWidget);
+      expect(find.text('full body 1'), findsOneWidget);
 
       await tester.tap(find.byType(DropdownButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('BANK B').last);
       await tester.pumpAndSettle();
 
-      expect(find.text('redacted body 0'), findsNothing);
-      expect(find.text('redacted body 1'), findsOneWidget);
+      expect(find.text('full body 0'), findsNothing);
+      expect(find.text('full body 1'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Clear filters'));
       await tester.pumpAndSettle();
 
-      expect(find.text('redacted body 0'), findsOneWidget);
-      expect(find.text('redacted body 1'), findsOneWidget);
+      expect(find.text('full body 0'), findsOneWidget);
+      expect(find.text('full body 1'), findsOneWidget);
     });
 
     testWidgets('date range filter shows only in-range rows', (tester) async {
@@ -272,14 +301,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('redacted body 0'), findsOneWidget);
-      expect(find.text('redacted body 1'), findsNothing);
+      expect(find.text('full body 0'), findsOneWidget);
+      expect(find.text('full body 1'), findsNothing);
       expect(find.textContaining('9/8/2026'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Clear filters'));
       await tester.pumpAndSettle();
 
-      expect(find.text('redacted body 1'), findsOneWidget);
+      expect(find.text('full body 1'), findsOneWidget);
       expect(find.text('Any date'), findsOneWidget);
     });
 
@@ -310,8 +339,8 @@ void main() {
       container.read(inboxViewProvider.notifier).setSenderFilter('SENDER_A');
       await tester.pumpAndSettle();
 
-      expect(find.text('redacted body 29'), findsOneWidget);
-      expect(find.text('redacted body 59'), findsNothing);
+      expect(find.text('full body 29'), findsOneWidget);
+      expect(find.text('full body 59'), findsNothing);
 
       await tester.drag(find.byType(ListView), const Offset(0, -3000));
       await tester.pumpAndSettle();
