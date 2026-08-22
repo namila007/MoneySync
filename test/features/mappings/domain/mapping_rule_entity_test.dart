@@ -36,7 +36,10 @@ void main() {
       const matcher = ExactMerchantMatcher('CAFE');
       expect(matcher.matches('cafe'), isTrue);
       expect(matcher.matches('CAFÉ'), isFalse);
-      expect(const ExactMerchantMatcher('CAFE'), const ExactMerchantMatcher('CAFE'));
+      expect(
+        const ExactMerchantMatcher('CAFE'),
+        const ExactMerchantMatcher('CAFE'),
+      );
       expect(
         const ExactMerchantMatcher('CAFE').hashCode,
         const ExactMerchantMatcher('CAFE').hashCode,

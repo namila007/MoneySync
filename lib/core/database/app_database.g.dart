@@ -4608,6 +4608,17 @@ class $ActivityEventsTable extends ActivityEvents
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _detailMessageMeta = const VerificationMeta(
+    'detailMessage',
+  );
+  @override
+  late final GeneratedColumn<String> detailMessage = GeneratedColumn<String>(
+    'detail_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4617,6 +4628,7 @@ class $ActivityEventsTable extends ActivityEvents
     privacyEpoch,
     batchCount,
     mutationId,
+    detailMessage,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4667,6 +4679,15 @@ class $ActivityEventsTable extends ActivityEvents
         mutationId.isAcceptableOrUnknown(data['mutation_id']!, _mutationIdMeta),
       );
     }
+    if (data.containsKey('detail_message')) {
+      context.handle(
+        _detailMessageMeta,
+        detailMessage.isAcceptableOrUnknown(
+          data['detail_message']!,
+          _detailMessageMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4708,6 +4729,10 @@ class $ActivityEventsTable extends ActivityEvents
         DriftSqlType.string,
         data['${effectivePrefix}mutation_id'],
       ),
+      detailMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}detail_message'],
+      ),
     );
   }
 
@@ -4742,6 +4767,11 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
   /// is safe for log-derived and pre-v10 rows; recovery actions read it to
   /// dispatch the REAL mutation id instead of a fabricated one.
   final String? mutationId;
+
+  /// Optional human-readable detail for the activity event (M5.15 Bug 8.1).
+  /// Nullable so pre-v11 rows stay valid; the UI falls back to the
+  /// ActivityStateTransition enum label when null.
+  final String? detailMessage;
   const ActivityEvent({
     required this.id,
     required this.eventType,
@@ -4750,6 +4780,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     required this.privacyEpoch,
     this.batchCount,
     this.mutationId,
+    this.detailMessage,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4773,6 +4804,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     if (!nullToAbsent || mutationId != null) {
       map['mutation_id'] = Variable<String>(mutationId);
     }
+    if (!nullToAbsent || detailMessage != null) {
+      map['detail_message'] = Variable<String>(detailMessage);
+    }
     return map;
   }
 
@@ -4789,6 +4823,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       mutationId: mutationId == null && nullToAbsent
           ? const Value.absent()
           : Value(mutationId),
+      detailMessage: detailMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(detailMessage),
     );
   }
 
@@ -4809,6 +4846,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
       batchCount: serializer.fromJson<int?>(json['batchCount']),
       mutationId: serializer.fromJson<String?>(json['mutationId']),
+      detailMessage: serializer.fromJson<String?>(json['detailMessage']),
     );
   }
   @override
@@ -4826,6 +4864,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       'privacyEpoch': serializer.toJson<int>(privacyEpoch),
       'batchCount': serializer.toJson<int?>(batchCount),
       'mutationId': serializer.toJson<String?>(mutationId),
+      'detailMessage': serializer.toJson<String?>(detailMessage),
     };
   }
 
@@ -4837,6 +4876,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     int? privacyEpoch,
     Value<int?> batchCount = const Value.absent(),
     Value<String?> mutationId = const Value.absent(),
+    Value<String?> detailMessage = const Value.absent(),
   }) => ActivityEvent(
     id: id ?? this.id,
     eventType: eventType ?? this.eventType,
@@ -4845,6 +4885,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
     batchCount: batchCount.present ? batchCount.value : this.batchCount,
     mutationId: mutationId.present ? mutationId.value : this.mutationId,
+    detailMessage: detailMessage.present
+        ? detailMessage.value
+        : this.detailMessage,
   );
   ActivityEvent copyWithCompanion(ActivityEventsCompanion data) {
     return ActivityEvent(
@@ -4865,6 +4908,9 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
       mutationId: data.mutationId.present
           ? data.mutationId.value
           : this.mutationId,
+      detailMessage: data.detailMessage.present
+          ? data.detailMessage.value
+          : this.detailMessage,
     );
   }
 
@@ -4877,7 +4923,8 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
           ..write('occurredAtEpochMs: $occurredAtEpochMs, ')
           ..write('privacyEpoch: $privacyEpoch, ')
           ..write('batchCount: $batchCount, ')
-          ..write('mutationId: $mutationId')
+          ..write('mutationId: $mutationId, ')
+          ..write('detailMessage: $detailMessage')
           ..write(')'))
         .toString();
   }
@@ -4891,6 +4938,7 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
     privacyEpoch,
     batchCount,
     mutationId,
+    detailMessage,
   );
   @override
   bool operator ==(Object other) =>
@@ -4902,7 +4950,8 @@ class ActivityEvent extends DataClass implements Insertable<ActivityEvent> {
           other.occurredAtEpochMs == this.occurredAtEpochMs &&
           other.privacyEpoch == this.privacyEpoch &&
           other.batchCount == this.batchCount &&
-          other.mutationId == this.mutationId);
+          other.mutationId == this.mutationId &&
+          other.detailMessage == this.detailMessage);
 }
 
 class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
@@ -4913,6 +4962,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
   final Value<int> privacyEpoch;
   final Value<int?> batchCount;
   final Value<String?> mutationId;
+  final Value<String?> detailMessage;
   const ActivityEventsCompanion({
     this.id = const Value.absent(),
     this.eventType = const Value.absent(),
@@ -4921,6 +4971,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     this.privacyEpoch = const Value.absent(),
     this.batchCount = const Value.absent(),
     this.mutationId = const Value.absent(),
+    this.detailMessage = const Value.absent(),
   });
   ActivityEventsCompanion.insert({
     this.id = const Value.absent(),
@@ -4930,6 +4981,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     required int privacyEpoch,
     this.batchCount = const Value.absent(),
     this.mutationId = const Value.absent(),
+    this.detailMessage = const Value.absent(),
   }) : eventType = Value(eventType),
        sanitizedDetail = Value(sanitizedDetail),
        occurredAtEpochMs = Value(occurredAtEpochMs),
@@ -4942,6 +4994,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     Expression<int>? privacyEpoch,
     Expression<int>? batchCount,
     Expression<String>? mutationId,
+    Expression<String>? detailMessage,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -4951,6 +5004,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
       if (privacyEpoch != null) 'privacy_epoch': privacyEpoch,
       if (batchCount != null) 'batch_count': batchCount,
       if (mutationId != null) 'mutation_id': mutationId,
+      if (detailMessage != null) 'detail_message': detailMessage,
     });
   }
 
@@ -4962,6 +5016,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     Value<int>? privacyEpoch,
     Value<int?>? batchCount,
     Value<String?>? mutationId,
+    Value<String?>? detailMessage,
   }) {
     return ActivityEventsCompanion(
       id: id ?? this.id,
@@ -4971,6 +5026,7 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
       privacyEpoch: privacyEpoch ?? this.privacyEpoch,
       batchCount: batchCount ?? this.batchCount,
       mutationId: mutationId ?? this.mutationId,
+      detailMessage: detailMessage ?? this.detailMessage,
     );
   }
 
@@ -5004,6 +5060,9 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
     if (mutationId.present) {
       map['mutation_id'] = Variable<String>(mutationId.value);
     }
+    if (detailMessage.present) {
+      map['detail_message'] = Variable<String>(detailMessage.value);
+    }
     return map;
   }
 
@@ -5016,7 +5075,8 @@ class ActivityEventsCompanion extends UpdateCompanion<ActivityEvent> {
           ..write('occurredAtEpochMs: $occurredAtEpochMs, ')
           ..write('privacyEpoch: $privacyEpoch, ')
           ..write('batchCount: $batchCount, ')
-          ..write('mutationId: $mutationId')
+          ..write('mutationId: $mutationId, ')
+          ..write('detailMessage: $detailMessage')
           ..write(')'))
         .toString();
   }
@@ -15354,6 +15414,7 @@ typedef $$ActivityEventsTableCreateCompanionBuilder =
       required int privacyEpoch,
       Value<int?> batchCount,
       Value<String?> mutationId,
+      Value<String?> detailMessage,
     });
 typedef $$ActivityEventsTableUpdateCompanionBuilder =
     ActivityEventsCompanion Function({
@@ -15364,6 +15425,7 @@ typedef $$ActivityEventsTableUpdateCompanionBuilder =
       Value<int> privacyEpoch,
       Value<int?> batchCount,
       Value<String?> mutationId,
+      Value<String?> detailMessage,
     });
 
 class $$ActivityEventsTableFilterComposer
@@ -15415,6 +15477,11 @@ class $$ActivityEventsTableFilterComposer
     column: $table.mutationId,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<String> get detailMessage => $composableBuilder(
+    column: $table.detailMessage,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$ActivityEventsTableOrderingComposer
@@ -15460,6 +15527,11 @@ class $$ActivityEventsTableOrderingComposer
     column: $table.mutationId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get detailMessage => $composableBuilder(
+    column: $table.detailMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ActivityEventsTableAnnotationComposer
@@ -15500,6 +15572,11 @@ class $$ActivityEventsTableAnnotationComposer
 
   GeneratedColumn<String> get mutationId => $composableBuilder(
     column: $table.mutationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get detailMessage => $composableBuilder(
+    column: $table.detailMessage,
     builder: (column) => column,
   );
 }
@@ -15545,6 +15622,7 @@ class $$ActivityEventsTableTableManager
                 Value<int> privacyEpoch = const Value.absent(),
                 Value<int?> batchCount = const Value.absent(),
                 Value<String?> mutationId = const Value.absent(),
+                Value<String?> detailMessage = const Value.absent(),
               }) => ActivityEventsCompanion(
                 id: id,
                 eventType: eventType,
@@ -15553,6 +15631,7 @@ class $$ActivityEventsTableTableManager
                 privacyEpoch: privacyEpoch,
                 batchCount: batchCount,
                 mutationId: mutationId,
+                detailMessage: detailMessage,
               ),
           createCompanionCallback:
               ({
@@ -15563,6 +15642,7 @@ class $$ActivityEventsTableTableManager
                 required int privacyEpoch,
                 Value<int?> batchCount = const Value.absent(),
                 Value<String?> mutationId = const Value.absent(),
+                Value<String?> detailMessage = const Value.absent(),
               }) => ActivityEventsCompanion.insert(
                 id: id,
                 eventType: eventType,
@@ -15571,6 +15651,7 @@ class $$ActivityEventsTableTableManager
                 privacyEpoch: privacyEpoch,
                 batchCount: batchCount,
                 mutationId: mutationId,
+                detailMessage: detailMessage,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

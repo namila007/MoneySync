@@ -61,9 +61,7 @@ class _AccountList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (accounts.isEmpty) {
-      return Center(
-        child: Text(emptyMessage ?? 'No accounts in catalog.'),
-      );
+      return Center(child: Text(emptyMessage ?? 'No accounts in catalog.'));
     }
     return ListView.builder(
       itemCount: accounts.length,
@@ -74,8 +72,8 @@ class _AccountList extends StatelessWidget {
             account.isBankSynced
                 ? Icons.sync
                 : account.isArchived
-                    ? Icons.archive_outlined
-                    : Icons.account_balance_wallet_outlined,
+                ? Icons.archive_outlined
+                : Icons.account_balance_wallet_outlined,
           ),
           title: Text(account.name),
           subtitle: Text(account.currencyCode),
@@ -124,8 +122,14 @@ class _EligibilityBadge extends StatelessWidget {
       WalletAccountEligibility.archived => ('Archived', Colors.grey),
       WalletAccountEligibility.bankSynced => ('Bank-synced', Colors.blue),
       WalletAccountEligibility.unwritable => ('Not writable', Colors.orange),
-      WalletAccountEligibility.missingRequiredFields => ('Incomplete', Colors.orange),
-      WalletAccountEligibility.foreignCurrencyReviewOnly => ('Review only', Colors.orange),
+      WalletAccountEligibility.missingRequiredFields => (
+        'Incomplete',
+        Colors.orange,
+      ),
+      WalletAccountEligibility.foreignCurrencyReviewOnly => (
+        'Review only',
+        Colors.orange,
+      ),
     };
     return Chip(
       label: Text(label, style: const TextStyle(fontSize: 11)),

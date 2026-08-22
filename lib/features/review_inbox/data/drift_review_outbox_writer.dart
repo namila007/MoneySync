@@ -45,93 +45,97 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
     required DecisionTraceCode decisionTraceCode,
+    String? detailMessage,
   }) {
-    return _database.transaction(() async {
-      // The candidate row is created at ingest (`insertCandidateAndActivity
-      // Atomically`, sms_event_id UNIQUE). Reviewing must UPDATE that row in
-      // place (bump revision, approve state, keep its identity), not insert a
-      // second one — an insert would collide on the UNIQUE sms_event_id and
-      // surface as ReviewDuplicate on the primary path (M5.14 gap 1). UPSERT
-      // also covers candidates that were never parsed (review-only path).
-      await _database.customInsert(
-        'INSERT INTO transaction_candidates (sms_event_id, candidate_id, '
-        'state, encrypted_payload, revision, created_at_epoch_ms) '
-        'VALUES (?, ?, ?, ?, ?, ?) '
-        'ON CONFLICT(sms_event_id) DO UPDATE SET '
-        'candidate_id = excluded.candidate_id, '
-        'state = excluded.state, '
-        'encrypted_payload = excluded.encrypted_payload, '
-        'revision = excluded.revision, '
-        'created_at_epoch_ms = excluded.created_at_epoch_ms',
-        variables: [
-          Variable(smsEventId),
-          Variable(intent.candidateId),
-          Variable(candidateState.name),
-          Variable(encryptedPayload),
-          Variable(revision),
-          Variable(createdAtEpochMs),
-        ],
-      );
-      await _database.customInsert(
-        'INSERT INTO wallet_mutations (id, operation_kind, payload, state, '
-        'lineage_key, fingerprint, created_at_epoch_ms, updated_at_epoch_ms, '
-        'candidate_id, operation_revision, lineage_generation, '
-        'payload_json_ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        variables: [
-          Variable(intent.id),
-          Variable(intent.operation.name),
-          Variable(jsonEncode(intent.payload)),
-          Variable(_storedState(intent.state)),
-          Variable(intent.createLineageKey),
-          Variable(intent.transactionFingerprint),
-          Variable(createdAtEpochMs),
-          Variable(createdAtEpochMs),
-          Variable(intent.candidateId),
-          Variable(intent.operationRevision),
-          Variable(intent.lineageGeneration),
-          Variable(jsonEncode(intent.payload)),
-        ],
-      );
-      await _database.customInsert(
-        'INSERT INTO wallet_mutation_item (wallet_mutation_id, item_index, '
-        'leg_role, payload_ciphertext, state) VALUES (?, ?, ?, ?, ?)',
-        variables: [
-          Variable(intent.id),
-          const Variable(0),
-          Variable(itemLegRole.name),
-          Variable(itemPayloadCiphertext),
-          Variable(_storedState(intent.state)),
-        ],
-      );
-      await _database.customInsert(
-        'INSERT INTO activity_events (event_type, sanitized_detail, '
-        'occurred_at_epoch_ms, privacy_epoch, mutation_id) '
-        'VALUES (?, ?, ?, ?, ?)',
-        variables: [
-          Variable(activityType.wireValue),
-          Variable(safeDetailCode.name),
-          Variable(createdAtEpochMs),
-          Variable(privacyEpoch),
-          Variable(intent.id),
-        ],
-      );
-      await _database.customInsert(
-        'INSERT INTO decision_traces (candidate_id, trace_code, '
-        'created_at_epoch_ms) SELECT id, ?, ? FROM transaction_candidates '
-        'WHERE candidate_id = ?',
-        variables: [
-          Variable(decisionTraceCode.name),
-          Variable(createdAtEpochMs),
-          Variable(intent.candidateId),
-        ],
-      );
-    }).catchError((Object error, StackTrace stack) {
-      if (error is sqlite3.SqliteException &&
-          error.extendedResultCode == 2067) {
-        throw const UniqueLineageViolationException();
-      }
-      throw error;
-    });
+    return _database
+        .transaction(() async {
+          // The candidate row is created at ingest (`insertCandidateAndActivity
+          // Atomically`, sms_event_id UNIQUE). Reviewing must UPDATE that row in
+          // place (bump revision, approve state, keep its identity), not insert a
+          // second one — an insert would collide on the UNIQUE sms_event_id and
+          // surface as ReviewDuplicate on the primary path (M5.14 gap 1). UPSERT
+          // also covers candidates that were never parsed (review-only path).
+          await _database.customInsert(
+            'INSERT INTO transaction_candidates (sms_event_id, candidate_id, '
+            'state, encrypted_payload, revision, created_at_epoch_ms) '
+            'VALUES (?, ?, ?, ?, ?, ?) '
+            'ON CONFLICT(sms_event_id) DO UPDATE SET '
+            'candidate_id = excluded.candidate_id, '
+            'state = excluded.state, '
+            'encrypted_payload = excluded.encrypted_payload, '
+            'revision = excluded.revision, '
+            'created_at_epoch_ms = excluded.created_at_epoch_ms',
+            variables: [
+              Variable(smsEventId),
+              Variable(intent.candidateId),
+              Variable(candidateState.name),
+              Variable(encryptedPayload),
+              Variable(revision),
+              Variable(createdAtEpochMs),
+            ],
+          );
+          await _database.customInsert(
+            'INSERT INTO wallet_mutations (id, operation_kind, payload, state, '
+            'lineage_key, fingerprint, created_at_epoch_ms, updated_at_epoch_ms, '
+            'candidate_id, operation_revision, lineage_generation, '
+            'payload_json_ciphertext) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            variables: [
+              Variable(intent.id),
+              Variable(intent.operation.name),
+              Variable(jsonEncode(intent.payload)),
+              Variable(_storedState(intent.state)),
+              Variable(intent.createLineageKey),
+              Variable(intent.transactionFingerprint),
+              Variable(createdAtEpochMs),
+              Variable(createdAtEpochMs),
+              Variable(intent.candidateId),
+              Variable(intent.operationRevision),
+              Variable(intent.lineageGeneration),
+              Variable(jsonEncode(intent.payload)),
+            ],
+          );
+          await _database.customInsert(
+            'INSERT INTO wallet_mutation_item (wallet_mutation_id, item_index, '
+            'leg_role, payload_ciphertext, state) VALUES (?, ?, ?, ?, ?)',
+            variables: [
+              Variable(intent.id),
+              const Variable(0),
+              Variable(itemLegRole.name),
+              Variable(itemPayloadCiphertext),
+              Variable(_storedState(intent.state)),
+            ],
+          );
+          await _database.customInsert(
+            'INSERT INTO activity_events (event_type, sanitized_detail, '
+            'occurred_at_epoch_ms, privacy_epoch, mutation_id, detail_message) '
+            'VALUES (?, ?, ?, ?, ?, ?)',
+            variables: [
+              Variable(activityType.wireValue),
+              Variable(safeDetailCode.name),
+              Variable(createdAtEpochMs),
+              Variable(privacyEpoch),
+              Variable(intent.id),
+              Variable(detailMessage),
+            ],
+          );
+          await _database.customInsert(
+            'INSERT INTO decision_traces (candidate_id, trace_code, '
+            'created_at_epoch_ms) SELECT id, ?, ? FROM transaction_candidates '
+            'WHERE candidate_id = ?',
+            variables: [
+              Variable(decisionTraceCode.name),
+              Variable(createdAtEpochMs),
+              Variable(intent.candidateId),
+            ],
+          );
+        })
+        .catchError((Object error, StackTrace stack) {
+          if (error is sqlite3.SqliteException &&
+              error.extendedResultCode == 2067) {
+            throw const UniqueLineageViolationException();
+          }
+          throw error;
+        });
   }
 
   static String _storedState(WalletMutationState state) =>

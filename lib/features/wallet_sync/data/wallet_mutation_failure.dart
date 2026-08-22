@@ -34,14 +34,16 @@ final class RateLimited extends WalletMutationFailureClassification {
 
 /// 5xx proven by contract to occur before execution, or DNS/offline before
 /// send — retryable with bounded exponential backoff.
-final class RetryablePreTransmission extends WalletMutationFailureClassification {
+final class RetryablePreTransmission
+    extends WalletMutationFailureClassification {
   const RetryablePreTransmission();
 }
 
 /// Any 5xx, cancellation, timeout, or connection loss after request
 /// transmission may have begun, or a malformed success body — reconcile
 /// first; never blanket retry.
-final class AmbiguousPostTransmission extends WalletMutationFailureClassification {
+final class AmbiguousPostTransmission
+    extends WalletMutationFailureClassification {
   const AmbiguousPostTransmission();
 }
 
@@ -55,10 +57,11 @@ final class WalletMutationFailureMapper {
   WalletMutationResult toPortResult(
     WalletMutationFailureClassification classification,
   ) => switch (classification) {
-    PermanentClientFailure() || AuthenticationRequired() =>
-      const WalletMutationClientFailure(),
-    RetryableConflict() || RateLimited() || RetryablePreTransmission() =>
-      const WalletMutationServerFailure(),
+    PermanentClientFailure() ||
+    AuthenticationRequired() => const WalletMutationClientFailure(),
+    RetryableConflict() ||
+    RateLimited() ||
+    RetryablePreTransmission() => const WalletMutationServerFailure(),
     AmbiguousPostTransmission() =>
       const WalletMutationPostTransmissionAmbiguity(),
   };
@@ -85,8 +88,9 @@ WalletMutationFailureClassification classifyWalletMutationFailure({
   return switch (statusCode) {
     400 => const PermanentClientFailure(),
     401 || 403 => const AuthenticationRequired(),
-    409 when errorCode == 'init_sync_in_progress' =>
-      RetryableConflict(retryAfterMinutes: retryAfterMinutes),
+    409 when errorCode == 'init_sync_in_progress' => RetryableConflict(
+      retryAfterMinutes: retryAfterMinutes,
+    ),
     429 => RateLimited(retryAfterSeconds: retryAfterSeconds),
     int status when status >= 500 =>
       transmissionMayHaveBegun
@@ -103,8 +107,8 @@ WalletMutationState stateForClassification(
   WalletMutationFailureClassification classification,
 ) => switch (classification) {
   AmbiguousPostTransmission() => WalletMutationState.unknownDelivery,
-  PermanentClientFailure() || AuthenticationRequired() =>
-    WalletMutationState.permanentFailure,
+  PermanentClientFailure() ||
+  AuthenticationRequired() => WalletMutationState.permanentFailure,
   RetryableConflict() ||
   RateLimited() ||
   RetryablePreTransmission() => WalletMutationState.retryScheduled,

@@ -205,7 +205,10 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
     if (epoch != _generation) return false;
     _hasConnectedToken = false;
     state = const WalletDisconnected();
-    _logActivity(ActivityEventCode.walletDisconnected);
+    _logActivity(
+      ActivityEventCode.walletDisconnected,
+      message: 'Wallet disconnected',
+    );
     return true;
   }
 
@@ -232,9 +235,15 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
     // Activity logging for wallet connection events (Bug 8.3).
     switch (result) {
       case WalletConnectionCatalogReady():
-        _logActivity(ActivityEventCode.walletConnected);
+        _logActivity(
+          ActivityEventCode.walletConnected,
+          message: 'Wallet connected',
+        );
       case WalletConnectionCatalogOffline():
-        _logActivity(ActivityEventCode.walletRefreshed);
+        _logActivity(
+          ActivityEventCode.walletRefreshed,
+          message: 'Wallet metadata refreshed',
+        );
       case WalletConnectionActionFailure():
       case WalletConnectionFreshAuthenticationRequired():
       case WalletConnectionActionUnavailable():
@@ -299,7 +308,7 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
       };
 
   // ponytail: best-effort activity logging, never blocks the UI on failure.
-  void _logActivity(ActivityEventCode code) {
+  void _logActivity(ActivityEventCode code, {String? message}) {
     try {
       final db = ref.read(appDatabaseProvider).asData?.value;
       if (db == null) return;
@@ -309,6 +318,7 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
           safeDetailCode: ActivityStateTransition.logEvent,
           occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
           privacyEpoch: setting?.privacyEpoch ?? 0,
+          detailMessage: message,
         );
       });
     } catch (_) {}

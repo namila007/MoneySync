@@ -474,7 +474,9 @@ class _InfoRow extends StatelessWidget {
       subtitle: Text(value),
       dense: true,
       onTap: onTap,
-      trailing: onTap != null ? const Icon(Icons.chevron_right, size: 20) : null,
+      trailing: onTap != null
+          ? const Icon(Icons.chevron_right, size: 20)
+          : null,
     );
   }
 }

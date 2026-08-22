@@ -23,27 +23,28 @@ void main() {
     required String id,
     required WalletMutationState state,
   }) async {
-    await db.into(db.walletMutations).insert(
-      WalletMutationsCompanion.insert(
-        id: id,
-        operationKind: WalletMutationOperation.create,
-        payload: '{}',
-        state: state,
-        lineageKey: 'lineage-$id',
-        fingerprint: 'fingerprint-$id',
-        createdAtEpochMs: 1_700_000_000_000,
-        updatedAtEpochMs: 1_700_000_000_000,
-        candidateId: Value('candidate-$id'),
-        operationRevision: const Value(1),
-        lineageGeneration: const Value(1),
-      ),
-    );
+    await db
+        .into(db.walletMutations)
+        .insert(
+          WalletMutationsCompanion.insert(
+            id: id,
+            operationKind: WalletMutationOperation.create,
+            payload: '{}',
+            state: state,
+            lineageKey: 'lineage-$id',
+            fingerprint: 'fingerprint-$id',
+            createdAtEpochMs: 1_700_000_000_000,
+            updatedAtEpochMs: 1_700_000_000_000,
+            candidateId: Value('candidate-$id'),
+            operationRevision: const Value(1),
+            lineageGeneration: const Value(1),
+          ),
+        );
   }
 
-  Future<WalletMutationState> stateOf(String id) async =>
-      (await (db.select(db.walletMutations)..where((t) => t.id.equals(id)))
-              .getSingle())
-          .state;
+  Future<WalletMutationState> stateOf(String id) async => (await (db.select(
+    db.walletMutations,
+  )..where((t) => t.id.equals(id))).getSingle()).state;
 
   test('retryNow expedites a retry-scheduled mutation to syncing', () async {
     await insert(id: 'm-1', state: WalletMutationState.retryScheduled);
@@ -58,12 +59,14 @@ void main() {
     await actions.retryNow('missing'); // must not throw
   });
 
-  test('verifyInWallet moves an unknown-delivery mutation to reconciling',
-      () async {
-    await insert(id: 'm-3', state: WalletMutationState.unknownDelivery);
-    await actions.verifyInWallet('m-3');
-    expect(await stateOf('m-3'), WalletMutationState.reconciling);
-  });
+  test(
+    'verifyInWallet moves an unknown-delivery mutation to reconciling',
+    () async {
+      await insert(id: 'm-3', state: WalletMutationState.unknownDelivery);
+      await actions.verifyInWallet('m-3');
+      expect(await stateOf('m-3'), WalletMutationState.reconciling);
+    },
+  );
 
   test('verifyInWallet is a no-op for a non-unknown mutation', () async {
     await insert(id: 'm-4', state: WalletMutationState.succeeded);

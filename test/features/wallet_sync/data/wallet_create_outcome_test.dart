@@ -4,10 +4,7 @@ import 'package:money_sync/features/wallet_sync/data/wallet_create_outcome.dart'
 void main() {
   group('wallet create outcome value semantics (M5.6/M5.13)', () {
     test('WalletItemSucceeded rejects an empty record id', () {
-      expect(
-        () => WalletItemSucceeded(recordId: ''),
-        throwsArgumentError,
-      );
+      expect(() => WalletItemSucceeded(recordId: ''), throwsArgumentError);
       final ok = WalletItemSucceeded(recordId: 'record-1');
       expect(ok.recordId, 'record-1');
     });
@@ -25,8 +22,10 @@ void main() {
         ],
       );
       expect(partial.items, hasLength(2));
-      expect(() => partial.items.add(const WalletItemFailed(safeErrorCode: 'x')),
-          throwsUnsupportedError);
+      expect(
+        () => partial.items.add(const WalletItemFailed(safeErrorCode: 'x')),
+        throwsUnsupportedError,
+      );
     });
   });
 }

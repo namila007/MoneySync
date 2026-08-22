@@ -41,6 +41,7 @@ final class DeleteImportedMessage {
         safeDetailCode: ActivityStateTransition.logEvent,
         occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         privacyEpoch: privacyEpoch,
+        detailMessage: 'Imported message removed',
       );
       _log.info('Imported message deleted: event=$eventId');
       return const DeleteMessageDeleted();

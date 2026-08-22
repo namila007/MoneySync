@@ -29,10 +29,7 @@ void main() {
     lineageGeneration: 1,
     createLineageKey: 'lineage-key-1',
     transactionFingerprint: 'fingerprint-1',
-    payload: const <String, Object?>{
-      'amountMinor': -4500,
-      'currency': 'LKR',
-    },
+    payload: const <String, Object?>{'amountMinor': -4500, 'currency': 'LKR'},
     state: state,
   );
 
@@ -92,9 +89,21 @@ void main() {
       ),
     );
     final now = DateTime.now().millisecondsSinceEpoch;
-    await dao.claimLease(id: 'm1', leaseUntilEpochMs: now + 60_000, nowEpochMs: now);
-    await dao.claimLease(id: 'm2', leaseUntilEpochMs: now + 60_000, nowEpochMs: now);
-    await dao.claimLease(id: 'm3', leaseUntilEpochMs: now + 60_000, nowEpochMs: now);
+    await dao.claimLease(
+      id: 'm1',
+      leaseUntilEpochMs: now + 60_000,
+      nowEpochMs: now,
+    );
+    await dao.claimLease(
+      id: 'm2',
+      leaseUntilEpochMs: now + 60_000,
+      nowEpochMs: now,
+    );
+    await dao.claimLease(
+      id: 'm3',
+      leaseUntilEpochMs: now + 60_000,
+      nowEpochMs: now,
+    );
 
     final claims = await dao.claimsWithLiveLease(nowEpochMs: now);
     expect(claims.map((i) => i.id).toSet(), {'m1', 'm2'});
@@ -127,10 +136,18 @@ void main() {
   group('WalletMutationRecoveryService', () {
     test('lands interrupted syncing rows on reconciling', () async {
       await dao.upsert(
-        intent(id: 'm1', candidateId: 'candidate-1', state: WalletMutationState.syncing),
+        intent(
+          id: 'm1',
+          candidateId: 'candidate-1',
+          state: WalletMutationState.syncing,
+        ),
       );
       await dao.upsert(
-        intent(id: 'm2', candidateId: 'candidate-2', state: WalletMutationState.syncing),
+        intent(
+          id: 'm2',
+          candidateId: 'candidate-2',
+          state: WalletMutationState.syncing,
+        ),
       );
       // A live lease means the row is NOT interrupted.
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -162,10 +179,12 @@ void main() {
       );
       await service.recoverInterrupted();
 
-      final row = await database.customSelect(
-        'SELECT state FROM wallet_mutations WHERE id = ?',
-        variables: [Variable('m1')],
-      ).getSingle();
+      final row = await database
+          .customSelect(
+            'SELECT state FROM wallet_mutations WHERE id = ?',
+            variables: [Variable('m1')],
+          )
+          .getSingle();
       expect(row.read<String>('state'), 'reconciling');
     });
   });

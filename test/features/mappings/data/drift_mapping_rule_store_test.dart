@@ -14,20 +14,23 @@ void main() {
 
   tearDown(() => database.close());
 
-  MappingRule rule({String id = 'rule-1', int ruleVersion = 1, bool enabled = true}) =>
-      MappingRule(
-        id: id,
-        name: 'Rule $id',
-        enabled: enabled,
-        senderMatcher: SenderMatcher(['SAMPATH BANK']),
-        walletAccountId: 'wallet-1',
-        paymentType: 'debit_card',
-        syncMode: MappingSyncMode.review,
-        priority: 0,
-        ruleVersion: ruleVersion,
-        createdAtEpochMs: 1,
-        updatedAtEpochMs: 1,
-      );
+  MappingRule rule({
+    String id = 'rule-1',
+    int ruleVersion = 1,
+    bool enabled = true,
+  }) => MappingRule(
+    id: id,
+    name: 'Rule $id',
+    enabled: enabled,
+    senderMatcher: SenderMatcher(['SAMPATH BANK']),
+    walletAccountId: 'wallet-1',
+    paymentType: 'debit_card',
+    syncMode: MappingSyncMode.review,
+    priority: 0,
+    ruleVersion: ruleVersion,
+    createdAtEpochMs: 1,
+    updatedAtEpochMs: 1,
+  );
 
   test('save then latest returns the saved version', () async {
     await store.saveVersioned(rule: rule());
@@ -36,30 +39,30 @@ void main() {
     expect(latest!.ruleVersion, 1);
   });
 
-  test('saveVersioned supersedes and disables the previous row atomically',
-      () async {
-    await store.saveVersioned(rule: rule(ruleVersion: 1));
-    await store.saveVersioned(
-      rule: rule(ruleVersion: 2, enabled: true),
-      supersededRuleId: 'rule-1',
-    );
+  test(
+    'saveVersioned supersedes and disables the previous row atomically',
+    () async {
+      await store.saveVersioned(rule: rule(ruleVersion: 1));
+      await store.saveVersioned(
+        rule: rule(ruleVersion: 2, enabled: true),
+        supersededRuleId: 'rule-1',
+      );
 
-    final rows = await store.list();
-    expect(rows, hasLength(2));
-    final newest = await store.latest('rule-1');
-    expect(newest!.ruleVersion, 2);
-    expect(newest.supersededByRuleId, isNull);
+      final rows = await store.list();
+      expect(rows, hasLength(2));
+      final newest = await store.latest('rule-1');
+      expect(newest!.ruleVersion, 2);
+      expect(newest.supersededByRuleId, isNull);
 
-    final rowsById = {for (final r in rows) r.ruleVersion: r};
-    final v1 = rowsById[1]!;
-    expect(v1.enabled, isFalse);
-    expect(v1.supersededByRuleId, 'rule-1');
-  });
+      final rowsById = {for (final r in rows) r.ruleVersion: r};
+      final v1 = rowsById[1]!;
+      expect(v1.enabled, isFalse);
+      expect(v1.supersededByRuleId, 'rule-1');
+    },
+  );
 
   test('list returns rows ordered by enabled then name', () async {
-    await store.saveVersioned(
-      rule: rule(id: 'a', enabled: false),
-    );
+    await store.saveVersioned(rule: rule(id: 'a', enabled: false));
     await store.saveVersioned(rule: rule(id: 'b'));
     final rows = await store.list();
     expect(rows.map((r) => r.id).toList(), ['b', 'a']);

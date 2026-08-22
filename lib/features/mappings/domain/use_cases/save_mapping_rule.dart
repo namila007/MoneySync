@@ -43,10 +43,7 @@ final class SaveMappingRule {
     }
 
     final next = _nextVersion(draft, previous);
-    return _store.saveVersioned(
-      rule: next,
-      supersededRuleId: previous?.id,
-    );
+    return _store.saveVersioned(rule: next, supersededRuleId: previous?.id);
   }
 
   MappingRule _nextVersion(MappingRule draft, MappingRule? previous) {

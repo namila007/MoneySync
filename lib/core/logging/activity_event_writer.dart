@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
@@ -43,6 +44,7 @@ final class ActivityEventWriter {
               sanitizedDetail: ae.ActivityStateTransition.logEvent,
               occurredAtEpochMs: record.time.millisecondsSinceEpoch,
               privacyEpoch: epoch,
+              detailMessage: Value(sanitized),
             ),
           );
     } on Exception {

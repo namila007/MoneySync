@@ -137,6 +137,7 @@ final class IngestManualMessage {
             safeDetailCode: ActivityStateTransition.logEvent,
             occurredAtEpochMs: epochMs,
             privacyEpoch: privacyEpoch,
+            detailMessage: 'Message imported',
           );
         }
         await _interpretAndStore(

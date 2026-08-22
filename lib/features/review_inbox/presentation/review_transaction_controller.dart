@@ -83,8 +83,7 @@ final class ReviewTransactionViewState {
   );
 }
 
-class ReviewTransactionController
-    extends Notifier<ReviewTransactionViewState> {
+class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
   ReviewTransactionController(int smsEventId) : _smsEventId = smsEventId;
 
   final int _smsEventId;
@@ -136,7 +135,9 @@ class ReviewTransactionController
 
     try {
       final context = await _buildContext(senderNormalized: senderNormalized);
-      final evaluation = const WalletCreateEligibilityPolicy().evaluate(context);
+      final evaluation = const WalletCreateEligibilityPolicy().evaluate(
+        context,
+      );
       if (!evaluation.allowed) {
         state = state.copyWith(
           evaluation: evaluation,
@@ -206,6 +207,7 @@ class ReviewTransactionController
         activityType: ActivityEventCode.walletRecordCreated,
         safeDetailCode: ActivityStateTransition.needsReview,
         decisionTraceCode: DecisionTraceCode.initialReview,
+        detailMessage: 'Wallet record created',
       );
 
       log.info('Review submit for message $_smsEventId: ${result.runtimeType}');
@@ -223,7 +225,9 @@ class ReviewTransactionController
     }
   }
 
-  Future<PreSendContext> _buildContext({required String senderNormalized}) async {
+  Future<PreSendContext> _buildContext({
+    required String senderNormalized,
+  }) async {
     final catalog = await ref.read(walletCatalogProvider.future);
     final selectedAccountId = state.accountId;
     WalletAccount? account;
@@ -291,7 +295,8 @@ class ReviewTransactionController
           account.isWritable &&
           account.eligibility == WalletAccountEligibility.eligible,
       targetAccountEligibility:
-          account?.eligibility ?? WalletAccountEligibility.missingRequiredFields,
+          account?.eligibility ??
+          WalletAccountEligibility.missingRequiredFields,
       mappingResolution: resolution,
       capabilityCanCreate: capabilityCanCreate,
       hasActiveLineage: hasActiveLineage,
@@ -315,9 +320,7 @@ class ReviewTransactionController
             contractVersion: _contractVersion,
           ),
     ];
-    return WalletCapabilityLedger(
-      evidence: evidence,
-    ).canCreate(
+    return WalletCapabilityLedger(evidence: evidence).canCreate(
       now: DateTime.now().toUtc(),
       compatibleContractVersion: _contractVersion,
     );

@@ -40,7 +40,10 @@ final class _EmptyActivityLog implements ActivityLogRepository {
   const _EmptyActivityLog();
 
   @override
-  Future<List<ActivityLogEntry>> recent({int limit = 200, ActivityEventCode? code}) async => const [];
+  Future<List<ActivityLogEntry>> recent({
+    int limit = 200,
+    ActivityEventCode? code,
+  }) async => const [];
 }
 
 final class _CompletedOnboardingNotifier extends OnboardingNotifier {

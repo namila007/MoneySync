@@ -67,7 +67,8 @@ final class MappingRuleResolver {
       }
     }
     if (hasFamily) {
-      if (input.parserFamily == null || rule.parserFamily != input.parserFamily) {
+      if (input.parserFamily == null ||
+          rule.parserFamily != input.parserFamily) {
         return null;
       }
     }

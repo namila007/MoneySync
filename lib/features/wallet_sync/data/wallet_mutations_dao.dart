@@ -14,21 +14,23 @@ final class WalletMutationsDao {
 
   /// Inserts (or overwrites) one mutation row from an intent snapshot.
   Future<void> upsert(WalletMutationIntent intent) async {
-    await _database.into(_database.walletMutations).insertOnConflictUpdate(
-      WalletMutationsCompanion.insert(
-        id: intent.id,
-        operationKind: intent.operation,
-        payload: jsonEncode(intent.payload),
-        state: intent.state,
-        lineageKey: intent.createLineageKey,
-        fingerprint: intent.transactionFingerprint,
-        createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-        updatedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-        candidateId: Value(intent.candidateId),
-        operationRevision: Value(intent.operationRevision),
-        lineageGeneration: Value(intent.lineageGeneration),
-      ),
-    );
+    await _database
+        .into(_database.walletMutations)
+        .insertOnConflictUpdate(
+          WalletMutationsCompanion.insert(
+            id: intent.id,
+            operationKind: intent.operation,
+            payload: jsonEncode(intent.payload),
+            state: intent.state,
+            lineageKey: intent.createLineageKey,
+            fingerprint: intent.transactionFingerprint,
+            createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+            updatedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+            candidateId: Value(intent.candidateId),
+            operationRevision: Value(intent.operationRevision),
+            lineageGeneration: Value(intent.lineageGeneration),
+          ),
+        );
   }
 
   /// Optimistic lease claim: updates `lease_until` in place for the row only
@@ -82,7 +84,9 @@ final class WalletMutationsDao {
     required int nextAttemptAtEpochMs,
     required int attemptCount,
   }) async {
-    final transitioned = intent.transitionTo(WalletMutationState.retryScheduled);
+    final transitioned = intent.transitionTo(
+      WalletMutationState.retryScheduled,
+    );
     await _database.customUpdate(
       'UPDATE wallet_mutations SET state = ?, attempt_count = ?, '
       'next_attempt_at_epoch_ms = ?, updated_at_epoch_ms = ? WHERE id = ?',
@@ -113,19 +117,19 @@ final class WalletMutationsDao {
     required int nowEpochMs,
     int limit = 20,
   }) async {
-    final rows = await (_database.select(
-      _database.walletMutations,
-    )
-      ..where(
-        (t) =>
-            (t.state.equals(_storedState(WalletMutationState.queued)) |
-                t.state.equals(
-                  _storedState(WalletMutationState.retryScheduled),
-                )) &
-            t.leaseUntilEpochMs.isBiggerOrEqualValue(nowEpochMs),
-      )
-      ..orderBy([(t) => OrderingTerm.asc(t.leaseUntilEpochMs)])
-      ..limit(limit)).get();
+    final rows =
+        await (_database.select(_database.walletMutations)
+              ..where(
+                (t) =>
+                    (t.state.equals(_storedState(WalletMutationState.queued)) |
+                        t.state.equals(
+                          _storedState(WalletMutationState.retryScheduled),
+                        )) &
+                    t.leaseUntilEpochMs.isBiggerOrEqualValue(nowEpochMs),
+              )
+              ..orderBy([(t) => OrderingTerm.asc(t.leaseUntilEpochMs)])
+              ..limit(limit))
+            .get();
     return rows.map(_fromRow).toList();
   }
 
@@ -135,14 +139,14 @@ final class WalletMutationsDao {
   Future<List<WalletMutationIntent>> syncingWithExpiredLease({
     required int nowEpochMs,
   }) async {
-    final rows = await (_database.select(
-      _database.walletMutations,
-    )..where(
-      (t) =>
-          t.state.equals(_storedState(WalletMutationState.syncing)) &
-          (t.leaseUntilEpochMs.isNull() |
-              t.leaseUntilEpochMs.isSmallerThanValue(nowEpochMs)),
-    )).get();
+    final rows =
+        await (_database.select(_database.walletMutations)..where(
+              (t) =>
+                  t.state.equals(_storedState(WalletMutationState.syncing)) &
+                  (t.leaseUntilEpochMs.isNull() |
+                      t.leaseUntilEpochMs.isSmallerThanValue(nowEpochMs)),
+            ))
+            .get();
     return rows.map(_fromRow).toList();
   }
 

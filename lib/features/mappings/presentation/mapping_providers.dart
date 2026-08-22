@@ -34,7 +34,9 @@ final saveMappingRuleProvider = FutureProvider<SaveMappingRule>((ref) async {
 
 /// Wallet account/category cache for target selection. Null until the Wallet
 /// is connected; the editor shows an explainer instead of a target picker.
-final walletCatalogCacheProvider = FutureProvider<WalletCatalogCache?>((ref) async {
+final walletCatalogCacheProvider = FutureProvider<WalletCatalogCache?>((
+  ref,
+) async {
   final db = await ref.watch(appDatabaseProvider.future);
   return DriftWalletCatalogCache(database: db);
 });

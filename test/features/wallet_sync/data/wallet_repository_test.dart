@@ -19,27 +19,31 @@ void main() {
   );
 
   group('WalletRepository.create', () {
-    test('maps all-succeeded outcome to remote success with record id', () async {
-      final dataSource = FakeWalletApiDataSource(
-        createOutcome: const WalletCreateAllSucceeded(recordId: 'record-9'),
-      );
-      final repository = WalletRepository(dataSource: dataSource);
+    test(
+      'maps all-succeeded outcome to remote success with record id',
+      () async {
+        final dataSource = FakeWalletApiDataSource(
+          createOutcome: const WalletCreateAllSucceeded(recordId: 'record-9'),
+        );
+        final repository = WalletRepository(dataSource: dataSource);
 
-      final result = await repository.create(snapshot());
+        final result = await repository.create(snapshot());
 
-      expect(result, isA<WalletMutationRemoteSuccess>());
-      expect((result as WalletMutationRemoteSuccess).remoteRecordId, 'record-9');
-      expect((result).statusCode, 200);
-      expect(dataSource.createCalls, 1);
-      expect(dataSource.lastCreatePayload!.accountId, 'account-1');
-    });
+        expect(result, isA<WalletMutationRemoteSuccess>());
+        expect(
+          (result as WalletMutationRemoteSuccess).remoteRecordId,
+          'record-9',
+        );
+        expect((result).statusCode, 200);
+        expect(dataSource.createCalls, 1);
+        expect(dataSource.lastCreatePayload!.accountId, 'account-1');
+      },
+    );
 
     test('maps a single succeeded 207 item to remote success', () async {
       final dataSource = FakeWalletApiDataSource(
         createOutcome: WalletCreatePartial(
-          items: [
-            WalletItemSucceeded(recordId: 'record-207'),
-          ],
+          items: [WalletItemSucceeded(recordId: 'record-207')],
         ),
       );
       final repository = WalletRepository(dataSource: dataSource);
@@ -47,16 +51,17 @@ void main() {
       final result = await repository.create(snapshot());
 
       expect(result, isA<WalletMutationRemoteSuccess>());
-      expect((result as WalletMutationRemoteSuccess).remoteRecordId, 'record-207');
+      expect(
+        (result as WalletMutationRemoteSuccess).remoteRecordId,
+        'record-207',
+      );
       expect(result.statusCode, 207);
     });
 
     test('maps an all-failed 207 batch to pre-transmission failure', () async {
       final dataSource = FakeWalletApiDataSource(
         createOutcome: WalletCreatePartial(
-          items: [
-            const WalletItemFailed(safeErrorCode: 'field_error'),
-          ],
+          items: [const WalletItemFailed(safeErrorCode: 'field_error')],
         ),
       );
       final repository = WalletRepository(dataSource: dataSource);
@@ -68,9 +73,7 @@ void main() {
 
     test('maps ambiguous post-transmission error to ambiguity', () async {
       final dataSource = FakeWalletApiDataSource(
-        error: const WalletApiDataSourceException(
-          AmbiguousPostTransmission(),
-        ),
+        error: const WalletApiDataSourceException(AmbiguousPostTransmission()),
       );
       final repository = WalletRepository(dataSource: dataSource);
 
@@ -81,9 +84,7 @@ void main() {
 
     test('maps permanent client failure to client failure', () async {
       final dataSource = FakeWalletApiDataSource(
-        error: const WalletApiDataSourceException(
-          PermanentClientFailure(),
-        ),
+        error: const WalletApiDataSourceException(PermanentClientFailure()),
       );
       final repository = WalletRepository(dataSource: dataSource);
 

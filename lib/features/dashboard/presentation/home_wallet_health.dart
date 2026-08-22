@@ -73,19 +73,22 @@ final homeWalletHealthProvider = StreamProvider.autoDispose<HomeWalletHealth>((
         )
         .length;
 
-    final latestLinks = await (db.select(
-      db.walletRecordLinks,
-    )..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])..limit(1)).get();
+    final latestLinks =
+        await (db.select(db.walletRecordLinks)
+              ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
+              ..limit(1))
+            .get();
     LatestWalletRecord? latest;
     if (latestLinks.isNotEmpty) {
       final link = latestLinks.first;
       // M5.14 gap 4: read amount + currency from the linked create mutation's
       // payload, not a hardcoded LKR 0.00. The link row has no amount columns;
       // the mutation payload is the source of truth.
-      final linked = await (db.select(
-        db.walletMutations,
-      )..where((m) => m.candidateId.equals(link.candidateId ?? ''))..limit(1))
-          .get();
+      final linked =
+          await (db.select(db.walletMutations)
+                ..where((m) => m.candidateId.equals(link.candidateId ?? ''))
+                ..limit(1))
+              .get();
       latest = LatestWalletRecord(
         remoteId: link.remoteId ?? link.id,
         amountMinor: _amountMinorFrom(linked),
@@ -126,7 +129,8 @@ String _currencyFrom(List<WalletMutation> mutations) {
   for (final mutation in mutations) {
     try {
       final decoded = jsonDecode(mutation.payload);
-      if (decoded is Map<String, dynamic> && decoded['currencyCode'] is String) {
+      if (decoded is Map<String, dynamic> &&
+          decoded['currencyCode'] is String) {
         return decoded['currencyCode'] as String;
       }
     } catch (_) {

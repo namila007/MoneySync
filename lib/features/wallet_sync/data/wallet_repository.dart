@@ -19,7 +19,9 @@ final class WalletRepository {
   /// Creates one Wallet record. Returns the domain port result — success
   /// carries the confirmed remote record id; ambiguity is surfaced as
   /// [WalletMutationPostTransmissionAmbiguity] for reconciliation.
-  Future<WalletMutationResult> create(TransactionCandidateSnapshot payload) async {
+  Future<WalletMutationResult> create(
+    TransactionCandidateSnapshot payload,
+  ) async {
     try {
       final outcome = await _dataSource.createRecord(payload);
       return switch (outcome) {
@@ -35,8 +37,7 @@ final class WalletRepository {
     }
   }
 
-  Future<WalletRecordRead?> getRecord(String id) =>
-      _dataSource.getRecord(id);
+  Future<WalletRecordRead?> getRecord(String id) => _dataSource.getRecord(id);
 
   Future<List<WalletRecordRead>> findRecordForReconciliation(
     WalletReconciliationQuery query,

@@ -27,10 +27,9 @@ void main() {
   ProviderScope wrapWith(Widget child) {
     return ProviderScope(
       overrides: [
-        mappingRuleListProvider.overrideWith((ref) async => [
-          rule('a'),
-          rule('b', enabled: false),
-        ]),
+        mappingRuleListProvider.overrideWith(
+          (ref) async => [rule('a'), rule('b', enabled: false)],
+        ),
         walletCatalogProvider.overrideWith((ref) async => null),
       ],
       child: MaterialApp(home: child),
@@ -87,8 +86,9 @@ void main() {
     expect(find.text('Save mapping'), findsOneWidget);
   });
 
-  testWidgets('merchant matcher section is progressively disclosed',
-      (tester) async {
+  testWidgets('merchant matcher section is progressively disclosed', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

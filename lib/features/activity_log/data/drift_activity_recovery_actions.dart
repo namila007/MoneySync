@@ -33,6 +33,9 @@ final class DriftActivityRecoveryActions implements ActivityRecoveryActions {
       WalletMutationState.unknownDelete,
     };
     if (!unknown.contains(intent.state)) return;
-    await dao.transitionTo(intent: intent, next: WalletMutationState.reconciling);
+    await dao.transitionTo(
+      intent: intent,
+      next: WalletMutationState.reconciling,
+    );
   }
 }

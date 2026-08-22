@@ -46,7 +46,8 @@ final class FakeWalletApiDataSource implements WalletApiDataSource {
     createCalls++;
     lastCreatePayload = payload;
     if (_error case final error?) throw error;
-    return _createOutcome ?? const WalletCreateAllSucceeded(recordId: 'record-1');
+    return _createOutcome ??
+        const WalletCreateAllSucceeded(recordId: 'record-1');
   }
 
   @override
@@ -66,10 +67,11 @@ final class FakeWalletApiDataSource implements WalletApiDataSource {
   @override
   Future<WalletUsageStats> getUsageStats() async {
     usageStatsCalls++;
-    return _usageStats ?? const WalletUsageStats(
-      recordCount: 0,
-      requestCount: 0,
-      rateLimitRemaining: null,
-    );
+    return _usageStats ??
+        const WalletUsageStats(
+          recordCount: 0,
+          requestCount: 0,
+          rateLimitRemaining: null,
+        );
   }
 }
