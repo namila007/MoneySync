@@ -140,6 +140,7 @@ class InboxDetailPage extends ConsumerWidget {
                 smsEventId: event.id,
                 encryptedPayload: detail.candidatePayload ?? '{}',
                 senderNormalized: event.senderKey,
+                initialSummary: detail.summary,
               ),
             ],
           );
@@ -165,24 +166,33 @@ class _CandidateCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Candidate summary',
-              style: Theme.of(context).textTheme.titleMedium,
+            // Left column: compact summary
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Candidate summary',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Amount: ${_formatAmount(summary.amountMinor, summary.amountCurrency)}',
+                  ),
+                  Text('Confidence: ${summary.confidenceBasisPoints ~/ 100}%'),
+                  Text(
+                    'Requires review: ${summary.requiresReview ? 'yes' : 'no'}',
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Amount: ${_formatAmount(summary.amountMinor, summary.amountCurrency)}',
-            ),
-            Text('Confidence: ${summary.confidenceBasisPoints ~/ 100}%'),
-            Text('Requires review: ${summary.requiresReview ? 'yes' : 'no'}'),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: () => _showReviewSheet(context),
-              icon: const Icon(Icons.rate_review_outlined),
-              label: const Text('Review'),
+            // Right column: detail button showing read-only fields
+            FilledButton.tonal(
+              onPressed: () => _showDetailSheet(context),
+              child: const Text('Detail'),
             ),
           ],
         ),
@@ -190,7 +200,7 @@ class _CandidateCard extends StatelessWidget {
     );
   }
 
-  void _showReviewSheet(BuildContext context) {
+  void _showDetailSheet(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -199,7 +209,7 @@ class _CandidateCard extends StatelessWidget {
         shrinkWrap: true,
         children: [
           Text(
-            'Candidate review',
+            'Candidate detail',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
@@ -218,11 +228,6 @@ class _CandidateCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text('$label: $value'),
             ),
-          const SizedBox(height: 12),
-          Text(
-            'This summary is read-only. Approval and Wallet sync arrive with M5.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
         ],
       ),
     );

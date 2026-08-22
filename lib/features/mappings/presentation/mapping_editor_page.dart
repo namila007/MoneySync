@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
+import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
@@ -139,6 +141,8 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
         'Saved mapping rule ${widget.ruleId ?? '(new)'} '
         'v${draft.ruleVersion}',
       );
+      // Activity logging (Bug 8.3). Best-effort, never blocks UI.
+      _logActivity(ActivityEventCode.mappingRuleCreated);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mapping saved.')),
@@ -152,6 +156,22 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Could not save mapping.')));
     }
+  }
+
+  // ponytail: best-effort activity logging, never blocks UI on failure.
+  void _logActivity(ActivityEventCode code) {
+    try {
+      final db = ref.read(appDatabaseProvider).asData?.value;
+      if (db == null) return;
+      db.select(db.appSettings).getSingleOrNull().then((setting) {
+        db.insertActivity(
+          activityType: code,
+          safeDetailCode: ActivityStateTransition.logEvent,
+          occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+          privacyEpoch: setting?.privacyEpoch ?? 0,
+        );
+      });
+    } catch (_) {}
   }
 
   @override
@@ -380,10 +400,16 @@ class _WalletAccountPicker extends ConsumerWidget {
             WalletAccountEligibility.bankSynced =>
               '${a.name} is bank-synced (not writable)',
             WalletAccountEligibility.archived => '${a.name} is archived',
-            _ => '${a.name} is not selectable',
+            WalletAccountEligibility.unwritable =>
+              '${a.name} is not yet writable',
+            WalletAccountEligibility.missingRequiredFields =>
+              '${a.name} requires a currency or name from Wallet',
+            WalletAccountEligibility.foreignCurrencyReviewOnly =>
+              '${a.name} uses a different currency (review only)',
+            WalletAccountEligibility.eligible => '',
           },
         );
-    return reasons.join('. ');
+    return reasons.where((r) => r.isNotEmpty).join('. ');
   }
 }
 

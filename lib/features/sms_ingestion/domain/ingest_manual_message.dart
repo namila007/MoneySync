@@ -81,6 +81,7 @@ final class IngestManualMessage {
     required int epochMs,
     required int privacyEpoch,
     bool recordImportActivity = true,
+    bool recordCandidateActivity = true,
   }) async {
     final validation = validateManualInput(rawBody, rawSender: rawSender);
     if (validation case ManualInputRejected(:final reason)) {
@@ -144,6 +145,7 @@ final class IngestManualMessage {
           normalizedSender: accepted.normalizedSender,
           epochMs: epochMs,
           privacyEpoch: privacyEpoch,
+          recordActivity: recordCandidateActivity,
         );
         return ManualIngestStored(
           eventId: result.id,
@@ -184,6 +186,7 @@ final class IngestManualMessage {
     required String normalizedSender,
     required int epochMs,
     required int privacyEpoch,
+    bool recordActivity = true,
   }) async {
     final interpret = this.interpret;
     if (interpret == null) return;
@@ -216,6 +219,7 @@ final class IngestManualMessage {
       safeDetailCode: ActivityStateTransition.needsReview,
       decisionTraceCode: DecisionTraceCode.parsedComplete,
       privacyEpoch: privacyEpoch,
+      recordActivity: recordActivity,
     );
   }
 

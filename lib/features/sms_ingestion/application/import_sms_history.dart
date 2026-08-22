@@ -70,6 +70,27 @@ final class ImportSmsHistory {
     }
   }
 
+  /// One aggregated `candidateNeedsReview` event per batch (Bug 8.2) instead
+  /// of one per interpreted message. Mirrors _recordBatchImportActivity.
+  Future<void> _recordBatchCandidateActivity({
+    required int count,
+    required int privacyEpoch,
+  }) async {
+    if (count <= 0) return;
+    try {
+      await database.insertActivity(
+        activityType: ActivityEventCode.candidateNeedsReview,
+        safeDetailCode: ActivityStateTransition.needsReview,
+        occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        privacyEpoch: privacyEpoch,
+        count: count,
+      );
+      _log.info('Recorded aggregate candidate activity: $count need review');
+    } catch (e) {
+      _log.warning('Aggregate candidate activity not recorded', e);
+    }
+  }
+
   Stream<ImportProgress> import({
     required int fromEpochMs,
     required int untilEpochMs,
@@ -90,6 +111,7 @@ final class ImportSmsHistory {
     var imported = 0;
     var filtered = 0;
     var duplicates = 0;
+    var candidatesNeedingReview = 0;
     var pages = 0;
 
     try {
@@ -100,6 +122,10 @@ final class ImportSmsHistory {
           );
           await _recordBatchImportActivity(
             imported: imported,
+            privacyEpoch: privacyEpoch,
+          );
+          await _recordBatchCandidateActivity(
+            count: candidatesNeedingReview,
             privacyEpoch: privacyEpoch,
           );
           yield ImportProgress.cancelled(imported, filtered, duplicates);
@@ -113,6 +139,10 @@ final class ImportSmsHistory {
           _log.info('Cap reached: $imported of $cap');
           await _recordBatchImportActivity(
             imported: imported,
+            privacyEpoch: privacyEpoch,
+          );
+          await _recordBatchCandidateActivity(
+            count: candidatesNeedingReview,
             privacyEpoch: privacyEpoch,
           );
           yield ImportProgress.capReached(imported, filtered, duplicates);
@@ -170,11 +200,13 @@ final class ImportSmsHistory {
             privacyEpoch: privacyEpoch,
             // One aggregate event per batch, recorded at the terminal state.
             recordImportActivity: false,
+            recordCandidateActivity: false,
           );
 
           switch (outcome) {
             case ManualIngestStored():
               imported++;
+              candidatesNeedingReview++;
             case ManualIngestAlreadyPresent():
               duplicates++;
             case ManualIngestFiltered():
@@ -209,6 +241,10 @@ final class ImportSmsHistory {
       );
       await _recordBatchImportActivity(
         imported: imported,
+        privacyEpoch: privacyEpoch,
+      );
+      await _recordBatchCandidateActivity(
+        count: candidatesNeedingReview,
         privacyEpoch: privacyEpoch,
       );
       yield ImportProgress.completed(imported, filtered, duplicates);

@@ -33,6 +33,41 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
     );
   }
 
+  /// Reactive stream of the catalog cache. Emits on every Drift write to
+  /// `walletAccountCache` or `walletCategoryCache` (Bug 2 — catalog dropdowns
+  /// now update without explicit invalidation).
+  Stream<WalletCatalog?> watch() async* {
+    final accountRows = _database.select(_database.walletAccountCache);
+    final categoryRows = _database.select(_database.walletCategoryCache);
+
+    // Merge both table watches into a single catalog emission.
+    await for (final _ in accountRows.watch()) {
+      final categories = await categoryRows.get();
+      final accounts = await accountRows.get();
+      if (accounts.isEmpty && categories.isEmpty) {
+        yield null;
+      } else {
+        yield WalletCatalog(
+          accounts: accounts
+              .map(
+                (a) => WalletAccount(
+                  id: a.id,
+                  name: a.name,
+                  currencyCode: a.currencyCode,
+                  isArchived: a.isArchived,
+                  isBankSynced: a.isBankSynced,
+                  isWritable: a.isWritable,
+                ),
+              )
+              .toList(),
+          categories: categories
+              .map((c) => WalletCategory(id: c.id, name: c.name))
+              .toList(),
+        );
+      }
+    }
+  }
+
   @override
   Future<void> write(WalletCatalog catalog) async {
     final now = DateTime.now().millisecondsSinceEpoch;

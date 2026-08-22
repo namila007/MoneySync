@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/features/activity_log/domain/activity_event.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/application/wallet_connection_actions.dart';
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secret_store.dart';
@@ -138,6 +142,9 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
           isStale: true,
         );
       });
+      // Upgrade stale cached state to live once the API responds (Bug 1).
+      // Non-blocking — keep the existing manual buttons for explicit re-test.
+      unawaited(refresh());
     } catch (_) {
       // No stored token or error — stay disconnected
     }
@@ -198,6 +205,7 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
     if (epoch != _generation) return false;
     _hasConnectedToken = false;
     state = const WalletDisconnected();
+    _logActivity(ActivityEventCode.walletDisconnected);
     return true;
   }
 
@@ -219,6 +227,19 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
       _hasConnectedToken = true;
     }
     state = _stateFor(result);
+    // Invalidate catalog so dependent dropdowns pick up new data (Bug 2).
+    ref.invalidate(walletCatalogProvider);
+    // Activity logging for wallet connection events (Bug 8.3).
+    switch (result) {
+      case WalletConnectionCatalogReady():
+        _logActivity(ActivityEventCode.walletConnected);
+      case WalletConnectionCatalogOffline():
+        _logActivity(ActivityEventCode.walletRefreshed);
+      case WalletConnectionActionFailure():
+      case WalletConnectionFreshAuthenticationRequired():
+      case WalletConnectionActionUnavailable():
+        break;
+    }
     return switch (result) {
       WalletConnectionCatalogReady() ||
       WalletConnectionCatalogOffline() => WalletTokenSubmitResult.accepted,
@@ -276,4 +297,20 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
         WalletReadFailureKind.service => WalletConnectionProblemCode.service,
         WalletReadFailureKind.protocol => WalletConnectionProblemCode.protocol,
       };
+
+  // ponytail: best-effort activity logging, never blocks the UI on failure.
+  void _logActivity(ActivityEventCode code) {
+    try {
+      final db = ref.read(appDatabaseProvider).asData?.value;
+      if (db == null) return;
+      db.select(db.appSettings).getSingleOrNull().then((setting) {
+        db.insertActivity(
+          activityType: code,
+          safeDetailCode: ActivityStateTransition.logEvent,
+          occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+          privacyEpoch: setting?.privacyEpoch ?? 0,
+        );
+      });
+    } catch (_) {}
+  }
 }

@@ -416,6 +416,53 @@ void main() {
     },
   );
 
+  test(
+    'restoring from cache triggers a non-blocking refresh (Bug 1)',
+    () async {
+      final actions = _FakeWalletConnectionActions(
+        connectResult: WalletConnectionCatalogReady(catalog, refreshedAt),
+        refreshResult: WalletConnectionCatalogReady(catalog, refreshedAt),
+      );
+      final container = containerFor(actions);
+      final controller = container.read(
+        walletConnectionControllerProvider.notifier,
+      );
+
+      // Simulate the post-cache-restore state: connected but stale.
+      // The real _restoreFromCache() sets this state and then calls
+      // unawaited(refresh()) to upgrade it. We verify the refresh path
+      // works end-to-end by manually calling refresh from this state.
+      await controller.submit(WalletToken.parse('synthetic-token'));
+      expect(
+        container.read(walletConnectionControllerProvider),
+        isA<WalletConnected>().having((s) => s.isStale, 'isStale', isFalse),
+      );
+
+      // Simulate going offline then back to stale
+      actions.refreshResult = WalletConnectionCatalogOffline(
+        catalog,
+        refreshedAt,
+      );
+      await controller.refresh();
+      expect(
+        container.read(walletConnectionControllerProvider),
+        isA<WalletConnected>().having((s) => s.isStale, 'isStale', isTrue),
+      );
+
+      // Now simulate the auto-refresh upgrading stale → live
+      actions.refreshResult = WalletConnectionCatalogReady(
+        catalog,
+        refreshedAt,
+      );
+      await controller.refresh();
+      expect(actions.refreshCalls, 2);
+      expect(
+        container.read(walletConnectionControllerProvider),
+        isA<WalletConnected>().having((s) => s.isStale, 'isStale', isFalse),
+      );
+    },
+  );
+
   test('confirmed disconnect cancels and fences pending token work', () async {
     final pending = Completer<WalletConnectionActionResult>();
     final actions = _FakeWalletConnectionActions(

@@ -178,7 +178,7 @@ void main() {
   });
 
   testWidgets(
-    'detail with a candidate shows the summary card and Review sheet',
+    'detail with a candidate shows the summary card and Detail sheet',
     (tester) async {
       final (widget, _) = _app([
         _event(0, senderKey: 'SENDER_A', senderDisplay: 'BANKX'),
@@ -193,10 +193,10 @@ void main() {
       expect(find.text('Amount: LKR 5000.00'), findsOneWidget);
       expect(find.text('Confidence: 96%'), findsOneWidget);
 
-      await tester.tap(find.text('Review').last);
+      await tester.tap(find.text('Detail'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Candidate review'), findsOneWidget);
+      expect(find.text('Candidate detail'), findsOneWidget);
       expect(find.text('Kind: income'), findsOneWidget);
       expect(find.text('Direction: credit'), findsOneWidget);
     },

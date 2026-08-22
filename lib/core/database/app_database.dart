@@ -1251,6 +1251,7 @@ class AppDatabase extends _$AppDatabase {
     required DecisionTraceCode decisionTraceCode,
     required int privacyEpoch,
     bool failBeforeCommitForTesting = false,
+    bool recordActivity = true,
   }) {
     return transaction(() async {
       await _requireCurrentPrivacyEpoch(privacyEpoch);
@@ -1270,14 +1271,16 @@ class AppDatabase extends _$AppDatabase {
           createdAtEpochMs: createdAtEpochMs,
         ),
       );
-      await into(activityEvents).insert(
-        ActivityEventsCompanion.insert(
-          eventType: activityType,
-          sanitizedDetail: safeDetailCode,
-          occurredAtEpochMs: createdAtEpochMs,
-          privacyEpoch: privacyEpoch,
-        ),
-      );
+      if (recordActivity) {
+        await into(activityEvents).insert(
+          ActivityEventsCompanion.insert(
+            eventType: activityType,
+            sanitizedDetail: safeDetailCode,
+            occurredAtEpochMs: createdAtEpochMs,
+            privacyEpoch: privacyEpoch,
+          ),
+        );
+      }
       if (failBeforeCommitForTesting) {
         throw StateError('synthetic_transaction_rollback');
       }
