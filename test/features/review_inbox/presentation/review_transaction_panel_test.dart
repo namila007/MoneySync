@@ -71,7 +71,7 @@ void main() {
     expect(find.text('Direction'), findsOneWidget);
     expect(find.text('Wallet account'), findsOneWidget);
     expect(find.text('Payment type'), findsOneWidget);
-    expect(find.text('Counterparty'), findsOneWidget);
+    expect(find.text('Note'), findsOneWidget);
     expect(find.text('Create record'), findsOneWidget);
   });
 

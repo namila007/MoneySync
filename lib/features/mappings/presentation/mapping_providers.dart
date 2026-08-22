@@ -39,6 +39,10 @@ final walletCatalogCacheProvider = FutureProvider<WalletCatalogCache?>((ref) asy
   return DriftWalletCatalogCache(database: db);
 });
 
+/// Wallet catalog cache. One-shot read — invalidation is explicit after
+/// connect/refresh in WalletConnectionController._logActivity and
+/// the wallet connection page (Bug 2). Upgrade to StreamProvider when
+/// Riverpod's StreamProvider.future resolves synchronously in tests.
 final walletCatalogProvider = FutureProvider<WalletCatalog?>((ref) async {
   final cache = await ref.watch(walletCatalogCacheProvider.future);
   return cache?.read();

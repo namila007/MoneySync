@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
+import 'package:money_sync/features/wallet_connection/presentation/wallet_catalog_detail_screen.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_controller.dart';
 
 class WalletConnectionPage extends ConsumerWidget {
@@ -224,6 +225,13 @@ class _ConnectedBody extends ConsumerWidget {
           label: 'Accounts',
           value:
               '${catalog.accounts.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const WalletCatalogDetailScreen(
+                mode: WalletCatalogDetailMode.accounts,
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         _InfoRow(
@@ -231,6 +239,13 @@ class _ConnectedBody extends ConsumerWidget {
           label: 'Categories',
           value:
               '${catalog.categories.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const WalletCatalogDetailScreen(
+                mode: WalletCatalogDetailMode.categories,
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 8),
         _InfoRow(
@@ -238,6 +253,13 @@ class _ConnectedBody extends ConsumerWidget {
           label: 'Eligible targets',
           value:
               '${catalog.accounts.where((a) => a.eligibility == WalletAccountEligibility.eligible).length} accounts',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const WalletCatalogDetailScreen(
+                mode: WalletCatalogDetailMode.eligibleTargets,
+              ),
+            ),
+          ),
         ),
         const Divider(height: 24),
         Row(
@@ -436,11 +458,13 @@ class _InfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -449,6 +473,8 @@ class _InfoRow extends StatelessWidget {
       title: Text(label),
       subtitle: Text(value),
       dense: true,
+      onTap: onTap,
+      trailing: onTap != null ? const Icon(Icons.chevron_right, size: 20) : null,
     );
   }
 }

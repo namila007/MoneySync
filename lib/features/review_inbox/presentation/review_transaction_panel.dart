@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
+import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart'
+    show CandidateSummaryView;
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_controller.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
@@ -17,11 +19,16 @@ class ReviewTransactionPanel extends ConsumerStatefulWidget {
     required this.smsEventId,
     required this.encryptedPayload,
     required this.senderNormalized,
+    this.initialSummary,
   });
 
   final int smsEventId;
   final String encryptedPayload;
   final String senderNormalized;
+
+  /// Optional parsed candidate summary for auto-fill (Bug 6). Seeded into
+  /// fields on first build; never clobbers a user's in-progress edit.
+  final CandidateSummaryView? initialSummary;
 
   @override
   ConsumerState<ReviewTransactionPanel> createState() =>
@@ -36,6 +43,42 @@ class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel>
   DateTime? _dateUtc;
   String? _accountId;
   String _paymentType = 'debit_card';
+  var _summarySeeded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _seedFromSummary();
+  }
+
+  /// Seed editable fields from the candidate summary on first build (Bug 6).
+  /// Only fills fields that are still at their default/empty values — never
+  /// clobbers a user's in-progress edit on rebuild.
+  void _seedFromSummary() {
+    final summary = widget.initialSummary;
+    if (summary == null || _summarySeeded) return;
+    _summarySeeded = true;
+
+    // Amount: seed if controller is empty
+    if (_amountController.text.isEmpty && summary.amountMinor != 0) {
+      _amountController.text = summary.amountMinor.toString();
+    }
+
+    // Kind: map string to enum
+    _kind = switch (summary.kind) {
+      'income' => TransactionKind.income,
+      'transfer' => TransactionKind.transfer,
+      'refund' => TransactionKind.refund,
+      _ => TransactionKind.expense,
+    };
+
+    // Direction: map string to enum
+    _direction = switch (summary.direction) {
+      'credit' => TransactionDirection.credit,
+      'neutral' => TransactionDirection.neutral,
+      _ => TransactionDirection.debit,
+    };
+  }
 
   @override
   void dispose() {
@@ -187,7 +230,8 @@ class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel>
               controller: _counterpartyController,
               maxLength: 255,
               decoration: const InputDecoration(
-                labelText: 'Counterparty',
+                labelText: 'Note',
+                helperText: 'Note about this transaction',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
