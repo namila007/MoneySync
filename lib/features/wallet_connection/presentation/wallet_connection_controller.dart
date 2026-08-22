@@ -142,9 +142,6 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
           isStale: true,
         );
       });
-      // Upgrade stale cached state to live once the API responds (Bug 1).
-      // Non-blocking — keep the existing manual buttons for explicit re-test.
-      unawaited(refresh());
     } catch (_) {
       // No stored token or error — stay disconnected
     }
