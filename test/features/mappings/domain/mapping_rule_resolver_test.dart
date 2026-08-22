@@ -81,30 +81,32 @@ void main() {
       expect(resolved.rule.id, 'specific');
     });
 
-    test('rank 3 (sender + direction) loses to rank 2 (sender + instrument)',
-        () {
-      final resolver = MappingRuleResolver(
-        rules: [
-          rule(id: 'family', parserFamily: 'lk.sampath.account'),
-          rule(
-            id: 'instrument',
-            instrumentSuffixHash: 'hash-1234',
+    test(
+      'rank 3 (sender + direction) loses to rank 2 (sender + instrument)',
+      () {
+        final resolver = MappingRuleResolver(
+          rules: [
+            rule(id: 'family', parserFamily: 'lk.sampath.account'),
+            rule(
+              id: 'instrument',
+              instrumentSuffixHash: 'hash-1234',
+              parserFamily: 'lk.sampath.account',
+            ),
+          ],
+        );
+        final resolution = resolver.resolve(
+          const MappingResolutionInput(
+            senderNormalized: 'SAMPATH BANK',
+            confidenceBasisPoints: 9500,
+            merchantNormalized: 'X',
             parserFamily: 'lk.sampath.account',
+            instrumentSuffixHash: 'hash-1234',
           ),
-        ],
-      );
-      final resolution = resolver.resolve(
-        const MappingResolutionInput(
-          senderNormalized: 'SAMPATH BANK',
-          confidenceBasisPoints: 9500,
-          merchantNormalized: 'X',
-          parserFamily: 'lk.sampath.account',
-          instrumentSuffixHash: 'hash-1234',
-        ),
-      );
-      final resolved = resolution as MappingResolved;
-      expect(resolved.rule.id, 'instrument');
-    });
+        );
+        final resolved = resolution as MappingResolved;
+        expect(resolved.rule.id, 'instrument');
+      },
+    );
 
     test('rank 1 (sender + instrument + family + direction) wins', () {
       final resolver = MappingRuleResolver(
@@ -143,15 +145,20 @@ void main() {
       expect(resolution.rule.id, 'high');
     });
 
-    test('same bucket + same priority -> MappingAmbiguous (never by createdAt)',
-        () {
-      final resolver = MappingRuleResolver(
-        rules: [rule(id: 'a'), rule(id: 'b')],
-      );
-      final resolution = resolver.resolve(input);
-      final ambiguous = resolution as MappingAmbiguous;
-      expect(ambiguous.tiedRules.map((r) => r.id).toSet(), {'a', 'b'});
-    });
+    test(
+      'same bucket + same priority -> MappingAmbiguous (never by createdAt)',
+      () {
+        final resolver = MappingRuleResolver(
+          rules: [
+            rule(id: 'a'),
+            rule(id: 'b'),
+          ],
+        );
+        final resolution = resolver.resolve(input);
+        final ambiguous = resolution as MappingAmbiguous;
+        expect(ambiguous.tiedRules.map((r) => r.id).toSet(), {'a', 'b'});
+      },
+    );
 
     test('instrument-only rule requires input instrument to match', () {
       final resolver = MappingRuleResolver(
@@ -170,7 +177,10 @@ void main() {
     test('merchant matcher filters non-matching merchants', () {
       final resolver = MappingRuleResolver(
         rules: [
-          rule(id: 'merchant', merchantMatcher: const ExactMerchantMatcher('CAFE')),
+          rule(
+            id: 'merchant',
+            merchantMatcher: const ExactMerchantMatcher('CAFE'),
+          ),
         ],
       );
       final unmatched = resolver.resolve(
@@ -208,12 +218,7 @@ void main() {
 
     test('direction mismatch excludes rank-3 rule', () {
       final resolver = MappingRuleResolver(
-        rules: [
-          rule(
-            id: 'creditOnly',
-            direction: TransactionDirection.credit,
-          ),
-        ],
+        rules: [rule(id: 'creditOnly', direction: TransactionDirection.credit)],
       );
       final resolution = resolver.resolve(
         const MappingResolutionInput(

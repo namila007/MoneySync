@@ -56,7 +56,8 @@ class _MappingRuleTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitleParts = <String>[
-      if (rule.senderMatcher.aliases.isNotEmpty) rule.senderMatcher.aliases.join(', '),
+      if (rule.senderMatcher.aliases.isNotEmpty)
+        rule.senderMatcher.aliases.join(', '),
       if (rule.instrumentSuffixHash != null)
         '••${rule.instrumentSuffixHash!.length > 4 ? rule.instrumentSuffixHash!.substring(rule.instrumentSuffixHash!.length - 4) : rule.instrumentSuffixHash}',
       rule.syncMode.name,

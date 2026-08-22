@@ -18,7 +18,8 @@ final class WalletMutationRecoveryService {
   WalletMutationRecoveryService({
     required this._dao,
     int Function()? nowEpochMs,
-  }) : _nowEpochMs = nowEpochMs ?? (() => DateTime.now().millisecondsSinceEpoch);
+  }) : _nowEpochMs =
+           nowEpochMs ?? (() => DateTime.now().millisecondsSinceEpoch);
 
   final WalletMutationsDao _dao;
   final int Function() _nowEpochMs;

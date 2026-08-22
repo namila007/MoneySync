@@ -65,10 +65,7 @@ void main() {
     );
     final useCase = SaveMappingRule(store: store);
 
-    final saved = await useCase.call(
-      draft: draft(),
-      editingRuleId: 'rule-1',
-    );
+    final saved = await useCase.call(draft: draft(), editingRuleId: 'rule-1');
     expect(saved.createdAtEpochMs, now);
   });
 }
@@ -105,7 +102,11 @@ final class _SaveRecord {
 }
 
 extension on MappingRule {
-  MappingRule copyWith({int? ruleVersion, String? name, int? createdAtEpochMs}) {
+  MappingRule copyWith({
+    int? ruleVersion,
+    String? name,
+    int? createdAtEpochMs,
+  }) {
     return MappingRule(
       id: id,
       name: name ?? this.name,

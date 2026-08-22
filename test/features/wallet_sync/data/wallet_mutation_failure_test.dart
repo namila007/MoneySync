@@ -27,17 +27,19 @@ void main() {
       }
     });
 
-    test('initial-sync 409 is retryable conflict honoring retry_after_minutes',
-        () {
-      final classification = classifyWalletMutationFailure(
-        statusCode: 409,
-        errorCode: 'init_sync_in_progress',
-        retryAfterMinutes: 5,
-        transmissionMayHaveBegun: false,
-      );
-      expect(classification, isA<RetryableConflict>());
-      expect((classification as RetryableConflict).retryAfterMinutes, 5);
-    });
+    test(
+      'initial-sync 409 is retryable conflict honoring retry_after_minutes',
+      () {
+        final classification = classifyWalletMutationFailure(
+          statusCode: 409,
+          errorCode: 'init_sync_in_progress',
+          retryAfterMinutes: 5,
+          transmissionMayHaveBegun: false,
+        );
+        expect(classification, isA<RetryableConflict>());
+        expect((classification as RetryableConflict).retryAfterMinutes, 5);
+      },
+    );
 
     test('other 409 is NOT blanket retried', () {
       expect(
@@ -80,49 +82,54 @@ void main() {
       );
     });
 
-    test('null status (DNS/offline/timeout) classifies by transmission state',
-        () {
-      expect(
-        classifyWalletMutationFailure(
-          statusCode: null,
-          transmissionMayHaveBegun: false,
-        ),
-        isA<RetryablePreTransmission>(),
-      );
-      expect(
-        classifyWalletMutationFailure(
-          statusCode: null,
-          transmissionMayHaveBegun: true,
-        ),
-        isA<AmbiguousPostTransmission>(),
-      );
-    });
+    test(
+      'null status (DNS/offline/timeout) classifies by transmission state',
+      () {
+        expect(
+          classifyWalletMutationFailure(
+            statusCode: null,
+            transmissionMayHaveBegun: false,
+          ),
+          isA<RetryablePreTransmission>(),
+        );
+        expect(
+          classifyWalletMutationFailure(
+            statusCode: null,
+            transmissionMayHaveBegun: true,
+          ),
+          isA<AmbiguousPostTransmission>(),
+        );
+      },
+    );
   });
 
   group('WalletMutationFailureMapper', () {
     const mapper = WalletMutationFailureMapper();
 
-    test('only AmbiguousPostTransmission maps to post-transmission ambiguity',
-        () {
-      final mapping = <WalletMutationFailureClassification, Type>{
-        const AmbiguousPostTransmission(): WalletMutationPostTransmissionAmbiguity,
-        const PermanentClientFailure(): WalletMutationClientFailure,
-        const AuthenticationRequired(): WalletMutationClientFailure,
-        const RetryableConflict(): WalletMutationServerFailure,
-        const RateLimited(): WalletMutationServerFailure,
-        const RetryablePreTransmission(): WalletMutationServerFailure,
-      };
-      for (final entry in mapping.entries) {
-        expect(
-          mapper.toPortResult(entry.key),
-          isA<WalletMutationResult>().having(
-            (r) => r.runtimeType,
-            'type',
-            entry.value,
-          ),
-        );
-      }
-    });
+    test(
+      'only AmbiguousPostTransmission maps to post-transmission ambiguity',
+      () {
+        final mapping = <WalletMutationFailureClassification, Type>{
+          const AmbiguousPostTransmission():
+              WalletMutationPostTransmissionAmbiguity,
+          const PermanentClientFailure(): WalletMutationClientFailure,
+          const AuthenticationRequired(): WalletMutationClientFailure,
+          const RetryableConflict(): WalletMutationServerFailure,
+          const RateLimited(): WalletMutationServerFailure,
+          const RetryablePreTransmission(): WalletMutationServerFailure,
+        };
+        for (final entry in mapping.entries) {
+          expect(
+            mapper.toPortResult(entry.key),
+            isA<WalletMutationResult>().having(
+              (r) => r.runtimeType,
+              'type',
+              entry.value,
+            ),
+          );
+        }
+      },
+    );
   });
 
   group('stateForClassification', () {

@@ -225,6 +225,7 @@ final class _FakeReviewOutboxWriter implements ReviewOutboxWriter {
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
     required DecisionTraceCode decisionTraceCode,
+    String? detailMessage,
   }) async {
     submits++;
     if (error case final e?) throw e;

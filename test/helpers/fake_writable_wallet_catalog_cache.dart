@@ -9,7 +9,8 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_connection_m
 /// gate test is written against this fixture — never against the real reader.
 final class FakeWritableWalletCatalogCache implements WalletCatalogCache {
   FakeWritableWalletCatalogCache({WalletCatalog? seed})
-    : _seed = seed ??
+    : _seed =
+          seed ??
           WalletCatalog(
             accounts: const [
               WalletAccount(

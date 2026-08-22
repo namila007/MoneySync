@@ -27,9 +27,9 @@ void main() {
     bool consentCurrent = true,
     bool connectionConnected = true,
     bool eligibleTargetAccount = true,
-    WalletAccountEligibility targetEligibility = WalletAccountEligibility.eligible,
-    MappingResolution mapping =
-        const MappingUnmatched(),
+    WalletAccountEligibility targetEligibility =
+        WalletAccountEligibility.eligible,
+    MappingResolution mapping = const MappingUnmatched(),
     int amountMinor = -4500,
     String currencyCode = 'LKR',
     DateTime? recordDateUtc,
@@ -108,10 +108,7 @@ void main() {
 
   group('AccountEligibilityGate', () {
     test('passes for an eligible account', () {
-      expect(
-        const AccountEligibilityGate().check(context()),
-        isA<GatePass>(),
-      );
+      expect(const AccountEligibilityGate().check(context()), isA<GatePass>());
     });
 
     test('blocks on unwritable account', () {
@@ -197,14 +194,14 @@ void main() {
     test('blocks ambiguous and unmatched', () {
       expect(
         const MappingResolutionGate().check(
-          context(
-            mapping: MappingAmbiguous([resolvedRule(), resolvedRule()]),
-          ),
+          context(mapping: MappingAmbiguous([resolvedRule(), resolvedRule()])),
         ),
         isA<GateBlock>(),
       );
       expect(
-        const MappingResolutionGate().check(context(mapping: const MappingUnmatched())),
+        const MappingResolutionGate().check(
+          context(mapping: const MappingUnmatched()),
+        ),
         isA<GateBlock>(),
       );
     });
@@ -212,10 +209,7 @@ void main() {
 
   group('CandidateValidationGate', () {
     test('passes valid same-currency candidate', () {
-      expect(
-        const CandidateValidationGate().check(context()),
-        isA<GatePass>(),
-      );
+      expect(const CandidateValidationGate().check(context()), isA<GatePass>());
     });
 
     test('blocks zero amount', () {
@@ -244,10 +238,7 @@ void main() {
 
   group('DuplicateTombstoneGate', () {
     test('passes with no lineage or owned link', () {
-      expect(
-        const DuplicateTombstoneGate().check(context()),
-        isA<GatePass>(),
-      );
+      expect(const DuplicateTombstoneGate().check(context()), isA<GatePass>());
     });
 
     test('blocks on active lineage', () {
@@ -324,16 +315,19 @@ void main() {
       expect(evaluation.outcomes[7], isA<GatePass>());
     });
 
-    test('first block short-circuits the allowed decision at first failure', () {
-      final evaluation = const WalletCreateEligibilityPolicy().evaluate(
-        context(
-          connectionConnected: false,
-          mapping: MappingResolved(resolvedRule()),
-        ),
-      );
-      expect(evaluation.allowed, isFalse);
-      expect(evaluation.firstBlockedGateIndex, 2);
-      expect(evaluation.firstBlockReason, contains('not connected'));
-    });
+    test(
+      'first block short-circuits the allowed decision at first failure',
+      () {
+        final evaluation = const WalletCreateEligibilityPolicy().evaluate(
+          context(
+            connectionConnected: false,
+            mapping: MappingResolved(resolvedRule()),
+          ),
+        );
+        expect(evaluation.allowed, isFalse);
+        expect(evaluation.firstBlockedGateIndex, 2);
+        expect(evaluation.firstBlockReason, contains('not connected'));
+      },
+    );
   });
 }

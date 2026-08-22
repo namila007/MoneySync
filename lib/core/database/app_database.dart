@@ -87,10 +87,10 @@ class WalletMutationStateConverter
     'permanent_failure' => WalletMutationState.permanentFailure,
     'superseded_before_send' => WalletMutationState.supersededBeforeSend,
     _ => throw ArgumentError.value(
-        fromDb,
-        'fromDb',
-        'Unknown WalletMutationState',
-      ),
+      fromDb,
+      'fromDb',
+      'Unknown WalletMutationState',
+    ),
   };
 
   @override
@@ -110,7 +110,8 @@ class WalletMutationStateConverter
 
 /// Persists [WalletItemLegRole] using plan/03 canonical snake_case values
 /// (`primary`, `transfer_source`, `transfer_mirror`).
-class WalletItemLegRoleConverter extends TypeConverter<WalletItemLegRole, String> {
+class WalletItemLegRoleConverter
+    extends TypeConverter<WalletItemLegRole, String> {
   const WalletItemLegRoleConverter();
 
   @override
@@ -118,7 +119,11 @@ class WalletItemLegRoleConverter extends TypeConverter<WalletItemLegRole, String
     'primary' => WalletItemLegRole.primary,
     'transfer_source' => WalletItemLegRole.transferSource,
     'transfer_mirror' => WalletItemLegRole.transferMirror,
-    _ => throw ArgumentError.value(fromDb, 'fromDb', 'Unknown WalletItemLegRole'),
+    _ => throw ArgumentError.value(
+      fromDb,
+      'fromDb',
+      'Unknown WalletItemLegRole',
+    ),
   };
 
   @override
@@ -326,6 +331,11 @@ class ActivityEvents extends Table {
   /// is safe for log-derived and pre-v10 rows; recovery actions read it to
   /// dispatch the REAL mutation id instead of a fabricated one.
   TextColumn get mutationId => text().nullable()();
+
+  /// Optional human-readable detail for the activity event (M5.15 Bug 8.1).
+  /// Nullable so pre-v11 rows stay valid; the UI falls back to the
+  /// ActivityStateTransition enum label when null.
+  TextColumn get detailMessage => text().nullable()();
 }
 
 class DecisionTraces extends Table {
@@ -458,7 +468,8 @@ class WalletRecordLinks extends Table {
   IntColumn get createdAtEpochMs => integer()();
 
   TextColumn get candidateId => text().nullable()();
-  TextColumn get legRole => text().map(const WalletItemLegRoleConverter()).nullable()();
+  TextColumn get legRole =>
+      text().map(const WalletItemLegRoleConverter()).nullable()();
   TextColumn get pairGroupId => text().nullable()();
   IntColumn get lastKnownRevision => integer().nullable()();
   TextColumn get lastKnownState => text().nullable()();
@@ -513,8 +524,7 @@ class MappingRules extends Table {
 /// Wallet batches are non-atomic (207). One mutation = one or more items.
 class WalletMutationItems extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get walletMutationId =>
-      text().references(WalletMutations, #id)();
+  TextColumn get walletMutationId => text().references(WalletMutations, #id)();
   IntColumn get itemIndex => integer()();
   TextColumn get legRole => text().map(const WalletItemLegRoleConverter())();
   TextColumn get walletRecordId => text().nullable()();
@@ -614,7 +624,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -943,14 +953,8 @@ class AppDatabase extends _$AppDatabase {
         // Widen wallet_mutations via ALTER-add-column (not recreate-and-copy:
         // v8 rows here are stub placeholders with no real create traffic).
         await m.addColumn(walletMutations, walletMutations.candidateId);
-        await m.addColumn(
-          walletMutations,
-          walletMutations.operationRevision,
-        );
-        await m.addColumn(
-          walletMutations,
-          walletMutations.lineageGeneration,
-        );
+        await m.addColumn(walletMutations, walletMutations.operationRevision);
+        await m.addColumn(walletMutations, walletMutations.lineageGeneration);
         await m.addColumn(
           walletMutations,
           walletMutations.payloadJsonCiphertext,
@@ -963,10 +967,7 @@ class AppDatabase extends _$AppDatabase {
         );
         await m.addColumn(walletMutations, walletMutations.leaseUntilEpochMs);
         await m.addColumn(walletMutations, walletMutations.lastHttpStatus);
-        await m.addColumn(
-          walletMutations,
-          walletMutations.walletCorrelationId,
-        );
+        await m.addColumn(walletMutations, walletMutations.walletCorrelationId);
 
         // Widen wallet_record_links.
         await m.addColumn(walletRecordLinks, walletRecordLinks.candidateId);
@@ -981,7 +982,10 @@ class AppDatabase extends _$AppDatabase {
           walletRecordLinks,
           walletRecordLinks.updatedAtEpochMs,
         );
-        await m.addColumn(walletRecordLinks, walletRecordLinks.deletedAtEpochMs);
+        await m.addColumn(
+          walletRecordLinks,
+          walletRecordLinks.deletedAtEpochMs,
+        );
         await m.addColumn(
           walletRecordLinks,
           walletRecordLinks.remoteDeletedTombstone,
@@ -1001,6 +1005,11 @@ class AppDatabase extends _$AppDatabase {
         // M5.14 gap 5: recovery actions must dispatch the REAL mutation id.
         // Nullable so log-derived and pre-v10 rows stay valid.
         await m.addColumn(activityEvents, activityEvents.mutationId);
+      }
+      if (from < 11) {
+        // M5.15 Bug 8.1: human-readable detail for activity events.
+        // Nullable so pre-v11 rows stay valid.
+        await m.addColumn(activityEvents, activityEvents.detailMessage);
       }
     },
   );
@@ -1191,12 +1200,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// Records one sanitized activity event (no candidate, no trace).
   /// [count] aggregates a batch (M4.15 WP3) — null for single-item events.
+  /// [detailMessage] is an optional human-readable detail (M5.15 Bug 8.1).
   Future<void> insertActivity({
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
     required int occurredAtEpochMs,
     required int privacyEpoch,
     int? count,
+    String? detailMessage,
   }) {
     return transaction(() async {
       await _requireCurrentPrivacyEpoch(privacyEpoch);
@@ -1207,6 +1218,7 @@ class AppDatabase extends _$AppDatabase {
           occurredAtEpochMs: occurredAtEpochMs,
           privacyEpoch: privacyEpoch,
           batchCount: Value(count),
+          detailMessage: Value(detailMessage),
         ),
       );
     });

@@ -14,22 +14,24 @@ final class DriftMappingRuleStore implements MappingRuleStore {
   final AppDatabase _database;
 
   @override
-  Future<List<MappingRule>> list() async {    final rows = await (_database.select(_database.mappingRules)
-          ..orderBy([
-            (t) => OrderingTerm.desc(t.enabled),
-            (t) => OrderingTerm.asc(t.name),
-          ]))
-        .get();
+  Future<List<MappingRule>> list() async {
+    final rows =
+        await (_database.select(_database.mappingRules)..orderBy([
+              (t) => OrderingTerm.desc(t.enabled),
+              (t) => OrderingTerm.asc(t.name),
+            ]))
+            .get();
     return rows.map(_toDomain).toList();
   }
 
   @override
   Future<MappingRule?> latest(String ruleId) async {
-    final rows = await (_database.select(_database.mappingRules)
-          ..where((t) => t.id.equals(ruleId))
-          ..orderBy([(t) => OrderingTerm.desc(t.ruleVersion)])
-          ..limit(1))
-        .get();
+    final rows =
+        await (_database.select(_database.mappingRules)
+              ..where((t) => t.id.equals(ruleId))
+              ..orderBy([(t) => OrderingTerm.desc(t.ruleVersion)])
+              ..limit(1))
+            .get();
     return rows.isEmpty ? null : _toDomain(rows.single);
   }
 
@@ -50,19 +52,18 @@ final class DriftMappingRuleStore implements MappingRuleStore {
             .getSingle();
         final previousVersion = previous.read<int?>('v');
         if (previousVersion != null) {
-          await (_database.update(_database.mappingRules)
-                ..where(
-                  (t) =>
-                      t.id.equals(supersededRuleId) &
-                      t.ruleVersion.equals(previousVersion),
-                ))
+          await (_database.update(_database.mappingRules)..where(
+                (t) =>
+                    t.id.equals(supersededRuleId) &
+                    t.ruleVersion.equals(previousVersion),
+              ))
               .write(
-            MappingRulesCompanion(
-              enabled: const Value(false),
-              supersededByRuleId: Value(rule.id),
-              updatedAtEpochMs: Value(rule.updatedAtEpochMs),
-            ),
-          );
+                MappingRulesCompanion(
+                  enabled: const Value(false),
+                  supersededByRuleId: Value(rule.id),
+                  updatedAtEpochMs: Value(rule.updatedAtEpochMs),
+                ),
+              );
         }
       }
       await _database.into(_database.mappingRules).insert(_fromDomain(rule));
@@ -126,7 +127,8 @@ final class DriftMappingRuleStore implements MappingRuleStore {
   }
 
   static MerchantMatcher _merchantMatcherFromJson(String json) {
-    final map = (jsonDecode(json) as Map<dynamic, dynamic>).cast<String, dynamic>();
+    final map = (jsonDecode(json) as Map<dynamic, dynamic>)
+        .cast<String, dynamic>();
     return switch (map['kind']) {
       'exact' => ExactMerchantMatcher(map['value'] as String),
       'contains' => ContainsMerchantMatcher(map['value'] as String),
@@ -136,9 +138,13 @@ final class DriftMappingRuleStore implements MappingRuleStore {
 
   static String _merchantMatcherToJson(MerchantMatcher matcher) =>
       switch (matcher) {
-        ExactMerchantMatcher(merchant: final v) =>
-          jsonEncode({'kind': 'exact', 'value': v}),
-        ContainsMerchantMatcher(fragment: final f) =>
-          jsonEncode({'kind': 'contains', 'value': f}),
+        ExactMerchantMatcher(merchant: final v) => jsonEncode({
+          'kind': 'exact',
+          'value': v,
+        }),
+        ContainsMerchantMatcher(fragment: final f) => jsonEncode({
+          'kind': 'contains',
+          'value': f,
+        }),
       };
 }

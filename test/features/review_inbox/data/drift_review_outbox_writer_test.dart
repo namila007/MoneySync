@@ -19,16 +19,18 @@ void main() {
   tearDown(() => database.close());
 
   Future<int> insertSmsEvent(String sourceKey) async {
-    return database.into(database.smsEvents).insert(
-      SmsEventsCompanion.insert(
-        sourceKey: sourceKey,
-        senderKey: 'BANK ALPHA',
-        ingestionSource: 'manual_paste',
-        receivedAtEpochMs: 1_700_000_000_000,
-        status: SmsEventStatus.review,
-        privacyEpoch: 0,
-      ),
-    );
+    return database
+        .into(database.smsEvents)
+        .insert(
+          SmsEventsCompanion.insert(
+            sourceKey: sourceKey,
+            senderKey: 'BANK ALPHA',
+            ingestionSource: 'manual_paste',
+            receivedAtEpochMs: 1_700_000_000_000,
+            status: SmsEventStatus.review,
+            privacyEpoch: 0,
+          ),
+        );
   }
 
   Future<void> submit({String? candidateId, int? smsEventId}) async {
@@ -64,22 +66,26 @@ void main() {
   }
 
   group('atomic review -> outbox write', () {
-    test('writes candidate, mutation, item, activity, and trace together',
-        () async {
-      await submit();
+    test(
+      'writes candidate, mutation, item, activity, and trace together',
+      () async {
+        await submit();
 
-      expect(await database.transactionCandidates.count().getSingle(), 1);
-      expect(await database.walletMutations.count().getSingle(), 1);
-      expect(await database.walletMutationItems.count().getSingle(), 1);
-      expect(await database.activityEvents.count().getSingle(), 1);
-      expect(await database.decisionTraces.count().getSingle(), 1);
+        expect(await database.transactionCandidates.count().getSingle(), 1);
+        expect(await database.walletMutations.count().getSingle(), 1);
+        expect(await database.walletMutationItems.count().getSingle(), 1);
+        expect(await database.activityEvents.count().getSingle(), 1);
+        expect(await database.decisionTraces.count().getSingle(), 1);
 
-      final mutation = await database.select(database.walletMutations).getSingle();
-      expect(mutation.operationKind, WalletMutationOperation.create);
-      expect(mutation.state, WalletMutationState.queued);
-      expect(mutation.candidateId, 'candidate-1');
-      expect(mutation.lineageGeneration, 1);
-    });
+        final mutation = await database
+            .select(database.walletMutations)
+            .getSingle();
+        expect(mutation.operationKind, WalletMutationOperation.create);
+        expect(mutation.state, WalletMutationState.queued);
+        expect(mutation.candidateId, 'candidate-1');
+        expect(mutation.lineageGeneration, 1);
+      },
+    );
 
     test(
       'reviewing an ingest-created candidate UPDATES it in place: exactly one '
@@ -146,49 +152,48 @@ void main() {
   });
 
   group('atomic rollback', () {
-    test(
-      'a mid-transaction failure rolls back ALL writes (no partial '
-      'state observable)',
-      () async {
-        final eventId = await insertSmsEvent('source-rollback');
+    test('a mid-transaction failure rolls back ALL writes (no partial '
+        'state observable)', () async {
+      final eventId = await insertSmsEvent('source-rollback');
 
-        // Force the wallet_mutations insert (step 2 of the transaction) to
-        // violate the partial unique active-lineage index by pre-inserting an
-        // active create mutation for the same candidate+generation. This is a
-        // realistic mid-transaction failure (a concurrent submit that won),
-        // after the candidate UPSERT (step 1) has already run. Everything must
-        // roll back — including the candidate update.
-        await database.into(database.walletMutations).insert(
-          WalletMutationsCompanion.insert(
-            id: 'mutation-pre-existing',
-            operationKind: WalletMutationOperation.create,
-            payload: '{}',
-            state: WalletMutationState.queued,
-            lineageKey: 'lineage-key-rollback-candidate',
-            fingerprint: 'fingerprint-rollback-candidate',
-            createdAtEpochMs: 1_700_000_000_000,
-            updatedAtEpochMs: 1_700_000_000_000,
-            candidateId: const Value('rollback-candidate'),
-            operationRevision: const Value(1),
-            lineageGeneration: const Value(1),
-          ),
-        );
+      // Force the wallet_mutations insert (step 2 of the transaction) to
+      // violate the partial unique active-lineage index by pre-inserting an
+      // active create mutation for the same candidate+generation. This is a
+      // realistic mid-transaction failure (a concurrent submit that won),
+      // after the candidate UPSERT (step 1) has already run. Everything must
+      // roll back — including the candidate update.
+      await database
+          .into(database.walletMutations)
+          .insert(
+            WalletMutationsCompanion.insert(
+              id: 'mutation-pre-existing',
+              operationKind: WalletMutationOperation.create,
+              payload: '{}',
+              state: WalletMutationState.queued,
+              lineageKey: 'lineage-key-rollback-candidate',
+              fingerprint: 'fingerprint-rollback-candidate',
+              createdAtEpochMs: 1_700_000_000_000,
+              updatedAtEpochMs: 1_700_000_000_000,
+              candidateId: const Value('rollback-candidate'),
+              operationRevision: const Value(1),
+              lineageGeneration: const Value(1),
+            ),
+          );
 
-        await expectLater(
-          submit(candidateId: 'rollback-candidate', smsEventId: eventId),
-          throwsA(isA<UniqueLineageViolationException>()),
-        );
+      await expectLater(
+        submit(candidateId: 'rollback-candidate', smsEventId: eventId),
+        throwsA(isA<UniqueLineageViolationException>()),
+      );
 
-        // Nothing from the failed transaction may be observable: no mutation,
-        // no item, no activity event, no decision trace, and the candidate
-        // UPSERT that ran before the failure must also be rolled back.
-        expect(await database.walletMutations.count().getSingle(), 1);
-        expect(await database.walletMutationItems.count().getSingle(), 0);
-        expect(await database.activityEvents.count().getSingle(), 0);
-        expect(await database.decisionTraces.count().getSingle(), 0);
-        expect(await database.transactionCandidates.count().getSingle(), 0);
-      },
-    );
+      // Nothing from the failed transaction may be observable: no mutation,
+      // no item, no activity event, no decision trace, and the candidate
+      // UPSERT that ran before the failure must also be rolled back.
+      expect(await database.walletMutations.count().getSingle(), 1);
+      expect(await database.walletMutationItems.count().getSingle(), 0);
+      expect(await database.activityEvents.count().getSingle(), 0);
+      expect(await database.decisionTraces.count().getSingle(), 0);
+      expect(await database.transactionCandidates.count().getSingle(), 0);
+    });
   });
 
   group('double-submit prevention', () {
@@ -222,9 +227,7 @@ void main() {
         ).catchError((_) => null),
       ]);
 
-      final rows = await database
-          .select(database.walletMutations)
-          .get();
+      final rows = await database.select(database.walletMutations).get();
       final active = rows
           .where(
             (r) =>

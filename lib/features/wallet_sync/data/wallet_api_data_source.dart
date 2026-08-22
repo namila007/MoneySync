@@ -74,5 +74,6 @@ final class WalletApiDataSourceException implements Exception {
   final WalletMutationFailureClassification classification;
 
   @override
-  String toString() => 'WalletApiDataSourceException(${classification.runtimeType})';
+  String toString() =>
+      'WalletApiDataSourceException(${classification.runtimeType})';
 }

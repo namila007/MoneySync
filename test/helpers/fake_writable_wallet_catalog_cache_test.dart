@@ -17,13 +17,16 @@ void main() {
       expect(manual.eligibility, WalletAccountEligibility.eligible);
     });
 
-    test('bank-synced account stays blocked even when flagged writable', () async {
-      final cache = FakeWritableWalletCatalogCache();
-      final catalog = await cache.read();
+    test(
+      'bank-synced account stays blocked even when flagged writable',
+      () async {
+        final cache = FakeWritableWalletCatalogCache();
+        final catalog = await cache.read();
 
-      final bank = catalog!.accounts.firstWhere((a) => a.id == 'bank-lkr-1');
-      expect(bank.eligibility, WalletAccountEligibility.bankSynced);
-    });
+        final bank = catalog!.accounts.firstWhere((a) => a.id == 'bank-lkr-1');
+        expect(bank.eligibility, WalletAccountEligibility.bankSynced);
+      },
+    );
 
     test('cache read is repeatable (stable catalog)', () async {
       final cache = FakeWritableWalletCatalogCache();

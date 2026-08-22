@@ -114,8 +114,9 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
           ? null
           : switch (_merchantKind) {
               MerchantMatcherKind.exact => ExactMerchantMatcher(merchantText),
-              MerchantMatcherKind.contains =>
-                ContainsMerchantMatcher(merchantText),
+              MerchantMatcherKind.contains => ContainsMerchantMatcher(
+                merchantText,
+              ),
             },
       walletAccountId: _walletAccountId!,
       walletCategoryId: _walletCategoryId,
@@ -142,11 +143,14 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
         'v${draft.ruleVersion}',
       );
       // Activity logging (Bug 8.3). Best-effort, never blocks UI.
-      _logActivity(ActivityEventCode.mappingRuleCreated);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mapping saved.')),
+      _logActivity(
+        ActivityEventCode.mappingRuleCreated,
+        message: 'Mapping rule saved',
       );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Mapping saved.')));
       Navigator.of(context).pop();
     } catch (e, s) {
       log.error('Failed to save mapping rule', e, s);
@@ -159,7 +163,7 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
   }
 
   // ponytail: best-effort activity logging, never blocks UI on failure.
-  void _logActivity(ActivityEventCode code) {
+  void _logActivity(ActivityEventCode code, {String? message}) {
     try {
       final db = ref.read(appDatabaseProvider).asData?.value;
       if (db == null) return;
@@ -169,6 +173,7 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
           safeDetailCode: ActivityStateTransition.logEvent,
           occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
           privacyEpoch: setting?.privacyEpoch ?? 0,
+          detailMessage: message,
         );
       });
     } catch (_) {}
@@ -191,9 +196,8 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Rule name'),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Enter a rule name'
-                  : null,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Enter a rule name' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -326,12 +330,15 @@ class _WalletAccountPicker extends ConsumerWidget {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: selectedAccountId,
-                  decoration: const InputDecoration(labelText: 'Wallet account'),
+                  decoration: const InputDecoration(
+                    labelText: 'Wallet account',
+                  ),
                   items: [
                     for (final account in lkrAccounts)
                       DropdownMenuItem(
                         value: account.id,
-                        enabled: account.eligibility ==
+                        enabled:
+                            account.eligibility ==
                             WalletAccountEligibility.eligible,
                         child: Text(
                           account.isBankSynced
@@ -343,12 +350,14 @@ class _WalletAccountPicker extends ConsumerWidget {
                   onChanged: (id) {
                     if (id == null) return;
                     final account = lkrAccounts.firstWhere((a) => a.id == id);
-                    if (account.eligibility != WalletAccountEligibility.eligible) {
+                    if (account.eligibility !=
+                        WalletAccountEligibility.eligible) {
                       return;
                     }
                     onAccountChanged(id, null);
                   },
-                  validator: (v) => v == null ? 'Choose a Wallet account' : null,
+                  validator: (v) =>
+                      v == null ? 'Choose a Wallet account' : null,
                 ),
                 if (lkrAccounts.any(
                   (a) => a.eligibility != WalletAccountEligibility.eligible,
@@ -386,8 +395,10 @@ class _WalletAccountPicker extends ConsumerWidget {
           },
         ),
         if (selectedCategoryId != null)
-          Text('Category: $selectedCategoryId',
-              style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            'Category: $selectedCategoryId',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
       ],
     );
   }
@@ -503,7 +514,9 @@ class RulePreviewPanel extends StatelessWidget {
       return ListTile(
         dense: true,
         contentPadding: EdgeInsets.zero,
-        title: Text('${sample.senderNormalized} · ${sample.instrumentSuffixHash ?? 'no instrument'}'),
+        title: Text(
+          '${sample.senderNormalized} · ${sample.instrumentSuffixHash ?? 'no instrument'}',
+        ),
         trailing: Text(label),
       );
     }).toList();
@@ -514,7 +527,10 @@ class RulePreviewPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Preview (sample candidates)', style: Theme.of(context).textTheme.titleSmall),
+            Text(
+              'Preview (sample candidates)',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
             const SizedBox(height: 4),
             ...rows,
           ],

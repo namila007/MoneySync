@@ -28,7 +28,7 @@ void main() {
     test('fresh install reports schema version 9', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
     });
 
     test('v9 tables exist on a fresh database', () async {
@@ -56,26 +56,29 @@ void main() {
           )
           .get();
       final names = cols.map((r) => r.read<String>('name')).toSet();
-      expect(names, containsAll([
-        'id',
-        'operation_kind',
-        'payload',
-        'state',
-        'lineage_key',
-        'fingerprint',
-        'created_at_epoch_ms',
-        'updated_at_epoch_ms',
-        'candidate_id',
-        'operation_revision',
-        'lineage_generation',
-        'payload_json_ciphertext',
-        'source_marker',
-        'attempt_count',
-        'next_attempt_at_epoch_ms',
-        'lease_until_epoch_ms',
-        'last_http_status',
-        'wallet_correlation_id',
-      ]));
+      expect(
+        names,
+        containsAll([
+          'id',
+          'operation_kind',
+          'payload',
+          'state',
+          'lineage_key',
+          'fingerprint',
+          'created_at_epoch_ms',
+          'updated_at_epoch_ms',
+          'candidate_id',
+          'operation_revision',
+          'lineage_generation',
+          'payload_json_ciphertext',
+          'source_marker',
+          'attempt_count',
+          'next_attempt_at_epoch_ms',
+          'lease_until_epoch_ms',
+          'last_http_status',
+          'wallet_correlation_id',
+        ]),
+      );
     });
 
     test('wallet_record_links carries all v9 columns', () async {
@@ -89,20 +92,23 @@ void main() {
           )
           .get();
       final names = cols.map((r) => r.read<String>('name')).toSet();
-      expect(names, containsAll([
-        'id',
-        'app_id',
-        'remote_id',
-        'created_at_epoch_ms',
-        'candidate_id',
-        'leg_role',
-        'pair_group_id',
-        'last_known_revision',
-        'last_known_state',
-        'updated_at_epoch_ms',
-        'deleted_at_epoch_ms',
-        'remote_deleted_tombstone',
-      ]));
+      expect(
+        names,
+        containsAll([
+          'id',
+          'app_id',
+          'remote_id',
+          'created_at_epoch_ms',
+          'candidate_id',
+          'leg_role',
+          'pair_group_id',
+          'last_known_revision',
+          'last_known_state',
+          'updated_at_epoch_ms',
+          'deleted_at_epoch_ms',
+          'remote_deleted_tombstone',
+        ]),
+      );
     });
 
     test('transaction_candidates has a stable text candidateId', () async {
@@ -152,38 +158,37 @@ void main() {
       expect(sql.toLowerCase(), contains('operation_kind'));
     });
 
-    test(
-      'two active creates for the same (candidate_id, lineage_generation) '
-      'are rejected',
-      () async {
-        final db = AppDatabase.inMemoryForTesting();
-        addTearDown(db.close);
+    test('two active creates for the same (candidate_id, lineage_generation) '
+        'are rejected', () async {
+      final db = AppDatabase.inMemoryForTesting();
+      addTearDown(db.close);
 
-        Future<void> insertActiveCreate({String? candidateId}) {
-          return db.into(db.walletMutations).insert(
-            WalletMutationsCompanion.insert(
-              id: candidateId == null ? 'm1' : 'm2',
-              operationKind: WalletMutationOperation.create,
-              payload: '{}',
-              state: WalletMutationState.queued,
-              lineageKey: 'lk',
-              fingerprint: 'fp',
-              createdAtEpochMs: 1,
-              updatedAtEpochMs: 1,
-              candidateId: Value(candidateId ?? 'candidate-1'),
-              operationRevision: const Value(1),
-              lineageGeneration: const Value(1),
-            ),
-          );
-        }
+      Future<void> insertActiveCreate({String? candidateId}) {
+        return db
+            .into(db.walletMutations)
+            .insert(
+              WalletMutationsCompanion.insert(
+                id: candidateId == null ? 'm1' : 'm2',
+                operationKind: WalletMutationOperation.create,
+                payload: '{}',
+                state: WalletMutationState.queued,
+                lineageKey: 'lk',
+                fingerprint: 'fp',
+                createdAtEpochMs: 1,
+                updatedAtEpochMs: 1,
+                candidateId: Value(candidateId ?? 'candidate-1'),
+                operationRevision: const Value(1),
+                lineageGeneration: const Value(1),
+              ),
+            );
+      }
 
-        await insertActiveCreate(candidateId: 'candidate-1');
-        await expectLater(
-          insertActiveCreate(candidateId: 'candidate-1'),
-          throwsA(isA<SqliteException>()),
-        );
-      },
-    );
+      await insertActiveCreate(candidateId: 'candidate-1');
+      await expectLater(
+        insertActiveCreate(candidateId: 'candidate-1'),
+        throwsA(isA<SqliteException>()),
+      );
+    });
 
     test(
       'a create outside the active-state window is not deduplicated',
@@ -192,21 +197,23 @@ void main() {
         addTearDown(db.close);
 
         Future<void> insertPermanentFailure({required String id}) {
-          return db.into(db.walletMutations).insert(
-            WalletMutationsCompanion.insert(
-              id: id,
-              operationKind: WalletMutationOperation.create,
-              payload: '{}',
-              state: WalletMutationState.permanentFailure,
-              lineageKey: 'lk',
-              fingerprint: 'fp',
-              createdAtEpochMs: 1,
-              updatedAtEpochMs: 1,
-              candidateId: const Value('candidate-1'),
-              operationRevision: const Value(1),
-              lineageGeneration: const Value(1),
-            ),
-          );
+          return db
+              .into(db.walletMutations)
+              .insert(
+                WalletMutationsCompanion.insert(
+                  id: id,
+                  operationKind: WalletMutationOperation.create,
+                  payload: '{}',
+                  state: WalletMutationState.permanentFailure,
+                  lineageKey: 'lk',
+                  fingerprint: 'fp',
+                  createdAtEpochMs: 1,
+                  updatedAtEpochMs: 1,
+                  candidateId: const Value('candidate-1'),
+                  operationRevision: const Value(1),
+                  lineageGeneration: const Value(1),
+                ),
+              );
         }
 
         await insertPermanentFailure(id: 'm1');
@@ -216,30 +223,35 @@ void main() {
       },
     );
 
-    test('remote_id unique index only applies to non-null remote ids', () async {
-      final db = AppDatabase.inMemoryForTesting();
-      addTearDown(db.close);
+    test(
+      'remote_id unique index only applies to non-null remote ids',
+      () async {
+        final db = AppDatabase.inMemoryForTesting();
+        addTearDown(db.close);
 
-      Future<void> insert({required String id, String? remoteId}) {
-        return db.into(db.walletRecordLinks).insert(
-          WalletRecordLinksCompanion.insert(
-            id: id,
-            appId: 'app-$id',
-            remoteId: Value(remoteId),
-            createdAtEpochMs: 1,
-          ),
+        Future<void> insert({required String id, String? remoteId}) {
+          return db
+              .into(db.walletRecordLinks)
+              .insert(
+                WalletRecordLinksCompanion.insert(
+                  id: id,
+                  appId: 'app-$id',
+                  remoteId: Value(remoteId),
+                  createdAtEpochMs: 1,
+                ),
+              );
+        }
+
+        await insert(id: 'r1', remoteId: null);
+        await insert(id: 'r2', remoteId: null);
+        await insert(id: 'r3', remoteId: 'remote-x');
+
+        await expectLater(
+          insert(id: 'r4', remoteId: 'remote-x'),
+          throwsA(isA<SqliteException>()),
         );
-      }
-
-      await insert(id: 'r1', remoteId: null);
-      await insert(id: 'r2', remoteId: null);
-      await insert(id: 'r3', remoteId: 'remote-x');
-
-      await expectLater(
-        insert(id: 'r4', remoteId: 'remote-x'),
-        throwsA(isA<SqliteException>()),
-      );
-    });
+      },
+    );
   });
 
   group('M5.1 v8 -> v9 upgrade', () {
@@ -336,7 +348,7 @@ void main() {
       final db = await migrateFrom(8, seedV8Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 10);
+      expect(db.schemaVersion, 11);
 
       final mutations = await db.select(db.walletMutations).get();
       expect(mutations, hasLength(1));

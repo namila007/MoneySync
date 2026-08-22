@@ -152,7 +152,10 @@ void main() {
 
     await tester.ensureVisible(find.text('Creating…'));
     final button = tester.widget<FilledButton>(
-      find.ancestor(of: find.text('Creating…'), matching: find.byType(FilledButton)),
+      find.ancestor(
+        of: find.text('Creating…'),
+        matching: find.byType(FilledButton),
+      ),
     );
     expect(button.onPressed, isNull);
   });

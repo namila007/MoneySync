@@ -86,9 +86,8 @@ GoRouter createAppRouter() {
               ),
               GoRoute(
                 path: ':id/edit',
-                builder: (context, state) => MappingEditorPage(
-                  ruleId: state.pathParameters['id'],
-                ),
+                builder: (context, state) =>
+                    MappingEditorPage(ruleId: state.pathParameters['id']),
               ),
             ],
           ),

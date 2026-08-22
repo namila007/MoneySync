@@ -63,6 +63,7 @@ final class ImportSmsHistory {
         occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         privacyEpoch: privacyEpoch,
         count: imported,
+        detailMessage: '$imported messages imported',
       );
       _log.info('Recorded aggregate import activity: $imported messages');
     } catch (e) {
@@ -84,6 +85,7 @@ final class ImportSmsHistory {
         occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         privacyEpoch: privacyEpoch,
         count: count,
+        detailMessage: '$count transactions need review',
       );
       _log.info('Recorded aggregate candidate activity: $count need review');
     } catch (e) {

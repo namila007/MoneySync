@@ -144,16 +144,20 @@ final class MappingResolutionGate extends PreSendGate {
   const MappingResolutionGate();
 
   @override
-  GateResult check(PreSendContext context) => switch (context.mappingResolution) {
-    MappingResolved(:final rule) => _ruleAllowed(context, rule),
-    MappingAmbiguous() => const GateBlock('Mapping is ambiguous. Review first.'),
-    MappingUnmatched() => const GateBlock('No mapping rule matched.'),
-  };
+  GateResult check(PreSendContext context) =>
+      switch (context.mappingResolution) {
+        MappingResolved(:final rule) => _ruleAllowed(context, rule),
+        MappingAmbiguous() => const GateBlock(
+          'Mapping is ambiguous. Review first.',
+        ),
+        MappingUnmatched() => const GateBlock('No mapping rule matched.'),
+      };
 
   GateResult _ruleAllowed(PreSendContext context, MappingRule rule) {
     final automaticAllowed = switch (rule.syncMode) {
-      MappingSyncMode.automatic => context.confidenceBasisPoints >=
-          (rule.minConfidenceBasisPoints ?? 9000),
+      MappingSyncMode.automatic =>
+        context.confidenceBasisPoints >=
+            (rule.minConfidenceBasisPoints ?? 9000),
       _ => true,
     };
     return automaticAllowed
@@ -179,9 +183,7 @@ final class CandidateValidationGate extends PreSendGate {
       return const GateBlock('Record date is outside Wallet accepted bounds.');
     }
     if (context.currencyCode.toUpperCase() != 'LKR') {
-      return const GateBlock(
-        'Foreign-currency create is review-only in M5.',
-      );
+      return const GateBlock('Foreign-currency create is review-only in M5.');
     }
     return const GatePass();
   }

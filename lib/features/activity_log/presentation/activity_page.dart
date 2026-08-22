@@ -46,9 +46,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     ref.invalidate(filteredActivityLogProvider(_filter));
-                    await ref.read(
-                      filteredActivityLogProvider(_filter).future,
-                    );
+                    await ref.read(filteredActivityLogProvider(_filter).future);
                   },
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -120,7 +118,7 @@ class _ActivityTile extends StatelessWidget {
             ? '${entry.count} messages imported'
             : _labelFor(entry.code),
       ),
-      subtitle: Text(_detailFor(entry.detail)),
+      subtitle: Text(entry.detailMessage ?? _detailFor(entry.detail)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,

@@ -49,10 +49,7 @@ void main() {
 
   test('rejects attempt < 1', () {
     final scheduler = RetryScheduler(random: Random(4));
-    expect(
-      () => scheduler.nextDelay(0),
-      throwsArgumentError,
-    );
+    expect(() => scheduler.nextDelay(0), throwsArgumentError);
   });
 
   test('default exponential backoff doubles each attempt from the base', () {

@@ -14,6 +14,7 @@ final class ActivityLogEntry {
     required this.privacyEpoch,
     this.count,
     this.mutationId,
+    this.detailMessage,
   });
 
   final int id;
@@ -29,14 +30,15 @@ final class ActivityLogEntry {
   /// The outbox mutation this entry describes (M5.14). Null for
   /// log-derived/pre-v10 rows; recovery actions dispatch this REAL id.
   final String? mutationId;
+
+  /// Optional human-readable detail (M5.15 Bug 8.1). Null for pre-v11
+  /// rows; the UI falls back to the [detail] enum label when null.
+  final String? detailMessage;
 }
 
 /// Read-only port over the local activity log.
 abstract interface class ActivityLogRepository {
   /// Most recent entries first, capped at [limit]. When [code] is set, only
   /// entries of that event type are returned (M5.12 filters).
-  Future<List<ActivityLogEntry>> recent({
-    int limit,
-    ActivityEventCode? code,
-  });
+  Future<List<ActivityLogEntry>> recent({int limit, ActivityEventCode? code});
 }

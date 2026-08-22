@@ -46,6 +46,7 @@ abstract interface class ReviewOutboxWriter {
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
     required DecisionTraceCode decisionTraceCode,
+    String? detailMessage,
   });
 
   /// True when an active create lineage already exists for [candidateId]
@@ -57,10 +58,7 @@ abstract interface class ReviewOutboxWriter {
 /// is the only place a Wallet create enters the queue, so double-submit must
 /// never produce two active mutation rows for the same candidate.
 final class ReviewTransactionUseCase {
-  ReviewTransactionUseCase({
-    required this._writer,
-    required this._policy,
-  });
+  ReviewTransactionUseCase({required this._writer, required this._policy});
 
   final ReviewOutboxWriter _writer;
   final WalletCreateEligibilityPolicy _policy;
@@ -82,6 +80,7 @@ final class ReviewTransactionUseCase {
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
     required DecisionTraceCode decisionTraceCode,
+    String? detailMessage,
   }) async {
     final evaluation = _policy.evaluate(context);
     if (!evaluation.allowed) {
@@ -108,10 +107,14 @@ final class ReviewTransactionUseCase {
         activityType: activityType,
         safeDetailCode: safeDetailCode,
         decisionTraceCode: decisionTraceCode,
+        detailMessage: detailMessage,
       );
       return const ReviewSubmitted();
     } on StalePrivacyEpochException {
-      return const ReviewBlocked(0, 'Stale privacy epoch. Re-confirm before sending.');
+      return const ReviewBlocked(
+        0,
+        'Stale privacy epoch. Re-confirm before sending.',
+      );
     } on UniqueLineageViolationException {
       return const ReviewDuplicate();
     }

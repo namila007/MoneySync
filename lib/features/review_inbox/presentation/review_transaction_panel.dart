@@ -35,7 +35,8 @@ class ReviewTransactionPanel extends ConsumerStatefulWidget {
       _ReviewTransactionPanelState();
 }
 
-class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel> {
+class _ReviewTransactionPanelState
+    extends ConsumerState<ReviewTransactionPanel> {
   final _amountController = TextEditingController();
   final _counterpartyController = TextEditingController();
   TransactionKind _kind = TransactionKind.expense;
@@ -112,7 +113,9 @@ class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(reviewTransactionControllerProvider(widget.smsEventId));
+    final state = ref.watch(
+      reviewTransactionControllerProvider(widget.smsEventId),
+    );
 
     return Card(
       child: Padding(
@@ -213,10 +216,7 @@ class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel>
                   value: 'credit_card',
                   child: Text('Credit card'),
                 ),
-                DropdownMenuItem(
-                  value: 'transfer',
-                  child: Text('Transfer'),
-                ),
+                DropdownMenuItem(value: 'transfer', child: Text('Transfer')),
               ],
               onChanged: (v) {
                 if (v != null) {
@@ -254,9 +254,7 @@ class _ReviewTransactionPanelState extends ConsumerState<ReviewTransactionPanel>
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   reason,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
             const SizedBox(height: 12),
@@ -369,7 +367,10 @@ class _GateList extends StatelessWidget {
 /// Wallet target picker: bank-synced/archived accounts stay visible but
 /// disabled (plan/04 mapping editor rule, reused here).
 class _TargetAccountPicker extends ConsumerWidget {
-  const _TargetAccountPicker({required this.selectedAccountId, required this.onChanged});
+  const _TargetAccountPicker({
+    required this.selectedAccountId,
+    required this.onChanged,
+  });
 
   final String? selectedAccountId;
   final ValueChanged<String> onChanged;
@@ -403,7 +404,8 @@ class _TargetAccountPicker extends ConsumerWidget {
             for (final account in lkrAccounts)
               DropdownMenuItem(
                 value: account.id,
-                enabled: account.eligibility == WalletAccountEligibility.eligible,
+                enabled:
+                    account.eligibility == WalletAccountEligibility.eligible,
                 child: Text(
                   account.isBankSynced
                       ? '${account.name} (bank-synced)'
@@ -414,7 +416,8 @@ class _TargetAccountPicker extends ConsumerWidget {
           onChanged: (id) {
             if (id == null) return;
             final account = lkrAccounts.firstWhere((a) => a.id == id);
-            if (account.eligibility != WalletAccountEligibility.eligible) return;
+            if (account.eligibility != WalletAccountEligibility.eligible)
+              return;
             onChanged(id);
           },
         );

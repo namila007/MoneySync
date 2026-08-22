@@ -8,7 +8,9 @@ void main() {
   ProviderScope wrap(HomeWalletHealth health) {
     return ProviderScope(
       overrides: [
-        homeSummaryProvider.overrideWith((ref) async => (imported: 5, candidates: 3)),
+        homeSummaryProvider.overrideWith(
+          (ref) async => (imported: 5, candidates: 3),
+        ),
         homeWalletHealthProvider.overrideWith((ref) => Stream.value(health)),
       ],
       child: const MaterialApp(home: HomePage()),
@@ -18,11 +20,7 @@ void main() {
   testWidgets('renders review / retry / waiting counters', (tester) async {
     await tester.pumpWidget(
       wrap(
-        const HomeWalletHealth(
-          reviewCount: 3,
-          retryCount: 1,
-          waitingCount: 2,
-        ),
+        const HomeWalletHealth(reviewCount: 3, retryCount: 1, waitingCount: 2),
       ),
     );
     await tester.pumpAndSettle();
@@ -58,14 +56,13 @@ void main() {
     expect(find.text('Created'), findsOneWidget);
   });
 
-  testWidgets('shows the empty state when there is no outbox or link activity',
-      (tester) async {
-    await tester.pumpWidget(wrap(HomeWalletHealth.empty));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'shows the empty state when there is no outbox or link activity',
+    (tester) async {
+      await tester.pumpWidget(wrap(HomeWalletHealth.empty));
+      await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('No Wallet activity yet'),
-      findsOneWidget,
-    );
-  });
+      expect(find.textContaining('No Wallet activity yet'), findsOneWidget);
+    },
+  );
 }

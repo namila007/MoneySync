@@ -75,9 +75,9 @@ void main() {
     final ingest = IngestManualMessage(
       database: db,
       identitySigner: _identitySigner(),
-      interpret: ({required rawBody, required sender, required receivedAtUtc}) async =>
-          InterpretMessage(registry: RulePackRegistry(packs: []))
-              .call(
+      interpret:
+          ({required rawBody, required sender, required receivedAtUtc}) async =>
+              InterpretMessage(registry: RulePackRegistry(packs: [])).call(
                 rawBody: rawBody,
                 sender: sender,
                 receivedAtUtc: receivedAtUtc,

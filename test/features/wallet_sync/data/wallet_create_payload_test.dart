@@ -17,29 +17,23 @@ void main() {
   );
 
   group('redaction guarantee', () {
-    test(
-      'serializer DTO declares exactly the allowlisted fields (compile-time '
-      'redaction guarantee)',
-      () {
-        // Any field added to the DTO must be reviewed before it can serialize
-        // something sensitive. This test fails on a new field until the
-        // allowlist is deliberately extended.
-        expect(
-          TransactionCandidateSnapshot.fieldAllowlist,
-          {
-            'accountId',
-            'amountMinor',
-            'currencyCode',
-            'recordDateUtc',
-            'paymentType',
-            'recordState',
-            'categoryId',
-            'counterParty',
-            'note',
-          },
-        );
-      },
-    );
+    test('serializer DTO declares exactly the allowlisted fields (compile-time '
+        'redaction guarantee)', () {
+      // Any field added to the DTO must be reviewed before it can serialize
+      // something sensitive. This test fails on a new field until the
+      // allowlist is deliberately extended.
+      expect(TransactionCandidateSnapshot.fieldAllowlist, {
+        'accountId',
+        'amountMinor',
+        'currencyCode',
+        'recordDateUtc',
+        'paymentType',
+        'recordState',
+        'categoryId',
+        'counterParty',
+        'note',
+      });
+    });
 
     test('snapshot has no sensitive field members at all', () {
       // Reflect over the instance's runtime type fields: none may be named
@@ -106,10 +100,7 @@ void main() {
 
   group('snapshot validation', () {
     test('rejects empty account, zero amount, or non-UTC date', () {
-      expect(
-        () => snapshot(amountMinor: 0),
-        throwsA(isA<Exception>()),
-      );
+      expect(() => snapshot(amountMinor: 0), throwsA(isA<Exception>()));
       expect(
         () => TransactionCandidateSnapshot(
           accountId: '',
@@ -155,10 +146,7 @@ void main() {
             recordState: WalletRecordState.cleared,
             note: value,
           );
-      expect(
-        () => withCounterparty('x' * 256),
-        throwsA(isA<Exception>()),
-      );
+      expect(() => withCounterparty('x' * 256), throwsA(isA<Exception>()));
       expect(() => withNote('x' * 256), throwsA(isA<Exception>()));
     });
   });

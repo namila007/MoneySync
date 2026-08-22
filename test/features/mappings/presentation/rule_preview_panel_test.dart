@@ -22,26 +22,31 @@ void main() {
     updatedAtEpochMs: now,
   );
 
-  testWidgets('RulePreviewPanel shows a resolved match for a sample candidate',
-      (tester) async {
+  testWidgets(
+    'RulePreviewPanel shows a resolved match for a sample candidate',
+    (tester) async {
+      final resolver = MappingRuleResolver(rules: [sampleRule()]);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: RulePreviewPanel(resolver: resolver)),
+        ),
+      );
+
+      expect(find.text('Preview (sample candidates)'), findsOneWidget);
+      expect(find.textContaining('BANK ALPHA'), findsWidgets);
+      expect(find.textContaining('Match →'), findsWidgets);
+      expect(find.textContaining('No match'), findsWidgets);
+    },
+  );
+
+  testWidgets('RulePreviewPanel renders unresolved samples without writes', (
+    tester,
+  ) async {
     final resolver = MappingRuleResolver(rules: [sampleRule()]);
     await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: RulePreviewPanel(resolver: resolver))),
-    );
-
-    expect(find.text('Preview (sample candidates)'), findsOneWidget);
-    expect(find.textContaining('BANK ALPHA'), findsWidgets);
-    expect(find.textContaining('Match →'), findsWidgets);
-    expect(find.textContaining('No match'), findsWidgets);
-  });
-
-  testWidgets('RulePreviewPanel renders unresolved samples without writes',
-      (tester) async {
-    final resolver = MappingRuleResolver(
-      rules: [sampleRule()],
-    );
-    await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: RulePreviewPanel(resolver: resolver))),
+      MaterialApp(
+        home: Scaffold(body: RulePreviewPanel(resolver: resolver)),
+      ),
     );
     // Preview is read-only: no text fields, no buttons.
     expect(find.byType(TextField), findsNothing);
