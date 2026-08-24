@@ -228,6 +228,9 @@ final class IngestManualMessage {
     final directionSign = candidate.direction == TransactionDirection.credit
         ? 1
         : -1;
+    final counterPartyJson = candidate.counterParty != null
+        ? ',"counterParty":"${_escapeJson(candidate.counterParty!)}"'
+        : '';
     return '{"kind":"${candidate.kind.name}",'
         '"direction":"${candidate.direction.name}",'
         '"lifecycle":"${candidate.lifecycle.name}",'
@@ -235,8 +238,12 @@ final class IngestManualMessage {
         '"amountCurrency":"${candidate.originalAmount.currency.code}",'
         '"transactionAtUtc":"${candidate.transactionAtUtc.toIso8601String()}",'
         '"confidenceBasisPoints":${candidate.confidence.basisPoints},'
-        '"requiresReview":${candidate.requiresReview}}';
+        '"requiresReview":${candidate.requiresReview}'
+        '$counterPartyJson}';
   }
+
+  static String _escapeJson(String value) =>
+      value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
 
 String _sourceString(IngestionSource source) => switch (source) {

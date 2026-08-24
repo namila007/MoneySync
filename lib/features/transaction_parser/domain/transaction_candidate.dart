@@ -126,6 +126,7 @@ final class TransactionCandidate {
     required this.confidence,
     required Set<ReviewReason> reviewReasons,
     required this.provenance,
+    this.counterParty,
   }) : transactionAtUtc = transactionAtUtc,
        reviewReasons = UnmodifiableSetView<ReviewReason>(
          Set<ReviewReason>.from(reviewReasons),
@@ -147,6 +148,9 @@ final class TransactionCandidate {
   final Set<ReviewReason> reviewReasons;
   final CandidateProvenance provenance;
 
+  /// Merchant/payee name extracted from the SMS body by the parser, if any.
+  final String? counterParty;
+
   bool get requiresReview =>
       reviewReasons.isNotEmpty ||
       kind == TransactionKind.authorization ||
@@ -163,6 +167,7 @@ final class TransactionCandidate {
     CandidateConfidence? confidence,
     Set<ReviewReason>? reviewReasons,
     CandidateProvenance? provenance,
+    String? counterParty,
   }) {
     return TransactionCandidate(
       id: id,
@@ -175,6 +180,7 @@ final class TransactionCandidate {
       confidence: confidence ?? this.confidence,
       reviewReasons: reviewReasons ?? this.reviewReasons,
       provenance: provenance ?? this.provenance,
+      counterParty: counterParty ?? this.counterParty,
     );
   }
 

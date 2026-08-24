@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
-import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart'
     show CandidateSummaryView;
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_controller.dart';
@@ -20,6 +20,7 @@ class ReviewTransactionPanel extends ConsumerStatefulWidget {
     required this.encryptedPayload,
     required this.senderNormalized,
     this.initialSummary,
+    this.fallbackDate,
   });
 
   final int smsEventId;
@@ -30,6 +31,10 @@ class ReviewTransactionPanel extends ConsumerStatefulWidget {
   /// fields on first build; never clobbers a user's in-progress edit.
   final CandidateSummaryView? initialSummary;
 
+  /// Fallback date when the candidate summary has no transactionAtUtc.
+  /// Typically the SMS event's receivedAtUtc.
+  final DateTime? fallbackDate;
+
   @override
   ConsumerState<ReviewTransactionPanel> createState() =>
       _ReviewTransactionPanelState();
@@ -39,10 +44,12 @@ class _ReviewTransactionPanelState
     extends ConsumerState<ReviewTransactionPanel> {
   final _amountController = TextEditingController();
   final _counterpartyController = TextEditingController();
+  final _noteController = TextEditingController();
   TransactionKind _kind = TransactionKind.expense;
   TransactionDirection _direction = TransactionDirection.debit;
   DateTime? _dateUtc;
   String? _accountId;
+  String? _categoryId;
   String _paymentType = 'debit_card';
   var _summarySeeded = false;
 
@@ -60,9 +67,9 @@ class _ReviewTransactionPanelState
     if (summary == null || _summarySeeded) return;
     _summarySeeded = true;
 
-    // Amount: seed if controller is empty
+    // Amount: seed formatted with commas if controller is empty
     if (_amountController.text.isEmpty && summary.amountMinor != 0) {
-      _amountController.text = summary.amountMinor.toString();
+      _amountController.text = _formatAmountWithCommas(summary.amountMinor);
     }
 
     // Kind: map string to enum
@@ -79,17 +86,45 @@ class _ReviewTransactionPanelState
       'neutral' => TransactionDirection.neutral,
       _ => TransactionDirection.debit,
     };
+
+    // Date: prefer parsed transactionAtUtc, fall back to message received date
+    _dateUtc = summary.transactionAtUtc ?? widget.fallbackDate;
+
+    // Counterparty: seed from parsed merchant/payee (WP6), never clobber edit.
+    if (_counterpartyController.text.isEmpty &&
+        summary.counterParty != null &&
+        summary.counterParty!.isNotEmpty) {
+      _counterpartyController.text = summary.counterParty!;
+    }
+
+    // Push seeded values to the controller (without re-evaluating gates yet)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _pushUpdate(evaluate: false);
+    });
+  }
+
+  static String _formatAmountWithCommas(int minorUnits) {
+    final abs = minorUnits.abs();
+    final majorUnits = abs / 100; // minor → major for display
+    final formatted = majorUnits
+        .toStringAsFixed(2)
+        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    return minorUnits < 0 ? '-$formatted' : formatted;
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _counterpartyController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
   void _pushUpdate({bool evaluate = true}) {
-    final amount = int.tryParse(_amountController.text.trim()) ?? 0;
+    // Strip commas — field displays major units (e.g., "4,699.00"), the
+    // controller stores minor units (469900). Convert back.
+    final raw = _amountController.text.replaceAll(',', '').trim();
+    final amount = ((double.tryParse(raw) ?? 0) * 100).round();
     ref
         .read(reviewTransactionControllerProvider(widget.smsEventId).notifier)
         .update(
@@ -98,8 +133,10 @@ class _ReviewTransactionPanelState
           direction: _direction,
           dateUtc: _dateUtc,
           accountId: _accountId,
+          categoryId: _categoryId,
           paymentType: _paymentType,
           counterParty: _counterpartyController.text.trim(),
+          note: _noteController.text.trim(),
         );
     if (evaluate) {
       ref
@@ -117,6 +154,21 @@ class _ReviewTransactionPanelState
       reviewTransactionControllerProvider(widget.smsEventId),
     );
 
+    // WP0: react to submission result — pop on success, surface error inline.
+    ref.listen<ReviewTransactionViewState>(
+      reviewTransactionControllerProvider(widget.smsEventId),
+      (prev, next) {
+        if (prev?.result == next.result) return;
+        final result = next.result;
+        if (result is ReviewSubmitted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Record created')));
+          context.pop();
+        }
+      },
+    );
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -132,8 +184,7 @@ class _ReviewTransactionPanelState
               controller: _amountController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Amount (minor units)',
-                helperText: 'Same-currency LKR only in M5',
+                labelText: 'Amount (LKR)',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
@@ -181,13 +232,21 @@ class _ReviewTransactionPanelState
               },
             ),
             const SizedBox(height: 12),
+            Text(
+              'Date',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
             OutlinedButton.icon(
               onPressed: () => _pickDate(context),
               icon: const Icon(Icons.calendar_today_outlined),
               label: Text(
                 _dateUtc == null
-                    ? 'Select date'
-                    : '${_dateUtc!.year}-${_dateUtc!.month}-${_dateUtc!.day}',
+                    ? 'Select date & time'
+                    : '${_dateUtc!.year}-${_dateUtc!.month.toString().padLeft(2, '0')}-${_dateUtc!.day.toString().padLeft(2, '0')} '
+                          '${_dateUtc!.hour.toString().padLeft(2, '0')}:${_dateUtc!.minute.toString().padLeft(2, '0')}',
               ),
             ),
             const SizedBox(height: 12),
@@ -195,6 +254,21 @@ class _ReviewTransactionPanelState
               selectedAccountId: _accountId,
               onChanged: (id) {
                 _accountId = id;
+                _pushUpdate();
+              },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Category',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            _CategoryPicker(
+              selectedCategoryId: _categoryId,
+              onChanged: (id) {
+                _categoryId = id;
                 _pushUpdate();
               },
             ),
@@ -230,25 +304,38 @@ class _ReviewTransactionPanelState
               controller: _counterpartyController,
               maxLength: 255,
               decoration: const InputDecoration(
-                labelText: 'Note',
-                helperText: 'Note about this transaction',
+                labelText: 'Counterparty',
+                helperText: 'Merchant or payee name',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
               onChanged: (_) => _pushUpdate(),
             ),
-            const SizedBox(height: 8),
-            if (state.evaluation case final evaluation?) ...[
-              const SizedBox(height: 8),
-              _GateList(evaluation: evaluation),
-            ] else
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  'Tap Create to evaluate the pre-send gates.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _noteController,
+              maxLength: 255,
+              decoration: const InputDecoration(
+                labelText: 'Note',
+                helperText: 'Add a note (optional)',
+                isDense: true,
+                border: OutlineInputBorder(),
               ),
+              onChanged: (_) => _pushUpdate(),
+            ),
+            const SizedBox(height: 12),
+            _LabelPicker(
+              selectedLabelIds: state.labelIds,
+              onChanged: (ids) {
+                ref
+                    .read(
+                      reviewTransactionControllerProvider(
+                        widget.smsEventId,
+                      ).notifier,
+                    )
+                    .update(labelIds: ids);
+              },
+            ),
             if (state.result case ReviewBlocked(:final reason))
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -257,32 +344,66 @@ class _ReviewTransactionPanelState
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: state.submitting
-                    ? null
-                    : () => ref
-                          .read(
-                            reviewTransactionControllerProvider(
-                              widget.smsEventId,
-                            ).notifier,
-                          )
-                          .submit(
-                            encryptedPayload: widget.encryptedPayload,
-                            senderNormalized: widget.senderNormalized,
-                            revision: 1,
-                          ),
-                icon: state.submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.check),
-                label: Text(state.submitting ? 'Creating…' : 'Create record'),
+            if (state.result case ReviewDuplicate())
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'A record for this message already exists.',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
               ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: state.submitting
+                        ? null
+                        : () => ref
+                              .read(
+                                reviewTransactionControllerProvider(
+                                  widget.smsEventId,
+                                ).notifier,
+                              )
+                              .submit(
+                                encryptedPayload: widget.encryptedPayload,
+                                senderNormalized: widget.senderNormalized,
+                                revision: 1,
+                              ),
+                    icon: state.submitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check),
+                    label: Text(
+                      state.submitting ? 'Creating…' : 'Create record',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: state.submitting
+                        ? null
+                        : () => ref
+                              .read(
+                                reviewTransactionControllerProvider(
+                                  widget.smsEventId,
+                                ).notifier,
+                              )
+                              .submit(
+                                encryptedPayload: widget.encryptedPayload,
+                                senderNormalized: widget.senderNormalized,
+                                revision: 1,
+                                deferred: true,
+                              ),
+                    icon: const Icon(Icons.schedule),
+                    label: const Text('Save for later'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -298,74 +419,29 @@ class _ReviewTransactionPanelState
       firstDate: now.subtract(const Duration(days: 3650)),
       lastDate: now.add(const Duration(hours: 24)),
     );
-    if (picked != null) {
-      _dateUtc = DateTime.utc(picked.year, picked.month, picked.day);
-      _pushUpdate();
-    }
-  }
-}
+    if (picked == null || !mounted) return;
 
-/// Ordered pre-send gate outcome list (M5.8): the user sees exactly which
-/// gate blocks, not just a pass/fail.
-class _GateList extends StatelessWidget {
-  const _GateList({required this.evaluation});
-
-  final GateEvaluation evaluation;
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = [
-      'Privacy epoch',
-      'Consent',
-      'Wallet connection',
-      'Account eligibility',
-      'Mapping resolution',
-      'Amount/date/currency',
-      'Duplicate/tombstone',
-      'Capability',
-    ];
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text(
-                'Pre-send gates',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-            ),
-            for (var i = 0; i < evaluation.outcomes.length; i++)
-              ListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                leading: Icon(
-                  evaluation.outcomes[i] is GatePass
-                      ? Icons.check_circle_outline
-                      : Icons.block,
-                  color: evaluation.outcomes[i] is GatePass
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.error,
-                ),
-                title: Text(labels[i]),
-                subtitle: evaluation.outcomes[i] is GateBlock
-                    ? Text(
-                        (evaluation.outcomes[i] as GateBlock).reason,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      )
-                    : null,
-              ),
-          ],
-        ),
-      ),
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: _dateUtc != null
+          ? TimeOfDay.fromDateTime(_dateUtc!)
+          : TimeOfDay.now(),
     );
+    if (!mounted || pickedTime == null) return;
+
+    _dateUtc = DateTime.utc(
+      picked.year,
+      picked.month,
+      picked.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+    _pushUpdate();
   }
 }
 
-/// Wallet target picker: bank-synced/archived accounts stay visible but
-/// disabled (plan/04 mapping editor rule, reused here).
+/// Wallet target picker: all LKR accounts are selectable. Archived accounts
+/// show a warning note — the pre-send gate will block writing to them.
 class _TargetAccountPicker extends ConsumerWidget {
   const _TargetAccountPicker({
     required this.selectedAccountId,
@@ -393,33 +469,251 @@ class _TargetAccountPicker extends ConsumerWidget {
         final lkrAccounts = catalog.accounts
             .where((a) => a.currencyCode.toUpperCase() == 'LKR')
             .toList();
-        return DropdownButtonFormField<String>(
-          initialValue: selectedAccountId,
-          decoration: const InputDecoration(
-            labelText: 'Wallet account',
-            isDense: true,
-            border: OutlineInputBorder(),
-          ),
-          items: [
-            for (final account in lkrAccounts)
-              DropdownMenuItem(
-                value: account.id,
-                enabled:
-                    account.eligibility == WalletAccountEligibility.eligible,
-                child: Text(
-                  account.isBankSynced
-                      ? '${account.name} (bank-synced)'
-                      : account.name,
+        final selectedAccount = lkrAccounts
+            .where((a) => a.id == selectedAccountId)
+            .firstOrNull;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: selectedAccountId,
+              decoration: const InputDecoration(
+                labelText: 'Wallet account',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final account in lkrAccounts)
+                  DropdownMenuItem(
+                    value: account.id,
+                    child: Text(
+                      account.isBankSynced
+                          ? '${account.name} (bank-synced)'
+                          : account.isArchived
+                          ? '${account.name} (archived)'
+                          : account.name,
+                    ),
+                  ),
+              ],
+              onChanged: (id) {
+                if (id == null) return;
+                onChanged(id);
+              },
+            ),
+            if (selectedAccount?.isArchived == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                'This account is archived and may not be writable. '
+                'The pre-send gate will block writing to it.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
                 ),
               ),
+            ],
           ],
-          onChanged: (id) {
-            if (id == null) return;
-            final account = lkrAccounts.firstWhere((a) => a.id == id);
-            if (account.eligibility != WalletAccountEligibility.eligible)
-              return;
-            onChanged(id);
-          },
+        );
+      },
+    );
+  }
+}
+
+/// Group → Category picker (WP2). Shows "Group › Category" or "Uncategorized".
+/// Opens a bottom sheet with the same grouped hierarchy as the wallet-connection
+/// detail screen.
+class _CategoryPicker extends ConsumerWidget {
+  const _CategoryPicker({
+    required this.selectedCategoryId,
+    required this.onChanged,
+  });
+
+  final String? selectedCategoryId;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final catalogAsync = ref.watch(walletCatalogProvider);
+    return catalogAsync.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, _) => const Text('Category catalog unavailable.'),
+      data: (catalog) {
+        if (catalog == null || catalog.categories.isEmpty) {
+          return const Card(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('Connect your Wallet to choose a category.'),
+            ),
+          );
+        }
+
+        final selectedName = selectedCategoryId != null
+            ? catalog.categories
+                  .where((c) => c.id == selectedCategoryId)
+                  .map((c) => '${c.groupName} › ${c.name}')
+                  .firstOrNull
+            : null;
+
+        return OutlinedButton.icon(
+          onPressed: () => _showPicker(context, catalog.categories),
+          icon: const Icon(Icons.category_outlined),
+          label: Text(selectedName ?? 'Uncategorized'),
+        );
+      },
+    );
+  }
+
+  void _showPicker(BuildContext context, List<WalletCategory> categories) {
+    // Group by groupId.
+    final grouped = <String, List<WalletCategory>>{};
+    for (final c in categories) {
+      grouped.putIfAbsent(c.groupId, () => []).add(c);
+    }
+    final groupIds = grouped.keys.toList()..sort();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Select category',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      onChanged(null);
+                      Navigator.pop(context);
+                    },
+                    child: const Text('Clear'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: scrollController,
+                itemCount: groupIds.length,
+                itemBuilder: (context, index) {
+                  final groupId = groupIds[index];
+                  final groupCats = grouped[groupId]!;
+                  final groupName = groupCats.first.groupName;
+                  final baseCats =
+                      groupCats
+                          .where((c) => !c.customCategory && c.parentId == null)
+                          .toList()
+                        ..sort((a, b) => a.name.compareTo(b.name));
+
+                  return ExpansionTile(
+                    leading: const Icon(Icons.folder_outlined),
+                    title: Text(groupName),
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.folder_open_outlined),
+                        title: Text('All $groupName'),
+                        subtitle: const Text('Group'),
+                        onTap: () {
+                          // Select the group itself — Wallet API maps this to
+                          // the default category for the group.
+                          onChanged(groupId);
+                          Navigator.pop(context);
+                        },
+                      ),
+                      for (final cat in baseCats)
+                        ListTile(
+                          leading: const Icon(Icons.label_outlined),
+                          title: Text(cat.name),
+                          selected: cat.id == selectedCategoryId,
+                          onTap: () {
+                            onChanged(cat.id);
+                            Navigator.pop(context);
+                          },
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Label multi-select picker using FilterChips. Pre-seeds with the cached
+/// "money_sync" label selected by default. The user can toggle labels on/off.
+class _LabelPicker extends ConsumerWidget {
+  const _LabelPicker({required this.selectedLabelIds, required this.onChanged});
+
+  final List<String> selectedLabelIds;
+  final ValueChanged<List<String>> onChanged;
+
+  static const _defaultLabelName = 'money_sync';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final catalogAsync = ref.watch(walletCatalogProvider);
+    return catalogAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (catalog) {
+        final labels = catalog?.labels ?? [];
+        if (labels.isEmpty) return const SizedBox.shrink();
+
+        // Ensure the default label is selected on first render.
+        final defaultLabel = labels
+            .where((l) => l.name == _defaultLabelName)
+            .firstOrNull;
+        if (defaultLabel != null && selectedLabelIds.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) onChanged([defaultLabel.id]);
+          });
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Labels',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final label in labels)
+                  FilterChip(
+                    label: Text(label.name),
+                    selected: selectedLabelIds.contains(label.id),
+                    onSelected: (selected) {
+                      final next = List<String>.from(selectedLabelIds);
+                      if (selected) {
+                        next.add(label.id);
+                      } else {
+                        next.remove(label.id);
+                      }
+                      onChanged(next);
+                    },
+                  ),
+              ],
+            ),
+          ],
         );
       },
     );
