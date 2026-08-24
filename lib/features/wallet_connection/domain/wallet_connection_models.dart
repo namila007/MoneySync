@@ -55,10 +55,23 @@ final class WalletAccount {
 }
 
 final class WalletCategory {
-  const WalletCategory({required this.id, required this.name});
+  const WalletCategory({
+    required this.id,
+    required this.name,
+    required this.groupId,
+    required this.groupName,
+    this.parentId,
+    this.customCategory = false,
+    this.cardinality,
+  });
 
   final String id;
   final String name;
+  final String groupId;
+  final String groupName;
+  final String? parentId;
+  final bool customCategory;
+  final String? cardinality;
 }
 
 final class WalletPage<T> {
@@ -73,11 +86,21 @@ final class WalletCatalog {
   WalletCatalog({
     required List<WalletAccount> accounts,
     required List<WalletCategory> categories,
+    List<WalletLabel>? labels,
   }) : accounts = List<WalletAccount>.unmodifiable(accounts),
-       categories = List<WalletCategory>.unmodifiable(categories);
+       categories = List<WalletCategory>.unmodifiable(categories),
+       labels = List<WalletLabel>.unmodifiable(labels ?? const []);
 
   final List<WalletAccount> accounts;
   final List<WalletCategory> categories;
+  final List<WalletLabel> labels;
+}
+
+final class WalletLabel {
+  const WalletLabel({required this.id, required this.name});
+
+  final String id;
+  final String name;
 }
 
 sealed class WalletReadResult {

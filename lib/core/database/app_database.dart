@@ -405,6 +405,9 @@ class WalletAccountCache extends Table {
 class WalletCategoryCache extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
+  TextColumn get groupId => text().withDefault(const Constant('unknown'))();
+  TextColumn get groupName => text().withDefault(const Constant('Unknown'))();
+  TextColumn get parentId => text().nullable()();
   IntColumn get refreshedAtEpochMs => integer()();
 
   @override
@@ -412,6 +415,18 @@ class WalletCategoryCache extends Table {
 
   @override
   String get tableName => 'wallet_category_cache';
+}
+
+class WalletLabelCache extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  IntColumn get refreshedAtEpochMs => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'wallet_label_cache';
 }
 
 class WalletConnectionStatus extends Table {
@@ -608,6 +623,7 @@ class IngestionCheckpoints extends Table {
     DeletionAuditEvents,
     WalletAccountCache,
     WalletCategoryCache,
+    WalletLabelCache,
     WalletConnectionStatus,
     WalletMutations,
     WalletRecordLinks,
@@ -624,7 +640,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1010,6 +1026,79 @@ class AppDatabase extends _$AppDatabase {
         // M5.15 Bug 8.1: human-readable detail for activity events.
         // Nullable so pre-v11 rows stay valid.
         await m.addColumn(activityEvents, activityEvents.detailMessage);
+      }
+      if (from >= 3 && from < 12) {
+        // M5.17 WP1: hierarchical category model — group + parent columns.
+        // Only needed when upgrading from v3–v11; fresh installs and v1→v12
+        // get the columns from m.createTable(walletCategoryCache) in the
+        // from < 3 block which uses the current table definition.
+        await m.addColumn(walletCategoryCache, walletCategoryCache.groupId);
+        await m.addColumn(walletCategoryCache, walletCategoryCache.groupName);
+        await m.addColumn(walletCategoryCache, walletCategoryCache.parentId);
+      }
+      if (from < 13) {
+        // M5.18: fix activity_events event_type values stored as wireValues
+        // (e.g. 'wallet.record.created') instead of enum names ('walletRecordCreated').
+        // The textEnum converter expects enum .name, not .wireValue.
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'walletRecordCreated' "
+          "WHERE event_type = 'wallet.record.created'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'candidateNeedsReview' "
+          "WHERE event_type = 'candidate.needs_review'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'walletConnected' "
+          "WHERE event_type = 'wallet.connected'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'walletDisconnected' "
+          "WHERE event_type = 'wallet.disconnected'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'walletRefreshed' "
+          "WHERE event_type = 'wallet.refreshed'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'mappingRuleCreated' "
+          "WHERE event_type = 'mapping_rule.created'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'messageImported' "
+          "WHERE event_type = 'sms.message.imported'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'smsEventDeleted' "
+          "WHERE event_type = 'sms.message.deleted'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'logInfo' "
+          "WHERE event_type = 'app.log.info'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'logWarning' "
+          "WHERE event_type = 'app.log.warning'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'logError' "
+          "WHERE event_type = 'app.log.error'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'privacyEpochAdvanced' "
+          "WHERE event_type = 'privacy.epoch.advanced'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'rawCopyPurged' "
+          "WHERE event_type = 'privacy.raw_copy.purged'",
+        );
+        await customStatement(
+          "UPDATE activity_events SET event_type = 'activityRetentionApplied' "
+          "WHERE event_type = 'privacy.activity_retention.applied'",
+        );
+      }
+      if (from < 14) {
+        await m.createTable(walletLabelCache);
       }
     },
   );
