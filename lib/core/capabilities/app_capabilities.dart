@@ -20,7 +20,10 @@ final class AppCapabilities {
   const AppCapabilities.m0() : this._(const <AppCapability>{});
 
   const AppCapabilities.m4PrivateFull()
-    : this._(const <AppCapability>{AppCapability.smsPermission});
+    : this._(const <AppCapability>{
+        AppCapability.smsPermission,
+        AppCapability.walletCreate,
+      });
 
   final Set<AppCapability> _enabled;
 

@@ -26,6 +26,11 @@ import 'package:money_sync/features/settings/presentation/security_privacy_page.
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
+import 'package:money_sync/features/wallet_sync/presentation/wallet_retry_view.dart';
+import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart';
+import 'package:money_sync/features/wallet_sync/presentation/wallet_waiting_view.dart';
+import 'package:money_sync/features/wallet_sync/presentation/success_item_detail_page.dart';
+import 'package:money_sync/features/wallet_sync/presentation/waiting_item_detail_page.dart';
 
 final _onboardingCompletionNotifier = ValueNotifier<bool>(false);
 final _lockStateNotifier = ValueNotifier<ForegroundLockState>(
@@ -104,6 +109,36 @@ GoRouter createAppRouter() {
           GoRoute(
             path: 'wallet',
             builder: (context, state) => const WalletConnectionPage(),
+            routes: [
+              GoRoute(
+                path: 'retry',
+                builder: (context, state) => const RetryView(),
+              ),
+              GoRoute(
+                path: 'succeeded',
+                builder: (context, state) => const SuccessView(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => SuccessItemDetailPage(
+                      mutationId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'waiting',
+                builder: (context, state) => const WaitingView(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) => WaitingItemDetailPage(
+                      mutationId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           GoRoute(
             path: 'security',

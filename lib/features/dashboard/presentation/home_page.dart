@@ -91,6 +91,7 @@ class _WalletHealthCards extends StatelessWidget {
         health.reviewCount > 0 ||
         health.retryCount > 0 ||
         health.waitingCount > 0 ||
+        health.succeededCount > 0 ||
         health.latestRecord != null;
 
     return Column(
@@ -102,6 +103,7 @@ class _WalletHealthCards extends StatelessWidget {
                 label: 'Review',
                 count: health.reviewCount,
                 icon: Icons.rate_review_outlined,
+                onTap: () => context.push('/inbox'),
               ),
             ),
             const SizedBox(width: 8),
@@ -110,6 +112,7 @@ class _WalletHealthCards extends StatelessWidget {
                 label: 'Retry',
                 count: health.retryCount,
                 icon: Icons.refresh,
+                onTap: () => context.push('/settings/wallet/retry'),
               ),
             ),
             const SizedBox(width: 8),
@@ -118,6 +121,16 @@ class _WalletHealthCards extends StatelessWidget {
                 label: 'Waiting',
                 count: health.waitingCount,
                 icon: Icons.schedule,
+                onTap: () => context.push('/settings/wallet/waiting'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CountTile(
+                label: 'Success',
+                count: health.succeededCount,
+                icon: Icons.check_circle_outline,
+                onTap: () => context.push('/settings/wallet/succeeded'),
               ),
             ),
           ],
@@ -170,24 +183,30 @@ class _CountTile extends StatelessWidget {
     required this.label,
     required this.count,
     required this.icon,
+    this.onTap,
   });
 
   final String label;
   final int count;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 4),
-            Text('$count', style: Theme.of(context).textTheme.headlineSmall),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 4),
+              Text('$count', style: Theme.of(context).textTheme.headlineSmall),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ),
       ),
     );

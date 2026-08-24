@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:drift/drift.dart';
 import 'package:money_sync/core/database/app_database.dart';
@@ -47,6 +48,12 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
     required DecisionTraceCode decisionTraceCode,
     String? detailMessage,
   }) {
+    developer.log(
+      '[Outbox] submitAtomically: smsEventId=$smsEventId '
+      'candidateState=${candidateState.name} '
+      'mutationState=${intent.state.name} mutationId=${intent.id}',
+      name: 'OutboxWriter',
+    );
     return _database
         .transaction(() async {
           // The candidate row is created at ingest (`insertCandidateAndActivity
@@ -110,7 +117,7 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
             'occurred_at_epoch_ms, privacy_epoch, mutation_id, detail_message) '
             'VALUES (?, ?, ?, ?, ?, ?)',
             variables: [
-              Variable(activityType.wireValue),
+              Variable(activityType.name),
               Variable(safeDetailCode.name),
               Variable(createdAtEpochMs),
               Variable(privacyEpoch),
