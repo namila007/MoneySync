@@ -21,7 +21,12 @@ void main() {
       ),
     ],
     categories: const <WalletCategory>[
-      WalletCategory(id: 'category-1', name: 'Food'),
+      WalletCategory(
+        id: 'category-1',
+        name: 'Food',
+        groupId: 'food_group',
+        groupName: 'Food & Drink',
+      ),
     ],
   );
 

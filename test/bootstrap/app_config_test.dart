@@ -20,7 +20,8 @@ void main() {
       for (final capability in AppCapability.values) {
         final enabled = configuration.capabilities.isEnabled(capability);
         if (configuration.flavor == AppFlavor.privateFull &&
-            capability == AppCapability.smsPermission) {
+            (capability == AppCapability.smsPermission ||
+                capability == AppCapability.walletCreate)) {
           expect(enabled, isTrue);
         } else {
           expect(enabled, isFalse);

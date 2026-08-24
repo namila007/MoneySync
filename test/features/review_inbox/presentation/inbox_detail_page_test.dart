@@ -190,7 +190,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Candidate summary'), findsOneWidget);
-      expect(find.text('Amount: LKR 5000.00'), findsOneWidget);
+      expect(find.text('Amount: LKR 5,000.00'), findsOneWidget);
       expect(find.text('Confidence: 96%'), findsOneWidget);
 
       await tester.tap(find.text('Detail'));

@@ -121,11 +121,11 @@ void main() {
   test('illegal transition throws and leaves the row unchanged', () async {
     await dao.upsert(intent());
     final loaded = await dao.byId('mutation-1');
-    // queued -> succeeded is illegal.
+    // queued -> reconciling is illegal.
     expect(
       () => dao.transitionTo(
         intent: loaded!,
-        next: WalletMutationState.succeeded,
+        next: WalletMutationState.reconciling,
       ),
       throwsA(isA<InvalidStateTransitionFailure>()),
     );

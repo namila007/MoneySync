@@ -28,8 +28,18 @@ void main() {
         ),
       ],
       categories: const [
-        WalletCategory(id: 'cat-1', name: 'Food'),
-        WalletCategory(id: 'cat-2', name: 'Transport'),
+        WalletCategory(
+          id: 'cat-1',
+          name: 'Food',
+          groupId: 'food_group',
+          groupName: 'Food & Drink',
+        ),
+        WalletCategory(
+          id: 'cat-2',
+          name: 'Transport',
+          groupId: 'transport_group',
+          groupName: 'Transport',
+        ),
       ],
     );
 
@@ -109,7 +119,14 @@ void main() {
             isWritable: true,
           ),
         ],
-        categories: const [WalletCategory(id: 'cat-3', name: 'Office')],
+        categories: const [
+          WalletCategory(
+            id: 'cat-3',
+            name: 'Office',
+            groupId: 'office_group',
+            groupName: 'Office',
+          ),
+        ],
       );
 
       await cache.write(newCatalog);
@@ -198,7 +215,12 @@ void main() {
       final result = await cache.read();
       expect(
         () => result!.categories.add(
-          const WalletCategory(id: 'new', name: 'New'),
+          const WalletCategory(
+            id: 'new',
+            name: 'New',
+            groupId: 'new_group',
+            groupName: 'New Group',
+          ),
         ),
         throwsUnsupportedError,
       );

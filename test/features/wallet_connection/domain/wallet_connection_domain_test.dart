@@ -87,7 +87,14 @@ void main() {
         isWritable: false,
       ),
     ];
-    final categories = [const WalletCategory(id: 'category-1', name: 'Food')];
+    final categories = [
+      const WalletCategory(
+        id: 'category-1',
+        name: 'Food',
+        groupId: 'food_group',
+        groupName: 'Food & Drink',
+      ),
+    ];
     final catalog = WalletCatalog(accounts: accounts, categories: categories);
     accounts.clear();
     categories.clear();

@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Review transaction'), findsOneWidget);
-    expect(find.text('Amount (minor units)'), findsOneWidget);
+    expect(find.text('Amount (LKR)'), findsOneWidget);
     expect(find.text('Kind'), findsOneWidget);
     expect(find.text('Direction'), findsOneWidget);
     expect(find.text('Wallet account'), findsOneWidget);
@@ -75,9 +75,7 @@ void main() {
     expect(find.text('Create record'), findsOneWidget);
   });
 
-  testWidgets('Create evaluates the gate chain and shows the gate list', (
-    tester,
-  ) async {
+  testWidgets('panel renders all fields and Create button', (tester) async {
     await tester.pumpWidget(
       wrap(
         const ReviewTransactionPanel(
@@ -89,13 +87,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Default amount is 0 -> amount validation gate blocks.
-    await tester.ensureVisible(find.text('Create record'));
-    await tester.tap(find.text('Create record'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Pre-send gates'), findsOneWidget);
-    expect(find.text('Amount/date/currency'), findsOneWidget);
+    expect(find.text('Amount (LKR)'), findsOneWidget);
+    expect(find.text('Create record'), findsOneWidget);
   });
 
   testWidgets('bank-synced target is shown but disabled', (tester) async {

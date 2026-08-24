@@ -20,7 +20,12 @@ void main() {
   testWidgets('renders review / retry / waiting counters', (tester) async {
     await tester.pumpWidget(
       wrap(
-        const HomeWalletHealth(reviewCount: 3, retryCount: 1, waitingCount: 2),
+        const HomeWalletHealth(
+          reviewCount: 3,
+          retryCount: 1,
+          waitingCount: 2,
+          succeededCount: 0,
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -40,6 +45,7 @@ void main() {
           reviewCount: 0,
           retryCount: 0,
           waitingCount: 0,
+          succeededCount: 0,
           latestRecord: LatestWalletRecord(
             remoteId: 'record-9',
             amountMinor: -123456,

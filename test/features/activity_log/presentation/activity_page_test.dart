@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
 import 'package:money_sync/features/activity_log/domain/activity_recovery_actions.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_page.dart';
+import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 
 ActivityLogEntry _entry({
   required int id,
@@ -173,10 +176,60 @@ void main() {
     });
 
     testWidgets(
-      'dispatches retry now / verify in Wallet with the REAL mutation id '
+      'retry button shown for retryScheduled mutation, verify for unknown '
       '(M5.12/M5.14 gap 5)',
       (tester) async {
         final actions = _SpyRecoveryActions();
+        final db = AppDatabase.inMemoryForTesting();
+
+        // Insert a retry_scheduled mutation — should show Retry only.
+        await db
+            .into(db.walletMutations)
+            .insert(
+              WalletMutationsCompanion.insert(
+                id: 'mutation-retry-1',
+                operationKind: WalletMutationOperation.create,
+                payload: '{}',
+                state: WalletMutationState.retryScheduled,
+                lineageKey: 'lineage-1',
+                fingerprint: 'fp-1',
+                createdAtEpochMs: 1000,
+                updatedAtEpochMs: 1000,
+              ),
+            );
+
+        // Insert an unknown_delivery mutation — should show Verify only.
+        await db
+            .into(db.walletMutations)
+            .insert(
+              WalletMutationsCompanion.insert(
+                id: 'mutation-unknown-1',
+                operationKind: WalletMutationOperation.create,
+                payload: '{}',
+                state: WalletMutationState.unknownDelivery,
+                lineageKey: 'lineage-2',
+                fingerprint: 'fp-2',
+                createdAtEpochMs: 2000,
+                updatedAtEpochMs: 2000,
+              ),
+            );
+
+        // Insert a succeeded mutation — should show neither.
+        await db
+            .into(db.walletMutations)
+            .insert(
+              WalletMutationsCompanion.insert(
+                id: 'mutation-succeeded-1',
+                operationKind: WalletMutationOperation.create,
+                payload: '{}',
+                state: WalletMutationState.succeeded,
+                lineageKey: 'lineage-3',
+                fingerprint: 'fp-3',
+                createdAtEpochMs: 3000,
+                updatedAtEpochMs: 3000,
+              ),
+            );
+
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -187,28 +240,51 @@ void main() {
                     code: ActivityEventCode.walletRecordCreated,
                     detail: ActivityStateTransition.logEvent,
                     epochMs: 1000,
-                    mutationId: 'mutation-real-7',
+                    mutationId: 'mutation-retry-1',
+                  ),
+                  _entry(
+                    id: 8,
+                    code: ActivityEventCode.walletRecordCreated,
+                    detail: ActivityStateTransition.logEvent,
+                    epochMs: 2000,
+                    mutationId: 'mutation-unknown-1',
+                  ),
+                  _entry(
+                    id: 9,
+                    code: ActivityEventCode.walletRecordCreated,
+                    detail: ActivityStateTransition.logEvent,
+                    epochMs: 3000,
+                    mutationId: 'mutation-succeeded-1',
                   ),
                 ]),
               ),
               activityRecoveryActionsProvider.overrideWith(
                 (ref) async => actions,
               ),
+              appDatabaseProvider.overrideWith((ref) async {
+                ref.onDispose(db.close);
+                return db;
+              }),
             ],
             child: const MaterialApp(home: ActivityPage()),
           ),
         );
         await tester.pumpAndSettle();
 
+        // retryScheduled row → Retry visible, Verify hidden.
         expect(find.text('Retry'), findsOneWidget);
+        // unknownDelivery row → Verify visible, Retry hidden.
         expect(find.text('Verify'), findsOneWidget);
+        // succeeded row → no buttons.
+        // (We already verified exactly 1 Retry and 1 Verify above.)
 
         await tester.tap(find.text('Retry'));
+        await tester.pumpAndSettle();
+        expect(actions.retries, ['mutation-retry-1']);
+
         await tester.tap(find.text('Verify'));
         await tester.pumpAndSettle();
-
-        expect(actions.retries, ['mutation-real-7']);
-        expect(actions.verifies, ['mutation-real-7']);
+        expect(actions.verifies, ['mutation-unknown-1']);
       },
     );
 

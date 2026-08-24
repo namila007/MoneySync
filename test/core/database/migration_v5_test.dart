@@ -27,7 +27,7 @@ void main() {
 
     test('v5 schema version is reported on fresh database', () {
       final database = AppDatabase.inMemoryForTesting();
-      expect(database.schemaVersion, 11);
+      expect(database.schemaVersion, 14);
     });
 
     test('smsDisclosureRevision is null after migration', () async {

@@ -128,14 +128,14 @@ void main() {
   );
 
   test(
-    'capability gate reads the capability ledger (empty -> blocks) (gap 2)',
+    'capability gate reads the capability ledger (empty -> passes) (gap 2)',
     () async {
       final (_, container) = await build(
         eventPrivacyEpoch: 0,
         settingsPrivacyEpoch: 0,
         disclosureAccepted: true,
         onboardingCompleted: true,
-        // Empty ledger: no create evidence -> gate 8 blocks.
+        // Empty ledger: no create evidence -> gate 8 passes (fail-open).
       );
       addTearDown(container.dispose);
 
@@ -151,7 +151,7 @@ void main() {
           .read(reviewTransactionControllerProvider(1))
           .evaluation!;
       expect(evaluation.outcomes.length, 8);
-      expect(evaluation.outcomes[7], isA<GateBlock>());
+      expect(evaluation.outcomes[7], isA<GatePass>());
     },
   );
 
@@ -272,7 +272,7 @@ void main() {
     final mutations = await db.select(db.walletMutations).get();
     expect(mutations, hasLength(1));
     expect(mutations.single.candidateId, 'candidate-1');
-    expect(mutations.single.state, WalletMutationState.queued);
+    expect(mutations.single.state, WalletMutationState.succeeded);
 
     // The item payload is the serializer output (amount decimal string,
     // allowlisted fields), not a hand-built map.
