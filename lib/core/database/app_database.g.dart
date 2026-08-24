@@ -7022,6 +7022,421 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
+  static const VerificationMeta _groupNameMeta = const VerificationMeta(
+    'groupName',
+  );
+  @override
+  late final GeneratedColumn<String> groupName = GeneratedColumn<String>(
+    'group_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('Unknown'),
+  );
+  static const VerificationMeta _parentIdMeta = const VerificationMeta(
+    'parentId',
+  );
+  @override
+  late final GeneratedColumn<String> parentId = GeneratedColumn<String>(
+    'parent_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refreshedAtEpochMsMeta =
+      const VerificationMeta('refreshedAtEpochMs');
+  @override
+  late final GeneratedColumn<int> refreshedAtEpochMs = GeneratedColumn<int>(
+    'refreshed_at_epoch_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    groupId,
+    groupName,
+    parentId,
+    refreshedAtEpochMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wallet_category_cache';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WalletCategoryCacheData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    }
+    if (data.containsKey('group_name')) {
+      context.handle(
+        _groupNameMeta,
+        groupName.isAcceptableOrUnknown(data['group_name']!, _groupNameMeta),
+      );
+    }
+    if (data.containsKey('parent_id')) {
+      context.handle(
+        _parentIdMeta,
+        parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
+      );
+    }
+    if (data.containsKey('refreshed_at_epoch_ms')) {
+      context.handle(
+        _refreshedAtEpochMsMeta,
+        refreshedAtEpochMs.isAcceptableOrUnknown(
+          data['refreshed_at_epoch_ms']!,
+          _refreshedAtEpochMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_refreshedAtEpochMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WalletCategoryCacheData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WalletCategoryCacheData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      groupName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_name'],
+      )!,
+      parentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_id'],
+      ),
+      refreshedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refreshed_at_epoch_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $WalletCategoryCacheTable createAlias(String alias) {
+    return $WalletCategoryCacheTable(attachedDatabase, alias);
+  }
+}
+
+class WalletCategoryCacheData extends DataClass
+    implements Insertable<WalletCategoryCacheData> {
+  final String id;
+  final String name;
+  final String groupId;
+  final String groupName;
+  final String? parentId;
+  final int refreshedAtEpochMs;
+  const WalletCategoryCacheData({
+    required this.id,
+    required this.name,
+    required this.groupId,
+    required this.groupName,
+    this.parentId,
+    required this.refreshedAtEpochMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['group_id'] = Variable<String>(groupId);
+    map['group_name'] = Variable<String>(groupName);
+    if (!nullToAbsent || parentId != null) {
+      map['parent_id'] = Variable<String>(parentId);
+    }
+    map['refreshed_at_epoch_ms'] = Variable<int>(refreshedAtEpochMs);
+    return map;
+  }
+
+  WalletCategoryCacheCompanion toCompanion(bool nullToAbsent) {
+    return WalletCategoryCacheCompanion(
+      id: Value(id),
+      name: Value(name),
+      groupId: Value(groupId),
+      groupName: Value(groupName),
+      parentId: parentId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentId),
+      refreshedAtEpochMs: Value(refreshedAtEpochMs),
+    );
+  }
+
+  factory WalletCategoryCacheData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WalletCategoryCacheData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      groupName: serializer.fromJson<String>(json['groupName']),
+      parentId: serializer.fromJson<String?>(json['parentId']),
+      refreshedAtEpochMs: serializer.fromJson<int>(json['refreshedAtEpochMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'groupId': serializer.toJson<String>(groupId),
+      'groupName': serializer.toJson<String>(groupName),
+      'parentId': serializer.toJson<String?>(parentId),
+      'refreshedAtEpochMs': serializer.toJson<int>(refreshedAtEpochMs),
+    };
+  }
+
+  WalletCategoryCacheData copyWith({
+    String? id,
+    String? name,
+    String? groupId,
+    String? groupName,
+    Value<String?> parentId = const Value.absent(),
+    int? refreshedAtEpochMs,
+  }) => WalletCategoryCacheData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    groupId: groupId ?? this.groupId,
+    groupName: groupName ?? this.groupName,
+    parentId: parentId.present ? parentId.value : this.parentId,
+    refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
+  );
+  WalletCategoryCacheData copyWithCompanion(WalletCategoryCacheCompanion data) {
+    return WalletCategoryCacheData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      groupName: data.groupName.present ? data.groupName.value : this.groupName,
+      parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      refreshedAtEpochMs: data.refreshedAtEpochMs.present
+          ? data.refreshedAtEpochMs.value
+          : this.refreshedAtEpochMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WalletCategoryCacheData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('groupId: $groupId, ')
+          ..write('groupName: $groupName, ')
+          ..write('parentId: $parentId, ')
+          ..write('refreshedAtEpochMs: $refreshedAtEpochMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, groupId, groupName, parentId, refreshedAtEpochMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WalletCategoryCacheData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.groupId == this.groupId &&
+          other.groupName == this.groupName &&
+          other.parentId == this.parentId &&
+          other.refreshedAtEpochMs == this.refreshedAtEpochMs);
+}
+
+class WalletCategoryCacheCompanion
+    extends UpdateCompanion<WalletCategoryCacheData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> groupId;
+  final Value<String> groupName;
+  final Value<String?> parentId;
+  final Value<int> refreshedAtEpochMs;
+  final Value<int> rowid;
+  const WalletCategoryCacheCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.groupName = const Value.absent(),
+    this.parentId = const Value.absent(),
+    this.refreshedAtEpochMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WalletCategoryCacheCompanion.insert({
+    required String id,
+    required String name,
+    this.groupId = const Value.absent(),
+    this.groupName = const Value.absent(),
+    this.parentId = const Value.absent(),
+    required int refreshedAtEpochMs,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       refreshedAtEpochMs = Value(refreshedAtEpochMs);
+  static Insertable<WalletCategoryCacheData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? groupId,
+    Expression<String>? groupName,
+    Expression<String>? parentId,
+    Expression<int>? refreshedAtEpochMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (groupId != null) 'group_id': groupId,
+      if (groupName != null) 'group_name': groupName,
+      if (parentId != null) 'parent_id': parentId,
+      if (refreshedAtEpochMs != null)
+        'refreshed_at_epoch_ms': refreshedAtEpochMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WalletCategoryCacheCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? groupId,
+    Value<String>? groupName,
+    Value<String?>? parentId,
+    Value<int>? refreshedAtEpochMs,
+    Value<int>? rowid,
+  }) {
+    return WalletCategoryCacheCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      groupId: groupId ?? this.groupId,
+      groupName: groupName ?? this.groupName,
+      parentId: parentId ?? this.parentId,
+      refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (groupName.present) {
+      map['group_name'] = Variable<String>(groupName.value);
+    }
+    if (parentId.present) {
+      map['parent_id'] = Variable<String>(parentId.value);
+    }
+    if (refreshedAtEpochMs.present) {
+      map['refreshed_at_epoch_ms'] = Variable<int>(refreshedAtEpochMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WalletCategoryCacheCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('groupId: $groupId, ')
+          ..write('groupName: $groupName, ')
+          ..write('parentId: $parentId, ')
+          ..write('refreshedAtEpochMs: $refreshedAtEpochMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WalletLabelCacheTable extends WalletLabelCache
+    with TableInfo<$WalletLabelCacheTable, WalletLabelCacheData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WalletLabelCacheTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _refreshedAtEpochMsMeta =
       const VerificationMeta('refreshedAtEpochMs');
   @override
@@ -7038,10 +7453,10 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
   String get aliasedName => _alias ?? actualTableName;
   @override
   String get actualTableName => $name;
-  static const String $name = 'wallet_category_cache';
+  static const String $name = 'wallet_label_cache';
   @override
   VerificationContext validateIntegrity(
-    Insertable<WalletCategoryCacheData> instance, {
+    Insertable<WalletLabelCacheData> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -7076,12 +7491,9 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  WalletCategoryCacheData map(
-    Map<String, dynamic> data, {
-    String? tablePrefix,
-  }) {
+  WalletLabelCacheData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return WalletCategoryCacheData(
+    return WalletLabelCacheData(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -7098,17 +7510,17 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
   }
 
   @override
-  $WalletCategoryCacheTable createAlias(String alias) {
-    return $WalletCategoryCacheTable(attachedDatabase, alias);
+  $WalletLabelCacheTable createAlias(String alias) {
+    return $WalletLabelCacheTable(attachedDatabase, alias);
   }
 }
 
-class WalletCategoryCacheData extends DataClass
-    implements Insertable<WalletCategoryCacheData> {
+class WalletLabelCacheData extends DataClass
+    implements Insertable<WalletLabelCacheData> {
   final String id;
   final String name;
   final int refreshedAtEpochMs;
-  const WalletCategoryCacheData({
+  const WalletLabelCacheData({
     required this.id,
     required this.name,
     required this.refreshedAtEpochMs,
@@ -7122,20 +7534,20 @@ class WalletCategoryCacheData extends DataClass
     return map;
   }
 
-  WalletCategoryCacheCompanion toCompanion(bool nullToAbsent) {
-    return WalletCategoryCacheCompanion(
+  WalletLabelCacheCompanion toCompanion(bool nullToAbsent) {
+    return WalletLabelCacheCompanion(
       id: Value(id),
       name: Value(name),
       refreshedAtEpochMs: Value(refreshedAtEpochMs),
     );
   }
 
-  factory WalletCategoryCacheData.fromJson(
+  factory WalletLabelCacheData.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return WalletCategoryCacheData(
+    return WalletLabelCacheData(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       refreshedAtEpochMs: serializer.fromJson<int>(json['refreshedAtEpochMs']),
@@ -7151,17 +7563,17 @@ class WalletCategoryCacheData extends DataClass
     };
   }
 
-  WalletCategoryCacheData copyWith({
+  WalletLabelCacheData copyWith({
     String? id,
     String? name,
     int? refreshedAtEpochMs,
-  }) => WalletCategoryCacheData(
+  }) => WalletLabelCacheData(
     id: id ?? this.id,
     name: name ?? this.name,
     refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
   );
-  WalletCategoryCacheData copyWithCompanion(WalletCategoryCacheCompanion data) {
-    return WalletCategoryCacheData(
+  WalletLabelCacheData copyWithCompanion(WalletLabelCacheCompanion data) {
+    return WalletLabelCacheData(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       refreshedAtEpochMs: data.refreshedAtEpochMs.present
@@ -7172,7 +7584,7 @@ class WalletCategoryCacheData extends DataClass
 
   @override
   String toString() {
-    return (StringBuffer('WalletCategoryCacheData(')
+    return (StringBuffer('WalletLabelCacheData(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('refreshedAtEpochMs: $refreshedAtEpochMs')
@@ -7185,25 +7597,24 @@ class WalletCategoryCacheData extends DataClass
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is WalletCategoryCacheData &&
+      (other is WalletLabelCacheData &&
           other.id == this.id &&
           other.name == this.name &&
           other.refreshedAtEpochMs == this.refreshedAtEpochMs);
 }
 
-class WalletCategoryCacheCompanion
-    extends UpdateCompanion<WalletCategoryCacheData> {
+class WalletLabelCacheCompanion extends UpdateCompanion<WalletLabelCacheData> {
   final Value<String> id;
   final Value<String> name;
   final Value<int> refreshedAtEpochMs;
   final Value<int> rowid;
-  const WalletCategoryCacheCompanion({
+  const WalletLabelCacheCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.refreshedAtEpochMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
-  WalletCategoryCacheCompanion.insert({
+  WalletLabelCacheCompanion.insert({
     required String id,
     required String name,
     required int refreshedAtEpochMs,
@@ -7211,7 +7622,7 @@ class WalletCategoryCacheCompanion
   }) : id = Value(id),
        name = Value(name),
        refreshedAtEpochMs = Value(refreshedAtEpochMs);
-  static Insertable<WalletCategoryCacheData> custom({
+  static Insertable<WalletLabelCacheData> custom({
     Expression<String>? id,
     Expression<String>? name,
     Expression<int>? refreshedAtEpochMs,
@@ -7226,13 +7637,13 @@ class WalletCategoryCacheCompanion
     });
   }
 
-  WalletCategoryCacheCompanion copyWith({
+  WalletLabelCacheCompanion copyWith({
     Value<String>? id,
     Value<String>? name,
     Value<int>? refreshedAtEpochMs,
     Value<int>? rowid,
   }) {
-    return WalletCategoryCacheCompanion(
+    return WalletLabelCacheCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
@@ -7260,7 +7671,7 @@ class WalletCategoryCacheCompanion
 
   @override
   String toString() {
-    return (StringBuffer('WalletCategoryCacheCompanion(')
+    return (StringBuffer('WalletLabelCacheCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('refreshedAtEpochMs: $refreshedAtEpochMs, ')
@@ -13006,6 +13417,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $WalletAccountCacheTable(this);
   late final $WalletCategoryCacheTable walletCategoryCache =
       $WalletCategoryCacheTable(this);
+  late final $WalletLabelCacheTable walletLabelCache = $WalletLabelCacheTable(
+    this,
+  );
   late final $WalletConnectionStatusTable walletConnectionStatus =
       $WalletConnectionStatusTable(this);
   late final $WalletMutationsTable walletMutations = $WalletMutationsTable(
@@ -13055,6 +13469,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     deletionAuditEvents,
     walletAccountCache,
     walletCategoryCache,
+    walletLabelCache,
     walletConnectionStatus,
     walletMutations,
     walletRecordLinks,
@@ -16865,6 +17280,9 @@ typedef $$WalletCategoryCacheTableCreateCompanionBuilder =
     WalletCategoryCacheCompanion Function({
       required String id,
       required String name,
+      Value<String> groupId,
+      Value<String> groupName,
+      Value<String?> parentId,
       required int refreshedAtEpochMs,
       Value<int> rowid,
     });
@@ -16872,6 +17290,9 @@ typedef $$WalletCategoryCacheTableUpdateCompanionBuilder =
     WalletCategoryCacheCompanion Function({
       Value<String> id,
       Value<String> name,
+      Value<String> groupId,
+      Value<String> groupName,
+      Value<String?> parentId,
       Value<int> refreshedAtEpochMs,
       Value<int> rowid,
     });
@@ -16892,6 +17313,21 @@ class $$WalletCategoryCacheTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentId => $composableBuilder(
+    column: $table.parentId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16920,6 +17356,21 @@ class $$WalletCategoryCacheTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentId => $composableBuilder(
+    column: $table.parentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get refreshedAtEpochMs => $composableBuilder(
     column: $table.refreshedAtEpochMs,
     builder: (column) => ColumnOrderings(column),
@@ -16940,6 +17391,15 @@ class $$WalletCategoryCacheTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get groupName =>
+      $composableBuilder(column: $table.groupName, builder: (column) => column);
+
+  GeneratedColumn<String> get parentId =>
+      $composableBuilder(column: $table.parentId, builder: (column) => column);
 
   GeneratedColumn<int> get refreshedAtEpochMs => $composableBuilder(
     column: $table.refreshedAtEpochMs,
@@ -16992,11 +17452,17 @@ class $$WalletCategoryCacheTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> groupName = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
                 Value<int> refreshedAtEpochMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletCategoryCacheCompanion(
                 id: id,
                 name: name,
+                groupId: groupId,
+                groupName: groupName,
+                parentId: parentId,
                 refreshedAtEpochMs: refreshedAtEpochMs,
                 rowid: rowid,
               ),
@@ -17004,11 +17470,17 @@ class $$WalletCategoryCacheTableTableManager
               ({
                 required String id,
                 required String name,
+                Value<String> groupId = const Value.absent(),
+                Value<String> groupName = const Value.absent(),
+                Value<String?> parentId = const Value.absent(),
                 required int refreshedAtEpochMs,
                 Value<int> rowid = const Value.absent(),
               }) => WalletCategoryCacheCompanion.insert(
                 id: id,
                 name: name,
+                groupId: groupId,
+                groupName: groupName,
+                parentId: parentId,
                 refreshedAtEpochMs: refreshedAtEpochMs,
                 rowid: rowid,
               ),
@@ -17039,6 +17511,180 @@ typedef $$WalletCategoryCacheTableProcessedTableManager =
         >,
       ),
       WalletCategoryCacheData,
+      PrefetchHooks Function()
+    >;
+typedef $$WalletLabelCacheTableCreateCompanionBuilder =
+    WalletLabelCacheCompanion Function({
+      required String id,
+      required String name,
+      required int refreshedAtEpochMs,
+      Value<int> rowid,
+    });
+typedef $$WalletLabelCacheTableUpdateCompanionBuilder =
+    WalletLabelCacheCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<int> refreshedAtEpochMs,
+      Value<int> rowid,
+    });
+
+class $$WalletLabelCacheTableFilterComposer
+    extends Composer<_$AppDatabase, $WalletLabelCacheTable> {
+  $$WalletLabelCacheTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get refreshedAtEpochMs => $composableBuilder(
+    column: $table.refreshedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WalletLabelCacheTableOrderingComposer
+    extends Composer<_$AppDatabase, $WalletLabelCacheTable> {
+  $$WalletLabelCacheTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get refreshedAtEpochMs => $composableBuilder(
+    column: $table.refreshedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WalletLabelCacheTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WalletLabelCacheTable> {
+  $$WalletLabelCacheTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get refreshedAtEpochMs => $composableBuilder(
+    column: $table.refreshedAtEpochMs,
+    builder: (column) => column,
+  );
+}
+
+class $$WalletLabelCacheTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WalletLabelCacheTable,
+          WalletLabelCacheData,
+          $$WalletLabelCacheTableFilterComposer,
+          $$WalletLabelCacheTableOrderingComposer,
+          $$WalletLabelCacheTableAnnotationComposer,
+          $$WalletLabelCacheTableCreateCompanionBuilder,
+          $$WalletLabelCacheTableUpdateCompanionBuilder,
+          (
+            WalletLabelCacheData,
+            BaseReferences<
+              _$AppDatabase,
+              $WalletLabelCacheTable,
+              WalletLabelCacheData
+            >,
+          ),
+          WalletLabelCacheData,
+          PrefetchHooks Function()
+        > {
+  $$WalletLabelCacheTableTableManager(
+    _$AppDatabase db,
+    $WalletLabelCacheTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WalletLabelCacheTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WalletLabelCacheTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WalletLabelCacheTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> refreshedAtEpochMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WalletLabelCacheCompanion(
+                id: id,
+                name: name,
+                refreshedAtEpochMs: refreshedAtEpochMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required int refreshedAtEpochMs,
+                Value<int> rowid = const Value.absent(),
+              }) => WalletLabelCacheCompanion.insert(
+                id: id,
+                name: name,
+                refreshedAtEpochMs: refreshedAtEpochMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WalletLabelCacheTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WalletLabelCacheTable,
+      WalletLabelCacheData,
+      $$WalletLabelCacheTableFilterComposer,
+      $$WalletLabelCacheTableOrderingComposer,
+      $$WalletLabelCacheTableAnnotationComposer,
+      $$WalletLabelCacheTableCreateCompanionBuilder,
+      $$WalletLabelCacheTableUpdateCompanionBuilder,
+      (
+        WalletLabelCacheData,
+        BaseReferences<
+          _$AppDatabase,
+          $WalletLabelCacheTable,
+          WalletLabelCacheData
+        >,
+      ),
+      WalletLabelCacheData,
       PrefetchHooks Function()
     >;
 typedef $$WalletConnectionStatusTableCreateCompanionBuilder =
@@ -20023,6 +20669,8 @@ class $AppDatabaseManager {
       $$WalletAccountCacheTableTableManager(_db, _db.walletAccountCache);
   $$WalletCategoryCacheTableTableManager get walletCategoryCache =>
       $$WalletCategoryCacheTableTableManager(_db, _db.walletCategoryCache);
+  $$WalletLabelCacheTableTableManager get walletLabelCache =>
+      $$WalletLabelCacheTableTableManager(_db, _db.walletLabelCache);
   $$WalletConnectionStatusTableTableManager get walletConnectionStatus =>
       $$WalletConnectionStatusTableTableManager(
         _db,

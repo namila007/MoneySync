@@ -13,6 +13,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
     final categories = await _database
         .select(_database.walletCategoryCache)
         .get();
+    final labels = await _database.select(_database.walletLabelCache).get();
     if (accounts.isEmpty && categories.isEmpty) return null;
     return WalletCatalog(
       accounts: accounts
@@ -28,22 +29,32 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
           )
           .toList(),
       categories: categories
-          .map((c) => WalletCategory(id: c.id, name: c.name))
+          .map(
+            (c) => WalletCategory(
+              id: c.id,
+              name: c.name,
+              groupId: c.groupId,
+              groupName: c.groupName,
+              parentId: c.parentId,
+            ),
+          )
           .toList(),
+      labels: labels.map((l) => WalletLabel(id: l.id, name: l.name)).toList(),
     );
   }
 
   /// Reactive stream of the catalog cache. Emits on every Drift write to
-  /// `walletAccountCache` or `walletCategoryCache` (Bug 2 — catalog dropdowns
-  /// now update without explicit invalidation).
+  /// `walletAccountCache`, `walletCategoryCache`, or `walletLabelCache`.
   Stream<WalletCatalog?> watch() async* {
     final accountRows = _database.select(_database.walletAccountCache);
     final categoryRows = _database.select(_database.walletCategoryCache);
+    final labelRows = _database.select(_database.walletLabelCache);
 
-    // Merge both table watches into a single catalog emission.
+    // Merge table watches into a single catalog emission.
     await for (final _ in accountRows.watch()) {
       final categories = await categoryRows.get();
       final accounts = await accountRows.get();
+      final labels = await labelRows.get();
       if (accounts.isEmpty && categories.isEmpty) {
         yield null;
       } else {
@@ -61,7 +72,18 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
               )
               .toList(),
           categories: categories
-              .map((c) => WalletCategory(id: c.id, name: c.name))
+              .map(
+                (c) => WalletCategory(
+                  id: c.id,
+                  name: c.name,
+                  groupId: c.groupId,
+                  groupName: c.groupName,
+                  parentId: c.parentId,
+                ),
+              )
+              .toList(),
+          labels: labels
+              .map((l) => WalletLabel(id: l.id, name: l.name))
               .toList(),
         );
       }
@@ -74,6 +96,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
     await _database.transaction(() async {
       await _database.delete(_database.walletAccountCache).go();
       await _database.delete(_database.walletCategoryCache).go();
+      await _database.delete(_database.walletLabelCache).go();
 
       for (final account in catalog.accounts) {
         await _database
@@ -98,6 +121,20 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
               WalletCategoryCacheCompanion.insert(
                 id: category.id,
                 name: category.name,
+                groupId: Value(category.groupId),
+                groupName: Value(category.groupName),
+                parentId: Value(category.parentId),
+                refreshedAtEpochMs: now,
+              ),
+            );
+      }
+      for (final label in catalog.labels) {
+        await _database
+            .into(_database.walletLabelCache)
+            .insert(
+              WalletLabelCacheCompanion.insert(
+                id: label.id,
+                name: label.name,
                 refreshedAtEpochMs: now,
               ),
             );
@@ -113,6 +150,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
     await _database.transaction(() async {
       await _database.delete(_database.walletAccountCache).go();
       await _database.delete(_database.walletCategoryCache).go();
+      await _database.delete(_database.walletLabelCache).go();
       await (_database.update(
         _database.walletConnectionStatus,
       )..where((row) => row.singletonId.equals(1))).write(
