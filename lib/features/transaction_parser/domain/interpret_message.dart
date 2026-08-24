@@ -102,6 +102,7 @@ final class InterpretMessage {
         confidence: confidence,
         reviewReasons: reviewReasons,
         provenance: provenance,
+        counterParty: extracted['counterparty'] as String?,
       );
       return InterpretedCandidate(candidate);
     } on InvalidCandidateFailure {

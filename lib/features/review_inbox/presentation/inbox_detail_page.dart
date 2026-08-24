@@ -20,6 +20,8 @@ final class CandidateSummaryView {
     required this.amountCurrency,
     required this.confidenceBasisPoints,
     required this.requiresReview,
+    this.transactionAtUtc,
+    this.counterParty,
   });
 
   final String kind;
@@ -29,6 +31,8 @@ final class CandidateSummaryView {
   final String amountCurrency;
   final int confidenceBasisPoints;
   final bool requiresReview;
+  final DateTime? transactionAtUtc;
+  final String? counterParty;
 
   static CandidateSummaryView? parse(String payload) {
     try {
@@ -50,10 +54,21 @@ final class CandidateSummaryView {
         amountCurrency: decoded['amountCurrency'] as String? ?? 'LKR',
         confidenceBasisPoints: confidence,
         requiresReview: requiresReview,
+        transactionAtUtc: _parseDateTime(decoded['transactionAtUtc']),
+        counterParty: decoded['counterParty'] as String?,
       );
     } catch (_) {
       return null;
     }
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value is String) {
+      try {
+        return DateTime.parse(value).toUtc();
+      } catch (_) {}
+    }
+    return null;
   }
 }
 
@@ -141,6 +156,10 @@ class InboxDetailPage extends ConsumerWidget {
                 encryptedPayload: detail.candidatePayload ?? '{}',
                 senderNormalized: event.senderKey,
                 initialSummary: detail.summary,
+                fallbackDate: DateTime.fromMillisecondsSinceEpoch(
+                  event.receivedAtEpochMs,
+                  isUtc: true,
+                ),
               ),
             ],
           );
@@ -235,9 +254,10 @@ class _CandidateCard extends StatelessWidget {
 
   String _formatAmount(int minorUnits, String code) {
     final sign = minorUnits < 0 ? '-' : '';
-    final abs = minorUnits.abs();
-    final whole = abs ~/ 100;
-    final fraction = (abs % 100).toString().padLeft(2, '0');
-    return '$sign$code $whole.$fraction';
+    final majorUnits = minorUnits.abs() / 100;
+    final formatted = majorUnits
+        .toStringAsFixed(2)
+        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    return '$sign$code $formatted';
   }
 }
