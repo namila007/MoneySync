@@ -6,6 +6,7 @@ import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
+import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/data/drift_review_outbox_writer.dart';
@@ -16,6 +17,10 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_connection_m
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
+    show succeededMutationsProvider;
+import 'package:money_sync/features/wallet_sync/presentation/wallet_waiting_view.dart'
+    show waitingMutationsProvider;
 
 final log = Logger('review');
 
@@ -39,6 +44,8 @@ final class ReviewTransactionViewState {
     this.categoryId,
     this.paymentType = 'debit_card',
     this.counterParty = '',
+    this.note = '',
+    this.labelIds = const [],
     this.evaluation,
     this.result,
     this.submitting = false,
@@ -52,6 +59,8 @@ final class ReviewTransactionViewState {
   final String? categoryId;
   final String paymentType;
   final String counterParty;
+  final String note;
+  final List<String> labelIds;
   final GateEvaluation? evaluation;
   final ReviewSubmissionResult? result;
   final bool submitting;
@@ -65,6 +74,8 @@ final class ReviewTransactionViewState {
     String? categoryId,
     String? paymentType,
     String? counterParty,
+    String? note,
+    List<String>? labelIds,
     GateEvaluation? evaluation,
     ReviewSubmissionResult? result,
     bool? submitting,
@@ -77,6 +88,8 @@ final class ReviewTransactionViewState {
     categoryId: categoryId ?? this.categoryId,
     paymentType: paymentType ?? this.paymentType,
     counterParty: counterParty ?? this.counterParty,
+    note: note ?? this.note,
+    labelIds: labelIds ?? this.labelIds,
     evaluation: evaluation ?? this.evaluation,
     result: result ?? this.result,
     submitting: submitting ?? this.submitting,
@@ -100,6 +113,8 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     String? categoryId,
     String? paymentType,
     String? counterParty,
+    String? note,
+    List<String>? labelIds,
   }) {
     state = state.copyWith(
       amountMinor: amountMinor,
@@ -110,6 +125,8 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
       categoryId: categoryId,
       paymentType: paymentType,
       counterParty: counterParty,
+      note: note,
+      labelIds: labelIds,
     );
   }
 
@@ -125,10 +142,12 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
   }
 
   /// Runs the atomic review->outbox write with the UI double-submit guard.
+  /// When [deferred] is true, writes `queued` instead of `succeeded` (WP3).
   Future<void> submit({
     required String encryptedPayload,
     required String senderNormalized,
     required int revision,
+    bool deferred = false,
   }) async {
     if (state.submitting) return; // double-submit guard
     state = state.copyWith(submitting: true);
@@ -161,6 +180,7 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
       // serializer (compile-time allowlist / structural redaction), never a
       // hand-built map. The serialized single-item body is both the mutation
       // payload snapshot and the per-item ciphertext.
+      final noteWithMarker = _buildNoteWithMarker(state.note);
       final snapshot = TransactionCandidateSnapshot(
         accountId: state.accountId ?? '',
         amountMinor: state.amountMinor,
@@ -169,6 +189,15 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
         paymentType: _wirePaymentType(state.paymentType),
         recordState: WalletRecordState.cleared,
         counterParty: state.counterParty.isEmpty ? null : state.counterParty,
+        categoryId: state.categoryId,
+        note: noteWithMarker,
+        labelIds: state.labelIds,
+      );
+      log.fine(
+        '[create] Snapshot: account=${snapshot.accountId} '
+        'amount=${snapshot.amountMinor} ${snapshot.currencyCode} '
+        'date=${snapshot.recordDateUtc} payment=${snapshot.paymentType.wireName} '
+        'category=${snapshot.categoryId} counterparty=${snapshot.counterParty}',
       );
       final serializedBody = jsonEncode(
         const WalletRecordPayloadSerializer().serialize(snapshot),
@@ -189,8 +218,15 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
           'kind': state.kind.name,
           'direction': state.direction.name,
           'paymentType': state.paymentType,
+          if (state.categoryId != null) 'categoryId': state.categoryId,
         },
-        state: WalletMutationState.queued,
+        state: deferred
+            ? WalletMutationState.queued
+            : WalletMutationState.succeeded,
+      );
+      log.fine(
+        '[create] Intent: id=${intent.id} candidateId=${intent.candidateId} '
+        'state=${intent.state.name} deferred=$deferred',
       );
 
       final result = await useCase.submit(
@@ -211,11 +247,28 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
       );
 
       log.info('Review submit for message $_smsEventId: ${result.runtimeType}');
+      if (result is ReviewBlocked) {
+        log.warning(
+          'Review blocked for message $_smsEventId: '
+          'gate ${result.gateIndex} — ${result.reason}',
+        );
+      } else if (result is ReviewDuplicate) {
+        log.warning(
+          'Review duplicate for message $_smsEventId: '
+          'active lineage already exists',
+        );
+      }
       state = state.copyWith(
         submitting: false,
         result: result,
         evaluation: evaluation,
       );
+
+      // Invalidate activity log so the new event appears immediately.
+      ref.invalidate(filteredActivityLogProvider);
+      // Invalidate waiting/success views so the new mutation appears.
+      ref.invalidate(waitingMutationsProvider);
+      ref.invalidate(succeededMutationsProvider);
     } catch (e, s) {
       log.error('Review submit failed for message $_smsEventId', e, s);
       state = state.copyWith(
@@ -346,4 +399,25 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     'web_payment' => WalletPaymentType.webPayment,
     _ => WalletPaymentType.debitCard,
   };
+
+  /// Builds the `note` field for the Wallet API: `[sw:<marker>] <userNote>`.
+  /// The marker is never truncated; user text is truncated to fit 255 chars.
+  static String? _buildNoteWithMarker(String userNote) {
+    final marker = 'sw:${_generateMarker()}';
+    final prefix = '[$marker] ';
+    if (userNote.isEmpty) return prefix.trimRight();
+    final maxUserLength = 255 - prefix.length;
+    if (maxUserLength <= 0) return prefix.trimRight();
+    final truncated = userNote.length > maxUserLength
+        ? userNote.substring(0, maxUserLength)
+        : userNote;
+    return '$prefix$truncated';
+  }
+
+  /// Short alphanumeric marker for source reconciliation. Derived from the
+  /// current timestamp — not cryptographic, just a stable traceable id.
+  static String _generateMarker() {
+    final now = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    return now.toUpperCase().padLeft(16, '0');
+  }
 }
