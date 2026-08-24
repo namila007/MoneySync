@@ -28,7 +28,7 @@ void main() {
     test('fresh install reports schema version 9', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 14);
     });
 
     test('v9 tables exist on a fresh database', () async {
@@ -287,6 +287,12 @@ void main() {
         'last_sync_at_epoch_ms INTEGER)',
       );
       db.execute(
+        'CREATE TABLE wallet_category_cache ('
+        'id TEXT NOT NULL PRIMARY KEY, '
+        'name TEXT NOT NULL, '
+        'refreshed_at_epoch_ms INTEGER NOT NULL)',
+      );
+      db.execute(
         'CREATE TABLE activity_events ('
         'id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
         'event_type TEXT NOT NULL, '
@@ -348,7 +354,7 @@ void main() {
       final db = await migrateFrom(8, seedV8Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 14);
 
       final mutations = await db.select(db.walletMutations).get();
       expect(mutations, hasLength(1));

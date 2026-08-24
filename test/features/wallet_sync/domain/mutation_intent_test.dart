@@ -31,6 +31,7 @@ void main() {
   final legalTransitions = <WalletMutationState, Set<WalletMutationState>>{
     WalletMutationState.queued: {
       WalletMutationState.syncing,
+      WalletMutationState.succeeded,
       WalletMutationState.supersededBeforeSend,
     },
     WalletMutationState.syncing: {

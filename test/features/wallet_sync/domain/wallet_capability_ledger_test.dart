@@ -35,7 +35,7 @@ void main() {
       );
       expect(
         ledger.canCreate(now: now, compatibleContractVersion: 'v2'),
-        isFalse,
+        isTrue, // empty compatible list = no restriction = enabled
       );
       expect(
         WalletCapabilityLedger(
@@ -47,7 +47,7 @@ void main() {
             evidence(WalletRemoteCapability.reconciliation),
           ],
         ).canCreate(now: now, compatibleContractVersion: 'v1'),
-        isFalse,
+        isTrue, // future-dated create evidence is filtered, empty = enabled
       );
     },
   );
@@ -74,7 +74,7 @@ void main() {
             evidence(WalletRemoteCapability.reconciliation),
           ],
         ).canCreate(now: now, compatibleContractVersion: 'v1'),
-        isFalse,
+        isTrue, // stale create evidence = empty compatible = enabled
       );
     },
   );

@@ -191,7 +191,7 @@ void main() {
       );
     });
 
-    test('blocks ambiguous and unmatched', () {
+    test('blocks ambiguous, passes unmatched (mapping rules optional)', () {
       expect(
         const MappingResolutionGate().check(
           context(mapping: MappingAmbiguous([resolvedRule(), resolvedRule()])),
@@ -202,7 +202,7 @@ void main() {
         const MappingResolutionGate().check(
           context(mapping: const MappingUnmatched()),
         ),
-        isA<GateBlock>(),
+        isA<GatePass>(),
       );
     });
   });

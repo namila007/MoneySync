@@ -30,13 +30,11 @@ void main() {
 
       expect(result, isA<WalletReadSuccess>());
       final success = result as WalletReadSuccess;
-      // M5.2: OpenAPI v1.3.0 exposes no writable flag, so the reader stays
-      // fail-closed until the live eligibility spike supplies evidence.
-      // Eligibility-gate tests use FakeWritableWalletCatalogCache instead.
-      expect(success.catalog.accounts.single.isWritable, isFalse);
+      // Non-archived accounts are writable (M5.15 — isWritable derived from archived).
+      expect(success.catalog.accounts.single.isWritable, isTrue);
       expect(
         success.catalog.accounts.single.eligibility,
-        WalletAccountEligibility.unwritable,
+        WalletAccountEligibility.eligible,
       );
       expect(adapter.requests, hasLength(2));
       expect(

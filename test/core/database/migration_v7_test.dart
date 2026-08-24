@@ -133,6 +133,12 @@ void main() {
       'last_sync_at_epoch_ms INTEGER)',
     );
     db.execute(
+      'CREATE TABLE wallet_category_cache ('
+      'id TEXT NOT NULL PRIMARY KEY, '
+      'name TEXT NOT NULL, '
+      'refreshed_at_epoch_ms INTEGER NOT NULL)',
+    );
+    db.execute(
       'CREATE TABLE wallet_mutations ('
       'id TEXT NOT NULL PRIMARY KEY, '
       'operation TEXT NOT NULL, '
@@ -381,7 +387,7 @@ void main() {
       final db = await migrateFrom(1, seedV1Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 14);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(1));
       final event = events.single;
@@ -422,7 +428,7 @@ void main() {
         (db) => seedV6Schema(db, includeContentSha256: false),
       );
       addTearDown(db.close);
-      expect(db.schemaVersion, 11);
+      expect(db.schemaVersion, 14);
       expect(await db.select(db.trackedSenders).get(), isNotEmpty);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(4));
