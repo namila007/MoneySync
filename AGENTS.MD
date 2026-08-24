@@ -39,6 +39,8 @@ For every code change:
 
 Do not commit, push, upload, publish, change credentials, or call a production Wallet mutation unless the user explicitly authorizes that external action.
 
+When live Wallet API calls are authorized for development or end-to-end device testing, use the designated `TEST_ACCOUNT` wallet exclusively. Never read, write, or otherwise touch any other Wallet account during dev/E2E verification.
+
 ## Architecture rules
 
 Use the feature-first Clean Architecture described in `plan/02-solution-architecture.md` in the guides repository:
@@ -149,8 +151,12 @@ App requires lock → router guard captures intended route via _intendedRouteNot
 
 ## Available skills
 
-- [moneysync-logger](.opencode/skills/moneysync-logger/SKILL.md) — logging framework usage: levels, logger naming, redaction rules, insertion points for debug/info/error logs. Load via `/skill moneysync-logger`.
-- [moneysync-onboarding-debug](.opencode/skills/moneysync-onboarding-debug/SKILL.md) — debugging patterns for onboarding persistence, Riverpod state transitions, GoRouter redirect chains, and Flutter logcat tracing. Load via `/skill moneysync-onboarding-debug`.
+Skills live in `.opencode/skills/` and are symlinked into `.claude/skills/` for Claude CLI access.
+
+- [moneysync-logger](.opencode/skills/moneysync-logger/SKILL.md) — logging framework usage: levels, logger naming, redaction rules, insertion points for debug/info/error logs across bootstrap, onboarding, lock, and networking flows. Load via `/skill moneysync-logger`.
+- [moneysync-onboarding-debug](.opencode/skills/moneysync-onboarding-debug/SKILL.md) — debugging patterns for onboarding persistence, Riverpod state transitions, GoRouter redirect chains, and Flutter logcat tracing. Covers the button→state→redirect pipeline. Load via `/skill moneysync-onboarding-debug`.
+- [moneysync-adb-debug](.opencode/skills/moneysync-adb-debug/SKILL.md) — Android emulator workflow: checking adb devices, installing privateFull/playManual flavors, driving the UI with uiautomator, seeding SMS via the console, reading app logs, and capturing device evidence. Load via `/skill moneysync-adb-debug`.
+- [moneysync-e2e](.opencode/skills/moneysync-e2e/SKILL.md) — end-to-end device testing flows via ADB: Save for Later, Create Now, negative validation, home dashboard verification, activity log checks. Scripts in `money_sync/e2e/`. Load via `/skill moneysync-e2e`.
 
 ## Relevant rules (ECC)
 

@@ -102,6 +102,20 @@ final class WalletMutationsDao {
     return transitioned;
   }
 
+  /// Transitions the candidate row linked to [candidateId] to [newState].
+  /// Called after a successful create so the candidate leaves `needsReview`.
+  Future<void> transitionCandidateState({
+    required String candidateId,
+    required String newState,
+  }) async {
+    await _database.customUpdate(
+      'UPDATE transaction_candidates SET state = ? '
+      'WHERE candidate_id = ?',
+      variables: [Variable(newState), Variable(candidateId)],
+      updates: {_database.transactionCandidates},
+    );
+  }
+
   /// The mutation row for [id], or null.
   Future<WalletMutationIntent?> byId(String id) async {
     final rows = await (_database.select(

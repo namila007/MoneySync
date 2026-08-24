@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:money_sync/features/wallet_sync/data/wallet_api_data_source.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_outcome.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
@@ -45,9 +47,24 @@ final class FakeWalletApiDataSource implements WalletApiDataSource {
   ) async {
     createCalls++;
     lastCreatePayload = payload;
-    if (_error case final error?) throw error;
-    return _createOutcome ??
-        const WalletCreateAllSucceeded(recordId: 'record-1');
+    developer.log(
+      '[FakeAPI] createRecord #$createCalls: '
+      'account=${payload.accountId} amount=${payload.amountMinor} '
+      '${payload.currencyCode} date=${payload.recordDateUtc} '
+      'payment=${payload.paymentType.wireName} category=${payload.categoryId}',
+      name: 'FakeWalletApi',
+    );
+    if (_error case final error?) {
+      developer.log('[FakeAPI] ERROR: $error', name: 'FakeWalletApi');
+      throw error;
+    }
+    final outcome =
+        _createOutcome ?? const WalletCreateAllSucceeded(recordId: 'record-1');
+    developer.log(
+      '[FakeAPI] → ${outcome.runtimeType} recordId=${outcome is WalletCreateAllSucceeded ? outcome.recordId : "partial"}',
+      name: 'FakeWalletApi',
+    );
+    return outcome;
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
@@ -10,6 +11,8 @@ import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secre
 import 'package:money_sync/features/wallet_connection/data/production_wallet_connection_actions.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
+
+final _log = Logger('WalletConn');
 
 sealed class WalletConnectionViewState {
   const WalletConnectionViewState();
@@ -142,6 +145,9 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
           isStale: true,
         );
       });
+      // Upgrade stale cached state to live once the API responds (Bug 1).
+      // Non-blocking — keep the existing manual buttons for explicit re-test.
+      unawaited(refresh());
     } catch (_) {
       // No stored token or error — stay disconnected
     }
@@ -154,8 +160,12 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
   }
 
   Future<WalletTokenSubmitResult> submit(WalletToken token) {
+    _log.fine(
+      'submit called, canSubmit=$canSubmitToken, hasToken=$_hasConnectedToken',
+    );
     final actions = ref.read(walletConnectionActionsProvider);
     if (!canSubmitToken) {
+      _log.fine('submit BLOCKED');
       return Future<WalletTokenSubmitResult>.value(
         WalletTokenSubmitResult.blocked,
       );
@@ -215,12 +225,21 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
     required bool replacing,
   }) async {
     final epoch = ++_generation;
+    _log.fine('_run epoch=$epoch replacing=$replacing');
     state = WalletConnectionLoading(previous: state);
 
+    final sw = Stopwatch()..start();
     final result = await _resultOrServiceFailure(
       () => operation(epoch, replacing),
     );
-    if (epoch != _generation) return WalletTokenSubmitResult.handedOff;
+    sw.stop();
+    _log.fine(
+      '_run epoch=$epoch result=${result.runtimeType} elapsed=${sw.elapsedMilliseconds}ms',
+    );
+    if (epoch != _generation) {
+      _log.fine('_run epoch=$epoch STALE (current=$_generation), discarding');
+      return WalletTokenSubmitResult.handedOff;
+    }
 
     if (result is WalletConnectionCatalogReady ||
         result is WalletConnectionCatalogOffline) {
@@ -260,7 +279,8 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
   ) async {
     try {
       return await operation();
-    } on Exception {
+    } on Exception catch (e) {
+      _log.warning('_resultOrServiceFailure caught: $e');
       return const WalletConnectionActionFailure(WalletReadFailure.service());
     }
   }

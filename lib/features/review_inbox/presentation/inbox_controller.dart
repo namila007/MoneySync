@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 enum InboxLayout { groupedBySender, flatNewestFirst }
 
@@ -245,12 +246,22 @@ final inboxEventsProvider = StreamProvider.autoDispose<List<SmsEvent>>((
 ) async* {
   final db = await ref.watch(appDatabaseProvider.future);
   final view = ref.watch(inboxViewProvider);
-  yield* db.watchSmsEventsPage(
+  await for (final events in db.watchSmsEventsPage(
     limit: kInboxPageSize,
     senderKey: view.senderFilter,
     fromReceivedAtEpochMs: _rangeFromUtcMs(view.dateRangeFilter),
     untilReceivedAtEpochMs: _rangeUntilUtcMs(view.dateRangeFilter),
-  );
+  )) {
+    // Exclude messages whose candidate has been reviewed (retainedLocal).
+    final reviewedIds = <int>{};
+    for (final event in events) {
+      final candidate = await db.getCandidateBySmsEventId(event.id);
+      if (candidate?.state == CandidateRecordState.retainedLocal) {
+        reviewedIds.add(event.id);
+      }
+    }
+    yield events.where((e) => !reviewedIds.contains(e.id)).toList();
+  }
 });
 
 /// True per-sender totals for the grouped layout — `Show all (N)` must not

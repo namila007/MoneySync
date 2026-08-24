@@ -12,6 +12,7 @@ import 'package:money_sync/core/logging/activity_writer_generation.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/log_redaction_policy.dart';
+import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart'
     as data_control;
@@ -20,6 +21,10 @@ import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
+import 'package:money_sync/features/wallet_connection/application/wallet_connection_actions.dart';
+import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
+import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secret_store.dart';
+import 'package:money_sync/features/wallet_connection/data/production_wallet_connection_actions.dart';
 import 'package:money_sync/features/wallet_sync/application/wallet_mutation_recovery_service.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 
@@ -186,6 +191,11 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       log.error('Outbox recovery scan failed', e, s);
     }
 
+    // Auto-connect wallet at startup if a token was previously saved.
+    // Non-blocking — the catalog cache is refreshed in the background so
+    // the wallet connection page and dropdowns pick up fresh data.
+    _connectWalletAtStartup(db, log);
+
     log.info('Health check and onboarding repo ready');
     await startupNotifier.initialize(
       healthRepo: healthRepo,
@@ -194,6 +204,44 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     log.info(
       'Startup init done, status=${ref.read(startupStateProvider).status.name}',
     );
+  }
+
+  /// Check if a wallet token was previously saved and refresh the catalog
+  /// cache in the background. Non-blocking — failures are logged but never
+  /// prevent startup.
+  Future<void> _connectWalletAtStartup(AppDatabase db, Logger log) async {
+    try {
+      final channel = ref.read(nativeSecurityChannelProvider);
+      final store = KeystoreWalletSecretStore(channel: channel);
+      final status = await (db.select(
+        db.walletConnectionStatus,
+      )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
+      if (status == null || status.status == 'disconnected') return;
+
+      final actions = ProductionWalletConnectionActions(
+        secretStore: store,
+        freshAuth: _StubFreshAuth(),
+        cache: DriftWalletCatalogCache(database: db),
+      );
+      if (!actions.isAvailable) return;
+
+      log.info('Wallet token found, refreshing catalog in background...');
+      final result = await actions.refresh(lifecycleEpoch: 0);
+      switch (result) {
+        case WalletConnectionCatalogReady():
+          log.info(
+            'Wallet catalog refreshed: ${result.catalog.accounts.length} accounts',
+          );
+        case WalletConnectionCatalogOffline():
+          log.info('Wallet catalog offline (cached data available)');
+        case WalletConnectionActionFailure():
+          log.warning('Wallet catalog refresh failed: ${result.failure}');
+        default:
+          break;
+      }
+    } on Exception catch (e) {
+      log.warning('Startup wallet connect skipped: $e');
+    }
   }
 
   @override
@@ -258,4 +306,15 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     ];
     return ProviderScope(overrides: overrides, child: const MoneySyncApp());
   }
+}
+
+/// Stub for startup connection — refresh() never calls fresh auth,
+/// so this is only needed to satisfy the constructor contract.
+class _StubFreshAuth implements FreshAuthPort {
+  @override
+  Future<bool> isDeviceAuthAvailable() async => false;
+
+  @override
+  Future<DeviceAuthOutcome> authenticate({required String purpose}) async =>
+      DeviceAuthOutcome.authenticated;
 }

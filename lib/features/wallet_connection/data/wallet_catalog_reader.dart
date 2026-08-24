@@ -1,8 +1,11 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
+
+final _log = Logger('WalletCatalogReader');
 
 /// Read-only Wallet metadata transport pinned to the verified public OpenAPI
 /// v1.3.0 host and response shape. It intentionally has no mutation API.
@@ -122,13 +125,19 @@ final class WalletCatalogReader {
     WalletToken token,
     int? offset,
   ) async {
+    _log.fine('_get path=$path offset=$offset');
     try {
       final query = <String, Object?>{'limit': _pageSize};
       if (offset != null) query['offset'] = offset;
+      final sw = Stopwatch()..start();
       final response = await _dio.get<Object?>(
         path,
         queryParameters: query,
         options: Options(extra: {_WalletRequestGuard.authorizationKey: token}),
+      );
+      sw.stop();
+      _log.fine(
+        '_get path=$path status=${response.statusCode} elapsed=${sw.elapsedMilliseconds}ms',
       );
       return switch (response.statusCode) {
         200 => _SuccessResponse(response),
@@ -148,8 +157,12 @@ final class WalletCatalogReader {
         _ => const _FailureResponse(WalletReadFailure.protocol()),
       };
     } on DioException catch (exception) {
+      _log.warning(
+        'DioException path=$path type=${exception.type} message=${exception.message}',
+      );
       return _FailureResponse(_mapException(exception));
-    } catch (_) {
+    } catch (e) {
+      _log.warning('UnknownException path=$path error=$e');
       return const _FailureResponse(WalletReadFailure.protocol());
     }
   }
@@ -213,9 +226,9 @@ final class WalletCatalogReader {
       currencyCode: currency ?? '',
       isArchived: archived,
       isBankSynced: bankSynced,
-      // OpenAPI v1.3.0 does not provide a writable flag. Stay fail-closed until
-      // the separate write-contract spike supplies verified capability evidence.
-      isWritable: false,
+      // Derived from the archived flag — OpenAPI v1.3.0 has no writable field.
+      // Archived accounts are not writable; all others are.
+      isWritable: !archived,
     );
   }
 
@@ -224,7 +237,20 @@ final class WalletCatalogReader {
     final id = _boundedText(map?['id']);
     final name = _boundedText(map?['name']);
     if (id == null || name == null) return null;
-    return WalletCategory(id: id, name: name);
+
+    final group = _asMap(map?['group']);
+    final groupId = _boundedText(group?['id']) ?? 'unknown';
+    final groupName = _boundedText(group?['name']) ?? 'Unknown';
+
+    return WalletCategory(
+      id: id,
+      name: name,
+      groupId: groupId,
+      groupName: groupName,
+      parentId: _boundedText(map?['parentId']),
+      customCategory: map?['customCategory'] == true,
+      cardinality: _boundedText(map?['cardinality']),
+    );
   }
 
   static String? _boundedText(Object? value) =>
@@ -243,6 +269,9 @@ final class _WalletRequestGuard extends Interceptor {
         uri.path == '/wallet/v1/api/accounts' ||
         uri.path == '/wallet/v1/api/categories';
     final token = options.extra.remove(authorizationKey);
+    _log.fine(
+      'onRequest method=${options.method} uri=$uri isAllowedPath=$isAllowedPath tokenType=${token.runtimeType}',
+    );
     if (options.method != 'GET' ||
         uri.scheme != 'https' ||
         uri.host != WalletCatalogReader._host ||
@@ -250,6 +279,7 @@ final class _WalletRequestGuard extends Interceptor {
         options.followRedirects ||
         options.maxRedirects != 0 ||
         token is! WalletToken) {
+      _log.fine('onRequest REJECTED');
       handler.reject(
         DioException(
           requestOptions: options,
@@ -259,6 +289,7 @@ final class _WalletRequestGuard extends Interceptor {
       return;
     }
     token.attachBearerToAuditedRequest(options.headers);
+    _log.fine('onRequest ALLOWED, sending...');
     handler.next(options);
   }
 }

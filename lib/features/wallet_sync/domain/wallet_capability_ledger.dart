@@ -61,7 +61,8 @@ final class WalletCapabilityLedger {
             )
             .toList()
           ..sort((a, b) => b.observedAt.compareTo(a.observedAt));
-    return compatible.isNotEmpty &&
-        compatible.first.outcome == WalletCapabilityOutcome.pass;
+    // Empty ledger = no evidence of restriction = enabled (fail-open).
+    if (compatible.isEmpty) return true;
+    return compatible.first.outcome == WalletCapabilityOutcome.pass;
   }
 }

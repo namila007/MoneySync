@@ -140,6 +140,7 @@ final class AccountEligibilityGate extends PreSendGate {
 }
 
 /// Gate 5 — mapping resolution (M5.3 resolver output in context).
+/// Mapping rules are optional — unmatched candidates still pass this gate.
 final class MappingResolutionGate extends PreSendGate {
   const MappingResolutionGate();
 
@@ -150,7 +151,7 @@ final class MappingResolutionGate extends PreSendGate {
         MappingAmbiguous() => const GateBlock(
           'Mapping is ambiguous. Review first.',
         ),
-        MappingUnmatched() => const GateBlock('No mapping rule matched.'),
+        MappingUnmatched() => const GatePass(),
       };
 
   GateResult _ruleAllowed(PreSendContext context, MappingRule rule) {

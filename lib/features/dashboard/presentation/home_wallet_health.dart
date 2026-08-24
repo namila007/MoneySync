@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 
 /// Read-only projection of the outbox / record-link state for the home
@@ -14,18 +15,21 @@ final class HomeWalletHealth {
     required this.reviewCount,
     required this.retryCount,
     required this.waitingCount,
+    required this.succeededCount,
     this.latestRecord,
   });
 
   final int reviewCount;
   final int retryCount;
   final int waitingCount;
+  final int succeededCount;
   final LatestWalletRecord? latestRecord;
 
   static const empty = HomeWalletHealth(
     reviewCount: 0,
     retryCount: 0,
     waitingCount: 0,
+    succeededCount: 0,
   );
 }
 
@@ -50,27 +54,31 @@ final homeWalletHealthProvider = StreamProvider.autoDispose<HomeWalletHealth>((
 ) async* {
   final db = await ref.watch(appDatabaseProvider.future);
   final mutations = db.select(db.walletMutations);
+  final candidates = db.select(db.transactionCandidates);
 
-  // Stream re-emits on any outbox / link write, keeping the counts live.
-  await for (final rows in mutations.watch()) {
-    final review = rows
-        .where(
-          (r) =>
-              r.state == WalletMutationState.reconciling ||
-              r.state == WalletMutationState.unknownDelivery ||
-              r.state == WalletMutationState.unknownUpdate ||
-              r.state == WalletMutationState.unknownDelete,
-        )
+  // Watch both tables — re-emit on any mutation OR candidate write.
+  await for (final _ in mutations.watch().asyncExpand(
+    (_) => candidates.watch(),
+  )) {
+    final candidateRows = await candidates.get();
+    final mutationRows = await mutations.get();
+
+    // Review = candidates awaiting user review (pre-create, not post-create).
+    final review = candidateRows
+        .where((r) => r.state == CandidateRecordState.needsReview)
         .length;
-    final retry = rows
+    final retry = mutationRows
         .where((r) => r.state == WalletMutationState.retryScheduled)
         .length;
-    final waiting = rows
+    final waiting = mutationRows
         .where(
           (r) =>
               r.state == WalletMutationState.queued ||
               r.state == WalletMutationState.syncing,
         )
+        .length;
+    final succeeded = mutationRows
+        .where((r) => r.state == WalletMutationState.succeeded)
         .length;
 
     final latestLinks =
@@ -101,6 +109,7 @@ final homeWalletHealthProvider = StreamProvider.autoDispose<HomeWalletHealth>((
       reviewCount: review,
       retryCount: retry,
       waitingCount: waiting,
+      succeededCount: succeeded,
       latestRecord: latest,
     );
   }

@@ -5,11 +5,30 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_catalog_detail_screen.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_controller.dart';
 
-class WalletConnectionPage extends ConsumerWidget {
+class WalletConnectionPage extends ConsumerStatefulWidget {
   const WalletConnectionPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WalletConnectionPage> createState() =>
+      _WalletConnectionPageState();
+}
+
+class _WalletConnectionPageState extends ConsumerState<WalletConnectionPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Ensure auto-refresh fires when the page is first visited, not just
+    // on the controller's first build (which may have already completed).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = ref.read(walletConnectionControllerProvider);
+      if (state is WalletConnected && state.isStale) {
+        ref.read(walletConnectionControllerProvider.notifier).refresh();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(walletConnectionControllerProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Wallet connection')),
@@ -18,7 +37,11 @@ class WalletConnectionPage extends ConsumerWidget {
         child: switch (state) {
           WalletPrerequisiteUnavailable() => const _BlockedBody(),
           WalletDisconnected() => const _DisconnectedBody(),
-          WalletConnectionLoading() => const _LoadingBody(),
+          WalletConnectionLoading(:final previous) => _LoadingOverlay(
+            child: previous != null
+                ? _bodyForState(previous)
+                : const _DisconnectedBody(),
+          ),
           WalletConnected(:final catalog, :final refreshedAt, :final isStale) =>
             _ConnectedBody(
               catalog: catalog,
@@ -32,6 +55,19 @@ class WalletConnectionPage extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _bodyForState(WalletConnectionViewState state) => switch (state) {
+    WalletConnected(:final catalog, :final refreshedAt, :final isStale) =>
+      _ConnectedBody(
+        catalog: catalog,
+        refreshedAt: refreshedAt,
+        isStale: isStale,
+      ),
+    WalletConnectionFailure(:final userMessage) => _DisconnectedBody(
+      failureMessage: userMessage,
+    ),
+    _ => const _DisconnectedBody(),
+  };
 }
 
 class _BlockedBody extends StatelessWidget {
@@ -68,19 +104,21 @@ class _BlockedBody extends StatelessWidget {
   );
 }
 
-class _LoadingBody extends StatelessWidget {
-  const _LoadingBody();
+class _LoadingOverlay extends StatelessWidget {
+  const _LoadingOverlay({required this.child});
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) => const Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircularProgressIndicator(),
-        SizedBox(height: 16),
-        Text('Connecting...'),
-      ],
-    ),
+  Widget build(BuildContext context) => Stack(
+    children: [
+      child,
+      const Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        child: LinearProgressIndicator(),
+      ),
+    ],
   );
 }
 

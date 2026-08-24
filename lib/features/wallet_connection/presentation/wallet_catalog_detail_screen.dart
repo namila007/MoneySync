@@ -94,16 +94,61 @@ class _CategoryList extends StatelessWidget {
     if (categories.isEmpty) {
       return const Center(child: Text('No categories in catalog.'));
     }
-    // Flat alphabetical list — the v1.3.0 API has no parent field.
-    final sorted = List<WalletCategory>.of(categories)
-      ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Group by groupId, then sort groups alphabetically.
+    final grouped = <String, List<WalletCategory>>{};
+    for (final c in categories) {
+      grouped.putIfAbsent(c.groupId, () => []).add(c);
+    }
+    final groupIds = grouped.keys.toList()..sort();
+
+    // Within each group: base categories first (alphabetical), then custom
+    // categories nested under their parentId.
     return ListView.builder(
-      itemCount: sorted.length,
+      itemCount: groupIds.length,
       itemBuilder: (context, index) {
-        final category = sorted[index];
-        return ListTile(
-          leading: const Icon(Icons.label_outlined),
-          title: Text(category.name),
+        final groupId = groupIds[index];
+        final groupCats = grouped[groupId]!;
+        final groupName = groupCats.first.groupName;
+
+        final baseCats =
+            groupCats
+                .where((c) => !c.customCategory && c.parentId == null)
+                .toList()
+              ..sort((a, b) => a.name.compareTo(b.name));
+        final customCats = groupCats.where((c) => c.customCategory).toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+
+        return ExpansionTile(
+          leading: const Icon(Icons.folder_outlined),
+          title: Text(groupName),
+          children: [
+            for (final cat in baseCats) ...[
+              ListTile(
+                leading: const Icon(Icons.label_outlined),
+                title: Text(cat.name),
+                subtitle: cat.cardinality != null
+                    ? Text(cat.cardinality!)
+                    : null,
+              ),
+              // Custom sub-categories under this base category.
+              for (final sub in customCats.where((c) => c.parentId == cat.id))
+                ListTile(
+                  leading: const Icon(Icons.subdirectory_arrow_right),
+                  title: Text(sub.name),
+                  subtitle: const Text('Custom'),
+                ),
+            ],
+            // Orphan custom categories (parentId not matching any base).
+            for (final sub in customCats.where(
+              (c) => !baseCats.any((b) => b.id == c.parentId),
+            ))
+              ListTile(
+                leading: const Icon(Icons.subdirectory_arrow_right),
+                title: Text(sub.name),
+                subtitle: const Text('Custom'),
+              ),
+          ],
         );
       },
     );

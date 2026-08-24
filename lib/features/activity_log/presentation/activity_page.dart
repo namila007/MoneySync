@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_log_controller.dart';
+import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 
 class ActivityPage extends ConsumerStatefulWidget {
   const ActivityPage({super.key});
@@ -30,11 +32,15 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
           Expanded(
             child: entriesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => const _ActivityMessage(
-                text:
-                    'Activity could not be read from local storage. '
-                    'Nothing has been lost — try again later.',
-              ),
+              error: (error, stack) {
+                debugPrint('[activity] Provider error: $error');
+                debugPrint('[activity] Stack: $stack');
+                return const _ActivityMessage(
+                  text:
+                      'Activity could not be read from local storage. '
+                      'Nothing has been lost — try again later.',
+                );
+              },
               data: (entries) {
                 if (entries.isEmpty) {
                   return const _ActivityMessage(
@@ -137,9 +143,24 @@ class _ActivityTile extends StatelessWidget {
   }
 }
 
+/// Looks up the current [WalletMutationState] for a mutation id.
+/// Returns null if the mutation doesn't exist (e.g. pre-v10 log-derived rows).
+final _mutationStateProvider = FutureProvider.autoDispose
+    .family<WalletMutationState?, String>((ref, mutationId) async {
+      final db = await ref.watch(appDatabaseProvider.future);
+      final rows = await (db.select(
+        db.walletMutations,
+      )..where((m) => m.id.equals(mutationId))).get();
+      return rows.isEmpty ? null : rows.first.state;
+    });
+
 /// "Retry now" / "Verify in Wallet" dispatched through the recovery-actions
 /// port with the REAL outbox mutation id — the activity page never owns
 /// mutation logic (M5.12/M5.14).
+///
+/// Buttons are gated on mutation state: Retry only for `retryScheduled`,
+/// Verify only for `unknown*` states. Terminal states (succeeded,
+/// permanentFailure, supersededBeforeSend) show no buttons.
 class _RecoveryActions extends ConsumerWidget {
   const _RecoveryActions({required this.mutationId});
 
@@ -147,33 +168,55 @@ class _RecoveryActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final stateAsync = ref.watch(_mutationStateProvider(mutationId));
     final actionsAsync = ref.watch(activityRecoveryActionsProvider);
-    return Wrap(
-      spacing: 4,
-      children: [
-        TextButton.icon(
-          style: TextButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-          onPressed: actionsAsync.hasValue
-              ? () => actionsAsync.requireValue.retryNow(mutationId)
-              : null,
-          icon: const Icon(Icons.refresh, size: 16),
-          label: const Text('Retry'),
-        ),
-        TextButton.icon(
-          style: TextButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-          ),
-          onPressed: actionsAsync.hasValue
-              ? () => actionsAsync.requireValue.verifyInWallet(mutationId)
-              : null,
-          icon: const Icon(Icons.verified_user_outlined, size: 16),
-          label: const Text('Verify'),
-        ),
-      ],
+
+    return stateAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (state) {
+        if (state == null) return const SizedBox.shrink();
+
+        final showRetry = state == WalletMutationState.retryScheduled;
+        final showVerify = switch (state) {
+          WalletMutationState.unknownDelivery ||
+          WalletMutationState.unknownUpdate ||
+          WalletMutationState.unknownDelete => true,
+          _ => false,
+        };
+
+        if (!showRetry && !showVerify) return const SizedBox.shrink();
+
+        return Wrap(
+          spacing: 4,
+          children: [
+            if (showRetry)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                onPressed: actionsAsync.hasValue
+                    ? () => actionsAsync.requireValue.retryNow(mutationId)
+                    : null,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Retry'),
+              ),
+            if (showVerify)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                onPressed: actionsAsync.hasValue
+                    ? () => actionsAsync.requireValue.verifyInWallet(mutationId)
+                    : null,
+                icon: const Icon(Icons.verified_user_outlined, size: 16),
+                label: const Text('Verify'),
+              ),
+          ],
+        );
+      },
     );
   }
 }

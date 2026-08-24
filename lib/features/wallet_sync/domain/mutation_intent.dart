@@ -27,6 +27,7 @@ extension WalletMutationStateTransitions on WalletMutationState {
   bool canTransitionTo(WalletMutationState next) => switch (this) {
     WalletMutationState.queued =>
       next == WalletMutationState.syncing ||
+          next == WalletMutationState.succeeded ||
           next == WalletMutationState.supersededBeforeSend,
     WalletMutationState.syncing =>
       next == WalletMutationState.reconciling ||
