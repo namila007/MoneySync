@@ -43,6 +43,7 @@ final class TransactionCandidateSnapshot {
     this.categoryId,
     this.counterParty,
     this.note,
+    this.labelIds = const [],
   }) {
     if (accountId.isEmpty ||
         currencyCode.isEmpty ||
@@ -67,6 +68,7 @@ final class TransactionCandidateSnapshot {
   final String? categoryId;
   final String? counterParty;
   final String? note;
+  final List<String> labelIds;
 
   static const fieldAllowlist = <String>{
     'accountId',
@@ -78,6 +80,7 @@ final class TransactionCandidateSnapshot {
     'categoryId',
     'counterParty',
     'note',
+    'labelIds',
   };
 }
 
@@ -98,6 +101,7 @@ final class WalletRecordPayloadSerializer {
       if (snapshot.categoryId != null) 'categoryId': snapshot.categoryId,
       if (snapshot.counterParty != null) 'counterParty': snapshot.counterParty,
       if (snapshot.note != null) 'note': snapshot.note,
+      if (snapshot.labelIds.isNotEmpty) 'labelIds': snapshot.labelIds,
     };
     return [item];
   }
