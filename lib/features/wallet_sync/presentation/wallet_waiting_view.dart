@@ -6,10 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
+import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
+    show succeededMutationsProvider;
 
 /// Mutations in queued/syncing state, for the waiting view.
 /// WP5: FutureProvider with explicit invalidation in the submit handler.
@@ -146,9 +149,13 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
         final payload = intent.payload;
         final snapshot = TransactionCandidateSnapshot(
           accountId: (payload['accountId'] as String?) ?? '',
-          amountMinor: (payload['amountMinor'] is int)
-              ? payload['amountMinor'] as int
-              : 0,
+          // M5.22 WP-M: sign by the stored direction so an expense is not
+          // filed as income by Wallet's sign convention.
+          amountMinor: signedMinorUnits(
+            (payload['amountMinor'] is int) ? payload['amountMinor'] as int : 0,
+            _directionFrom(payload['direction']),
+            kind: _kindFrom(payload['kind']),
+          ),
           currencyCode: (payload['currencyCode'] as String?) ?? 'LKR',
           recordDateUtc: DateTime.now().toUtc(),
           paymentType: _wirePaymentType(
@@ -192,6 +199,9 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     });
 
     ref.invalidate(waitingMutationsProvider);
+    // M5.22 WP-C: any approve that succeeded moved a mutation into
+    // `succeeded`, so the Success list is stale as well.
+    if (succeeded > 0) ref.invalidate(succeededMutationsProvider);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -240,3 +250,22 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     _ => WalletPaymentType.debitCard,
   };
 }
+
+/// Stored payload `direction` back to the enum. Unknown or missing values are
+/// neutral, which leaves the amount magnitude untouched rather than guessing
+/// a sign (M5.22 WP-M).
+TransactionDirection _directionFrom(Object? raw) => switch (raw) {
+  'debit' => TransactionDirection.debit,
+  'credit' => TransactionDirection.credit,
+  _ => TransactionDirection.neutral,
+};
+
+/// Stored payload `kind` back to the enum, so the refund sign rule applies on
+/// the approve path too (M5.22, plan/05:108).
+TransactionKind? _kindFrom(Object? raw) => switch (raw) {
+  'refund' => TransactionKind.refund,
+  'income' => TransactionKind.income,
+  'transfer' => TransactionKind.transfer,
+  'expense' => TransactionKind.expense,
+  _ => null,
+};

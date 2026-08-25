@@ -45,6 +45,8 @@ final class WalletRepository {
 
   Future<WalletUsageStats> getUsageStats() => _dataSource.getUsageStats();
 
+  Future<String?> ensureLabel(String name) => _dataSource.ensureLabel(name);
+
   WalletMutationResult _partialToResult(List<WalletItemResult> items) {
     final succeeded = items.whereType<WalletItemSucceeded>().toList();
     if (succeeded.length == 1) {

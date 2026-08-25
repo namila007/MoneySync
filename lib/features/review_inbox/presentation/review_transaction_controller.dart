@@ -1,5 +1,7 @@
+import 'dart:math';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
@@ -15,7 +17,9 @@ import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibilit
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
+import 'package:money_sync/features/wallet_sync/application/wallet_mutation_transmitter.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
 import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
     show succeededMutationsProvider;
@@ -181,9 +185,16 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
       // hand-built map. The serialized single-item body is both the mutation
       // payload snapshot and the per-item ciphertext.
       final noteWithMarker = _buildNoteWithMarker(state.note);
+      final labelIds = await _ensureDefaultLabels(state.labelIds);
       final snapshot = TransactionCandidateSnapshot(
         accountId: state.accountId ?? '',
-        amountMinor: state.amountMinor,
+        // M5.22 WP-M: Wallet reads the sign to decide expense vs income, and
+        // the parser hands us an unsigned magnitude with direction alongside.
+        amountMinor: signedMinorUnits(
+          state.amountMinor,
+          state.direction,
+          kind: state.kind,
+        ),
         currencyCode: 'LKR',
         recordDateUtc: state.dateUtc ?? DateTime.now().toUtc(),
         paymentType: _wirePaymentType(state.paymentType),
@@ -191,7 +202,7 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
         counterParty: state.counterParty.isEmpty ? null : state.counterParty,
         categoryId: state.categoryId,
         note: noteWithMarker,
-        labelIds: state.labelIds,
+        labelIds: labelIds,
       );
       log.fine(
         '[create] Snapshot: account=${snapshot.accountId} '
@@ -220,9 +231,11 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
           'paymentType': state.paymentType,
           if (state.categoryId != null) 'categoryId': state.categoryId,
         },
-        state: deferred
-            ? WalletMutationState.queued
-            : WalletMutationState.succeeded,
+        // M5.22 WP-K: always `queued`. This used to write `succeeded` directly
+        // on the Create-now path, which marked the record complete without any
+        // transmission ever happening. The terminal state is now resolved by
+        // WalletMutationTransmitter from the real API outcome below.
+        state: WalletMutationState.queued,
       );
       log.fine(
         '[create] Intent: id=${intent.id} candidateId=${intent.candidateId} '
@@ -258,9 +271,28 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
           'active lineage already exists',
         );
       }
+      // M5.22 WP-K: "Create now" must actually transmit. The atomic
+      // review->outbox write above stages the mutation as `queued`; only a
+      // confirmed remote response may move it to `succeeded`. Deferred
+      // ("Save for later") intentionally stops here and waits for approval.
+      var transmitted = result;
+      if (!deferred && result is ReviewSubmitted) {
+        final outcome = await WalletMutationTransmitter(
+          database: db,
+          repository: ref.read(walletRepositoryProvider),
+        ).transmit(mutationId: intent.id, snapshot: snapshot);
+        if (outcome is! WalletMutationRemoteSuccess) {
+          log.error(
+            'Create-now transmission did not confirm: SafeErrorCode: '
+            '${outcome.runtimeType}',
+          );
+          transmitted = ReviewBlocked(-1, _transmissionMessage(outcome));
+        }
+      }
+
       state = state.copyWith(
         submitting: false,
-        result: result,
+        result: transmitted,
         evaluation: evaluation,
       );
 
@@ -277,6 +309,26 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
       );
     }
   }
+
+  /// Plain-language outcome for a create that did not confirm.
+  ///
+  /// Each message says what actually happened to the record, because the
+  /// mutation is still in the outbox in a specific state the user can act on
+  /// from Waiting/Retry — it has not been lost.
+  static String _transmissionMessage(WalletMutationResult outcome) =>
+      switch (outcome) {
+        WalletMutationPostTransmissionAmbiguity() =>
+          "Couldn't confirm whether Wallet saved this. We'll check before "
+              'retrying, so it is not created twice.',
+        WalletMutationClientFailure() =>
+          'Wallet rejected this record. Check the account and amount, then '
+              'try again.',
+        WalletMutationServerFailure() =>
+          "Wallet is unavailable right now. We'll retry automatically.",
+        WalletMutationPreTransmissionFailure() =>
+          "Couldn't reach Wallet. Saved to Waiting and we'll retry.",
+        _ => 'Saved to Waiting — not yet sent to Wallet.',
+      };
 
   Future<PreSendContext> _buildContext({
     required String senderNormalized,
@@ -400,8 +452,35 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     _ => WalletPaymentType.debitCard,
   };
 
+  /// Adds the `money_sync` label (and `test`, under the E2E flag) to the
+  /// user's selected labels, creating either in Wallet if absent (M5.22
+  /// WP-L). A label that cannot be resolved is dropped, not fatal — a
+  /// missing label must never block recording a real transaction.
+  Future<List<String>> _ensureDefaultLabels(List<String> selected) async {
+    final repository = ref.read(walletRepositoryProvider);
+    final ids = {...selected};
+    for (final name in [
+      'money_sync',
+      if (const bool.fromEnvironment('E2E_LABEL')) 'test',
+    ]) {
+      final id = await repository.ensureLabel(name);
+      if (id == null) {
+        log.error('Could not resolve or create label: SafeErrorCode: $name');
+        continue;
+      }
+      ids.add(id);
+    }
+    return ids.toList(growable: false);
+  }
+
   /// Builds the `note` field for the Wallet API: `[sw:<marker>] <userNote>`.
   /// The marker is never truncated; user text is truncated to fit 255 chars.
+  /// Test seam for the marker contract (M5.22 WP-O). The generator is private
+  /// and the entropy requirement is a plan rule, so it needs a direct check.
+  @visibleForTesting
+  static String? buildNoteWithMarkerForTest(String userNote) =>
+      _buildNoteWithMarker(userNote);
+
   static String? _buildNoteWithMarker(String userNote) {
     final marker = 'sw:${_generateMarker()}';
     final prefix = '[$marker] ';
@@ -414,10 +493,35 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     return '$prefix$truncated';
   }
 
-  /// Short alphanumeric marker for source reconciliation. Derived from the
-  /// current timestamp — not cryptographic, just a stable traceable id.
+  /// Collision-checked source marker for reconciliation (M5.22 WP-O).
+  ///
+  /// plan/05:159 requires "96 truncated HMAC bits by default and never fewer
+  /// than 80 bits" and warns "never shorten it to a six-character example".
+  ///
+  /// The previous implementation was
+  /// `DateTime.now().millisecondsSinceEpoch.toRadixString(36).padLeft(16,'0')`
+  /// — its own comment conceded it was "not cryptographic". On device it
+  /// produced `[sw:00000000MT81XFN3]`: eight literal zeros, fully predictable,
+  /// and identical for any two creates landing in the same millisecond.
+  ///
+  /// That is not a cosmetic problem. plan/05:167 makes marker lookup the
+  /// go/no-go gate for writes, so a colliding marker can reconcile the *wrong*
+  /// record and confirm a duplicate as if it were the original.
+  ///
+  /// 96 bits from a CSPRNG, Crockford-style base32, 20 characters — the same
+  /// shape as the plan's `[sw:7K2M9P4D8Q6R1V3X5T0Z]` example.
   static String _generateMarker() {
-    final now = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
-    return now.toUpperCase().padLeft(16, '0');
+    final random = Random.secure();
+    final buffer = StringBuffer();
+    // 20 chars x 5 bits = 100 bits of alphabet space carrying 96 bits of
+    // entropy — comfortably above the 80-bit floor.
+    for (var i = 0; i < 20; i++) {
+      buffer.write(_markerAlphabet[random.nextInt(_markerAlphabet.length)]);
+    }
+    return buffer.toString();
   }
+
+  /// Crockford base32: no I, L, O or U, so a marker cannot be misread when a
+  /// user reads it back off a Wallet record while verifying manually.
+  static const _markerAlphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 }

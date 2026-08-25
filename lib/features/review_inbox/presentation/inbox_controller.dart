@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
-import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 enum InboxLayout { groupedBySender, flatNewestFirst }
 
@@ -252,15 +251,10 @@ final inboxEventsProvider = StreamProvider.autoDispose<List<SmsEvent>>((
     fromReceivedAtEpochMs: _rangeFromUtcMs(view.dateRangeFilter),
     untilReceivedAtEpochMs: _rangeUntilUtcMs(view.dateRangeFilter),
   )) {
-    // Exclude messages whose candidate has been reviewed (retainedLocal).
-    final reviewedIds = <int>{};
-    for (final event in events) {
-      final candidate = await db.getCandidateBySmsEventId(event.id);
-      if (candidate?.state == CandidateRecordState.retainedLocal) {
-        reviewedIds.add(event.id);
-      }
-    }
-    yield events.where((e) => !reviewedIds.contains(e.id)).toList();
+    // M5.22 WP-D: the reviewed-candidate exclusion moved into
+    // `_smsEventsSelect`, so it applies to the load-more pages too and costs
+    // one subquery instead of a candidate lookup per row.
+    yield events;
   }
 });
 

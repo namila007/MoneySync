@@ -36,6 +36,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
               groupId: c.groupId,
               groupName: c.groupName,
               parentId: c.parentId,
+              systemId: c.systemId,
             ),
           )
           .toList(),
@@ -79,6 +80,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
                   groupId: c.groupId,
                   groupName: c.groupName,
                   parentId: c.parentId,
+                  systemId: c.systemId,
                 ),
               )
               .toList(),
@@ -124,6 +126,7 @@ final class DriftWalletCatalogCache implements WalletCatalogCache {
                 groupId: Value(category.groupId),
                 groupName: Value(category.groupName),
                 parentId: Value(category.parentId),
+                systemId: Value(category.systemId),
                 refreshedAtEpochMs: now,
               ),
             );

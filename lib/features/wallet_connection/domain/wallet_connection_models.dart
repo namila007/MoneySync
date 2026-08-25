@@ -63,6 +63,7 @@ final class WalletCategory {
     this.parentId,
     this.customCategory = false,
     this.cardinality,
+    this.systemId,
   });
 
   final String id;
@@ -72,6 +73,17 @@ final class WalletCategory {
   final String? parentId;
   final bool customCategory;
   final String? cardinality;
+
+  /// Wallet registry slug for a base category, e.g. `food_and_drinks__general`.
+  /// Null for custom categories, which have no slug.
+  final String? systemId;
+
+  /// True when this is the category that represents its whole group.
+  ///
+  /// A group is not itself assignable (`categoryId` must be a real category
+  /// id), but every group owns a general base category, so "All [Group]"
+  /// resolves here (M5.22 WP-G).
+  bool get isGroupGeneral => systemId == '${groupId}__general';
 }
 
 final class WalletPage<T> {

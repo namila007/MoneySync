@@ -16,6 +16,7 @@ final class WalletCatalogReader {
   static const _host = 'rest.budgetbakers.com';
   static const _accountsPath = '/v1/api/accounts';
   static const _categoriesPath = '/v1/api/categories';
+  static const _labelsPath = '/v1/api/labels';
   static const _pageSize = 100;
   static const _maximumPages = 20;
   static const _maximumResponseCharacters = 1024 * 1024;
@@ -72,10 +73,23 @@ final class WalletCatalogReader {
       decode: _decodeCategory,
     );
     if (categories case WalletReadFailure()) return categories;
+    // M5.22 WP-L: labels were never fetched. M5.21 added the WalletLabel
+    // model, the wallet_label_cache table and the review-panel picker, but
+    // nothing populated them — so `catalog.labels` was always empty, the
+    // picker hid itself (it returns an empty box when the list is empty), and
+    // every created record came back from Wallet with `labels: []`.
+    final labels = await _readPages<WalletLabel>(
+      path: _labelsPath,
+      collectionKey: 'labels',
+      token: token,
+      decode: _decodeLabel,
+    );
+    if (labels case WalletReadFailure()) return labels;
     return WalletReadSuccess(
       WalletCatalog(
         accounts: accounts as List<WalletAccount>,
         categories: categories as List<WalletCategory>,
+        labels: labels as List<WalletLabel>,
       ),
     );
   }
@@ -208,6 +222,9 @@ final class WalletCatalogReader {
     final accountType = _boundedText(map['accountType']);
     final archived = map['archived'];
     final bankSynced = map['isBankSync'];
+    // Absent on some payloads — a missing flag means "not an investment
+    // account", which must not reject an otherwise valid account.
+    final investment = map['isInvestmentAccount'] == true;
     final initialBalance = _asMap(map['initialBalance']);
     final balance = _asMap(map['balance']);
     final currency =
@@ -226,9 +243,15 @@ final class WalletCatalogReader {
       currencyCode: currency ?? '',
       isArchived: archived,
       isBankSynced: bankSynced,
-      // Derived from the archived flag — OpenAPI v1.3.0 has no writable field.
-      // Archived accounts are not writable; all others are.
-      isWritable: !archived,
+      // M5.22 WP-A (closes the M5.2 spike). The Wallet API exposes no writable
+      // field at all — verified live 2026-08-25 against get_accounts, which
+      // returns only `archived`, `isInvestmentAccount`, and `isBankSync`. So
+      // write-eligibility is derived, not read.
+      //
+      // Investment accounts are excluded on correctness grounds, not taste:
+      // investment records carry different semantics from a plain SMS-derived
+      // expense, so auto-creating one there would misstate the account.
+      isWritable: !archived && !investment,
     );
   }
 
@@ -250,7 +273,20 @@ final class WalletCatalogReader {
       parentId: _boundedText(map?['parentId']),
       customCategory: map?['customCategory'] == true,
       cardinality: _boundedText(map?['cardinality']),
+      // M5.22 WP-G: the registry slug identifies a group's general category
+      // (`<groupId>__general`), which is what "All <Group>" must resolve to.
+      systemId: _boundedText(map?['systemId']),
     );
+  }
+
+  /// Only `id` and `name` are mapped: color and archived state are not used
+  /// by the create payload, and the less that is cached the better (M5.22 WP-L).
+  static WalletLabel? _decodeLabel(Object? value) {
+    final map = _asMap(value);
+    final id = _boundedText(map?['id']);
+    final name = _boundedText(map?['name']);
+    if (id == null || name == null) return null;
+    return WalletLabel(id: id, name: name);
   }
 
   static String? _boundedText(Object? value) =>
@@ -267,7 +303,8 @@ final class _WalletRequestGuard extends Interceptor {
     final uri = options.uri;
     final isAllowedPath =
         uri.path == '/wallet/v1/api/accounts' ||
-        uri.path == '/wallet/v1/api/categories';
+        uri.path == '/wallet/v1/api/categories' ||
+        uri.path == '/wallet/v1/api/labels';
     final token = options.extra.remove(authorizationKey);
     _log.fine(
       'onRequest method=${options.method} uri=$uri isAllowedPath=$isAllowedPath tokenType=${token.runtimeType}',

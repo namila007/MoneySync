@@ -51,14 +51,23 @@ class SuccessItemDetailPage extends ConsumerWidget {
           final accountName = _resolveAccountName(catalog, accountId);
           final categoryName = _resolveCategoryName(catalog, categoryId);
           final labelNames = _resolveLabelNames(catalog, labelIds);
+          final amountText = '$currencyCode ${_formatAmount(amountMinor)}';
+          final title = (counterParty != null && counterParty.isNotEmpty)
+              ? counterParty
+              : categoryName;
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _DetailRow(
-                label: 'Amount',
-                value: '$currencyCode ${_formatAmount(amountMinor)}',
+              _SuccessSummary(
+                amountText: amountText,
+                title: title,
+                categoryName: categoryName,
+                accountName: accountName,
+                dateText: _formatDateOnly(mutation.createdAtEpochMs),
               ),
+              const SizedBox(height: 8),
+              _DetailRow(label: 'Amount', value: amountText),
               _DetailRow(label: 'Kind', value: kind),
               _DetailRow(label: 'Direction', value: direction),
               _DetailRow(label: 'Payment type', value: paymentType),
@@ -183,6 +192,30 @@ class SuccessItemDetailPage extends ConsumerWidget {
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  static const _monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  /// Plain-language date for the summary sentence, e.g. "25 Aug 2026".
+  static String _formatDateOnly(int epochMs) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(
+      epochMs,
+      isUtc: true,
+    ).toLocal();
+    return '${dt.day} ${_monthNames[dt.month - 1]} ${dt.year}';
+  }
+
   /// Strips the `[sw:...]` reconciliation marker prefix from a note, showing
   /// only the user-visible portion. Returns empty string for null/blank input.
   static String _stripNoteMarker(String? note) {
@@ -216,6 +249,75 @@ class _DetailRow extends StatelessWidget {
           ),
           Expanded(child: Text(value.isEmpty ? '—' : value)),
         ],
+      ),
+    );
+  }
+}
+
+/// Plain-language summary card: what was created, where it went, and when.
+/// Sits above the raw `_DetailRow` list so a glance answers the question
+/// before the reader has to parse individual fields.
+class _SuccessSummary extends StatelessWidget {
+  const _SuccessSummary({
+    required this.amountText,
+    required this.title,
+    required this.categoryName,
+    required this.accountName,
+    required this.dateText,
+  });
+
+  final String amountText;
+  final String title;
+  final String categoryName;
+  final String accountName;
+  final String dateText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final successColor = theme.colorScheme.tertiary;
+    final showCategoryLine = title != categoryName;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.check_circle, color: successColor, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  'Added to Wallet',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: successColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              amountText,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              showCategoryLine ? '$title · $categoryName' : title,
+              style: theme.textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Added to $accountName on $dateText',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

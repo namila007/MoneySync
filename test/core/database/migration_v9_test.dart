@@ -28,7 +28,7 @@ void main() {
     test('fresh install reports schema version 9', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 14);
+      expect(db.schemaVersion, 15);
     });
 
     test('v9 tables exist on a fresh database', () async {
@@ -354,7 +354,7 @@ void main() {
       final db = await migrateFrom(8, seedV8Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 14);
+      expect(db.schemaVersion, 15);
 
       final mutations = await db.select(db.walletMutations).get();
       expect(mutations, hasLength(1));

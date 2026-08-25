@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
@@ -20,6 +22,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
   @override
   Widget build(BuildContext context) {
     final entriesAsync = ref.watch(filteredActivityLogProvider(_filter));
+    final log = Logger('activity');
 
     return Scaffold(
       appBar: const _ActivityAppBar(),
@@ -33,8 +36,7 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
             child: entriesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) {
-                debugPrint('[activity] Provider error: $error');
-                debugPrint('[activity] Stack: $stack');
+                log.error('[activity] Provider error', error, stack);
                 return const _ActivityMessage(
                   text:
                       'Activity could not be read from local storage. '
@@ -235,6 +237,7 @@ String _labelFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.activityRetentionApplied => 'Old activity removed',
   ActivityEventCode.candidateNeedsReview => 'Transaction needs review',
   ActivityEventCode.walletRecordCreated => 'Wallet record created',
+  ActivityEventCode.walletRecordFailed => 'Wallet record not created',
   ActivityEventCode.walletConnected => 'Wallet connected',
   ActivityEventCode.walletDisconnected => 'Wallet disconnected',
   ActivityEventCode.walletRefreshed => 'Wallet refreshed',
@@ -262,6 +265,7 @@ IconData _iconFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.candidateNeedsReview => Icons.rate_review_outlined,
   ActivityEventCode.walletRecordCreated =>
     Icons.account_balance_wallet_outlined,
+  ActivityEventCode.walletRecordFailed => Icons.error_outline,
   ActivityEventCode.walletConnected => Icons.link,
   ActivityEventCode.walletDisconnected => Icons.link_off,
   ActivityEventCode.walletRefreshed => Icons.refresh,

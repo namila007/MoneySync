@@ -30,7 +30,8 @@ final class NativeLogBridge extends NativeLogFlutterApi {
     final logger = Logger('native.$tag');
     if (!logger.isLoggable(level)) return;
 
-    final safeMsg = _redaction.redact(message) ?? '[redacted]';
+    // redact() masks in place and always returns a string (M5.22 WP-F).
+    final safeMsg = _redaction.redact(message);
     final line = safeErrorCode != null
         ? '$safeMsg | code=$safeErrorCode'
         : safeMsg;

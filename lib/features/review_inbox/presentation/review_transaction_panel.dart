@@ -250,7 +250,7 @@ class _ReviewTransactionPanelState
               ),
             ),
             const SizedBox(height: 12),
-            _TargetAccountPicker(
+            TargetAccountPicker(
               selectedAccountId: _accountId,
               onChanged: (id) {
                 _accountId = id;
@@ -265,7 +265,7 @@ class _ReviewTransactionPanelState
               ),
             ),
             const SizedBox(height: 4),
-            _CategoryPicker(
+            CategoryPicker(
               selectedCategoryId: _categoryId,
               onChanged: (id) {
                 _categoryId = id;
@@ -442,10 +442,11 @@ class _ReviewTransactionPanelState
 
 /// Wallet target picker: all LKR accounts are selectable. Archived accounts
 /// show a warning note — the pre-send gate will block writing to them.
-class _TargetAccountPicker extends ConsumerWidget {
-  const _TargetAccountPicker({
+class TargetAccountPicker extends ConsumerWidget {
+  const TargetAccountPicker({
     required this.selectedAccountId,
     required this.onChanged,
+    super.key,
   });
 
   final String? selectedAccountId;
@@ -520,10 +521,11 @@ class _TargetAccountPicker extends ConsumerWidget {
 /// Group → Category picker (WP2). Shows "Group › Category" or "Uncategorized".
 /// Opens a bottom sheet with the same grouped hierarchy as the wallet-connection
 /// detail screen.
-class _CategoryPicker extends ConsumerWidget {
-  const _CategoryPicker({
+class CategoryPicker extends ConsumerWidget {
+  const CategoryPicker({
     required this.selectedCategoryId,
     required this.onChanged,
+    super.key,
   });
 
   final String? selectedCategoryId;
@@ -545,10 +547,16 @@ class _CategoryPicker extends ConsumerWidget {
           );
         }
 
+        // A group selection reads as "All <Group>" rather than
+        // "Food & Drinks › Food & Drinks" (M5.22 WP-G).
         final selectedName = selectedCategoryId != null
             ? catalog.categories
                   .where((c) => c.id == selectedCategoryId)
-                  .map((c) => '${c.groupName} › ${c.name}')
+                  .map(
+                    (c) => c.isGroupGeneral
+                        ? 'All ${c.groupName}'
+                        : '${c.groupName} › ${c.name}',
+                  )
                   .firstOrNull
             : null;
 
@@ -615,22 +623,35 @@ class _CategoryPicker extends ConsumerWidget {
                           .where((c) => !c.customCategory && c.parentId == null)
                           .toList()
                         ..sort((a, b) => a.name.compareTo(b.name));
+                  // The category standing in for the whole group, if the
+                  // registry defines one for this group.
+                  final groupGeneral = groupCats
+                      .where((c) => c.isGroupGeneral)
+                      .firstOrNull;
 
                   return ExpansionTile(
                     leading: const Icon(Icons.folder_outlined),
                     title: Text(groupName),
                     children: [
-                      ListTile(
-                        leading: const Icon(Icons.folder_open_outlined),
-                        title: Text('All $groupName'),
-                        subtitle: const Text('Group'),
-                        onTap: () {
-                          // Select the group itself — Wallet API maps this to
-                          // the default category for the group.
-                          onChanged(groupId);
-                          Navigator.pop(context);
-                        },
-                      ),
+                      // M5.22 WP-G. This used to pass `groupId` straight
+                      // through, on the assumption that "Wallet API maps this
+                      // to the default category for the group". It does not:
+                      // categoryId must be a real category id, so the label
+                      // lookup never matched and the button silently fell back
+                      // to "Uncategorized". Every group instead owns a general
+                      // base category (`<groupId>__general`) — that is the id
+                      // to send.
+                      if (groupGeneral != null)
+                        ListTile(
+                          leading: const Icon(Icons.folder_open_outlined),
+                          title: Text('All $groupName'),
+                          subtitle: const Text('Whole group'),
+                          selected: groupGeneral.id == selectedCategoryId,
+                          onTap: () {
+                            onChanged(groupGeneral.id);
+                            Navigator.pop(context);
+                          },
+                        ),
                       for (final cat in baseCats)
                         ListTile(
                           leading: const Icon(Icons.label_outlined),
@@ -670,18 +691,26 @@ class _LabelPicker extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (catalog) {
-        final labels = catalog?.labels ?? [];
-        if (labels.isEmpty) return const SizedBox.shrink();
+        final labels = catalog?.labels ?? const <WalletLabel>[];
 
-        // Ensure the default label is selected on first render.
+        // M5.22 WP-L: select `money_sync` by default. Until this milestone the
+        // catalog never fetched labels at all, so this never ran and every
+        // created record came back from Wallet with `labels: []`.
         final defaultLabel = labels
             .where((l) => l.name == _defaultLabelName)
             .firstOrNull;
+        // Re-seeds whenever the selection is empty, which is intended: the
+        // default must be on every created record, so clearing all labels
+        // brings it back rather than silently shipping an unlabelled record.
         if (defaultLabel != null && selectedLabelIds.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) onChanged([defaultLabel.id]);
           });
         }
+
+        final selected = labels
+            .where((l) => selectedLabelIds.contains(l.id))
+            .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -693,29 +722,129 @@ class _LabelPicker extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 4),
+            // Only the chosen labels are shown as chips. A flat list of every
+            // label does not scale — a real Wallet carries dozens.
             Wrap(
               spacing: 8,
               runSpacing: 4,
               children: [
-                for (final label in labels)
-                  FilterChip(
+                for (final label in selected)
+                  InputChip(
                     label: Text(label.name),
-                    selected: selectedLabelIds.contains(label.id),
-                    onSelected: (selected) {
-                      final next = List<String>.from(selectedLabelIds);
-                      if (selected) {
-                        next.add(label.id);
-                      } else {
-                        next.remove(label.id);
-                      }
+                    onDeleted: () {
+                      final next = List<String>.from(selectedLabelIds)
+                        ..remove(label.id);
                       onChanged(next);
                     },
                   ),
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: const Text('Add label'),
+                  onPressed: labels.isEmpty
+                      ? null
+                      : () => _showLabelSheet(context, labels),
+                ),
               ],
             ),
           ],
         );
       },
+    );
+  }
+
+  void _showLabelSheet(BuildContext context, List<WalletLabel> labels) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => _LabelSearchSheet(
+        labels: labels,
+        selectedLabelIds: selectedLabelIds,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+/// Searchable multi-select over the whole label catalog (M5.22 WP-L).
+class _LabelSearchSheet extends StatefulWidget {
+  const _LabelSearchSheet({
+    required this.labels,
+    required this.selectedLabelIds,
+    required this.onChanged,
+  });
+
+  final List<WalletLabel> labels;
+  final List<String> selectedLabelIds;
+  final ValueChanged<List<String>> onChanged;
+
+  @override
+  State<_LabelSearchSheet> createState() => _LabelSearchSheetState();
+}
+
+class _LabelSearchSheetState extends State<_LabelSearchSheet> {
+  late final List<String> _selected = List<String>.from(
+    widget.selectedLabelIds,
+  );
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final matches =
+        widget.labels
+            .where(
+              (l) => l.name.toLowerCase().contains(_query.trim().toLowerCase()),
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (context, scrollController) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Search labels',
+                prefixIcon: Icon(Icons.search),
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) => setState(() => _query = value),
+            ),
+          ),
+          Expanded(
+            child: matches.isEmpty
+                ? const Center(child: Text('No labels match.'))
+                : ListView.builder(
+                    controller: scrollController,
+                    itemCount: matches.length,
+                    itemBuilder: (context, index) {
+                      final label = matches[index];
+                      final checked = _selected.contains(label.id);
+                      return CheckboxListTile(
+                        title: Text(label.name),
+                        value: checked,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selected.add(label.id);
+                            } else {
+                              _selected.remove(label.id);
+                            }
+                          });
+                          widget.onChanged(List<String>.from(_selected));
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

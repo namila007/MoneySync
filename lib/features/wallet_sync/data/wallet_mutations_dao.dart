@@ -164,6 +164,62 @@ final class WalletMutationsDao {
     return rows.map(_fromRow).toList();
   }
 
+  /// Mutations currently in any of [states] (M5.22 WP-E).
+  Future<List<WalletMutationIntent>> byStates(
+    List<WalletMutationState> states,
+  ) async {
+    if (states.isEmpty) return const [];
+    final stored = states.map(_storedState).toList();
+    final rows = await (_database.select(
+      _database.walletMutations,
+    )..where((t) => t.state.isIn(stored))).get();
+    return rows.map(_fromRow).toList();
+  }
+
+  /// Mutations whose retry deadline has passed (M5.22 WP-E).
+  Future<List<WalletMutationIntent>> retriesDue({
+    required int nowEpochMs,
+  }) async {
+    final rows =
+        await (_database.select(_database.walletMutations)..where(
+              (t) =>
+                  t.state.equals(
+                    _storedState(WalletMutationState.retryScheduled),
+                  ) &
+                  (t.nextAttemptAtEpochMs.isNull() |
+                      t.nextAttemptAtEpochMs.isSmallerOrEqualValue(nowEpochMs)),
+            ))
+            .get();
+    return rows.map(_fromRow).toList();
+  }
+
+  /// The `[sw:…]` source marker for [mutationId], or null when absent.
+  ///
+  /// The marker is the reconciliation key (plan/05:159), but it is not stored
+  /// on the mutation row — it lives inside the serialized create body on
+  /// `wallet_mutation_item`, so reconciliation has to reach across to find
+  /// its own lookup key.
+  Future<String?> markerFor(String mutationId) async {
+    final rows = await (_database.select(
+      _database.walletMutationItems,
+    )..where((t) => t.walletMutationId.equals(mutationId))).get();
+    for (final row in rows) {
+      try {
+        final decoded = jsonDecode(row.payloadCiphertext);
+        final map = decoded is List && decoded.isNotEmpty
+            ? decoded.first
+            : decoded;
+        final note = (map is Map) ? map['note'] : null;
+        if (note is! String) continue;
+        final match = RegExp(r'\[sw:([0-9A-Z]+)\]').firstMatch(note);
+        if (match != null) return match.group(1);
+      } on FormatException {
+        continue;
+      }
+    }
+    return null;
+  }
+
   static String _storedState(WalletMutationState state) =>
       const WalletMutationStateConverter().toSql(state);
 

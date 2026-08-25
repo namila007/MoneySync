@@ -47,7 +47,7 @@ final class AmbiguousPostTransmission
   const AmbiguousPostTransmission();
 }
 
-/// Maps a failure classification onto the [WalletMutationPort] result space
+/// Maps a failure classification onto the [WalletMutationResult] space
 /// (plan/05 §Retry; M5.6). [AmbiguousPostTransmission] is the ONLY class that
 /// maps to [WalletMutationPostTransmissionAmbiguity]; every other class maps
 /// to Client/Server/PreTransmission.

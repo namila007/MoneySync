@@ -7057,6 +7057,17 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _systemIdMeta = const VerificationMeta(
+    'systemId',
+  );
+  @override
+  late final GeneratedColumn<String> systemId = GeneratedColumn<String>(
+    'system_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _refreshedAtEpochMsMeta =
       const VerificationMeta('refreshedAtEpochMs');
   @override
@@ -7074,6 +7085,7 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
     groupId,
     groupName,
     parentId,
+    systemId,
     refreshedAtEpochMs,
   ];
   @override
@@ -7119,6 +7131,12 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
         parentId.isAcceptableOrUnknown(data['parent_id']!, _parentIdMeta),
       );
     }
+    if (data.containsKey('system_id')) {
+      context.handle(
+        _systemIdMeta,
+        systemId.isAcceptableOrUnknown(data['system_id']!, _systemIdMeta),
+      );
+    }
     if (data.containsKey('refreshed_at_epoch_ms')) {
       context.handle(
         _refreshedAtEpochMsMeta,
@@ -7162,6 +7180,10 @@ class $WalletCategoryCacheTable extends WalletCategoryCache
         DriftSqlType.string,
         data['${effectivePrefix}parent_id'],
       ),
+      systemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_id'],
+      ),
       refreshedAtEpochMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}refreshed_at_epoch_ms'],
@@ -7182,6 +7204,15 @@ class WalletCategoryCacheData extends DataClass
   final String groupId;
   final String groupName;
   final String? parentId;
+
+  /// The Wallet registry slug for a base category, e.g.
+  /// `food_and_drinks__general` (M5.22 WP-G, schema v15).
+  ///
+  /// This is what makes "select the whole group" expressible: a group is not
+  /// itself an assignable category, but each group owns a general base
+  /// category identified by `<groupId>__general`. Null for custom categories,
+  /// which have no registry slug.
+  final String? systemId;
   final int refreshedAtEpochMs;
   const WalletCategoryCacheData({
     required this.id,
@@ -7189,6 +7220,7 @@ class WalletCategoryCacheData extends DataClass
     required this.groupId,
     required this.groupName,
     this.parentId,
+    this.systemId,
     required this.refreshedAtEpochMs,
   });
   @override
@@ -7200,6 +7232,9 @@ class WalletCategoryCacheData extends DataClass
     map['group_name'] = Variable<String>(groupName);
     if (!nullToAbsent || parentId != null) {
       map['parent_id'] = Variable<String>(parentId);
+    }
+    if (!nullToAbsent || systemId != null) {
+      map['system_id'] = Variable<String>(systemId);
     }
     map['refreshed_at_epoch_ms'] = Variable<int>(refreshedAtEpochMs);
     return map;
@@ -7214,6 +7249,9 @@ class WalletCategoryCacheData extends DataClass
       parentId: parentId == null && nullToAbsent
           ? const Value.absent()
           : Value(parentId),
+      systemId: systemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemId),
       refreshedAtEpochMs: Value(refreshedAtEpochMs),
     );
   }
@@ -7229,6 +7267,7 @@ class WalletCategoryCacheData extends DataClass
       groupId: serializer.fromJson<String>(json['groupId']),
       groupName: serializer.fromJson<String>(json['groupName']),
       parentId: serializer.fromJson<String?>(json['parentId']),
+      systemId: serializer.fromJson<String?>(json['systemId']),
       refreshedAtEpochMs: serializer.fromJson<int>(json['refreshedAtEpochMs']),
     );
   }
@@ -7241,6 +7280,7 @@ class WalletCategoryCacheData extends DataClass
       'groupId': serializer.toJson<String>(groupId),
       'groupName': serializer.toJson<String>(groupName),
       'parentId': serializer.toJson<String?>(parentId),
+      'systemId': serializer.toJson<String?>(systemId),
       'refreshedAtEpochMs': serializer.toJson<int>(refreshedAtEpochMs),
     };
   }
@@ -7251,6 +7291,7 @@ class WalletCategoryCacheData extends DataClass
     String? groupId,
     String? groupName,
     Value<String?> parentId = const Value.absent(),
+    Value<String?> systemId = const Value.absent(),
     int? refreshedAtEpochMs,
   }) => WalletCategoryCacheData(
     id: id ?? this.id,
@@ -7258,6 +7299,7 @@ class WalletCategoryCacheData extends DataClass
     groupId: groupId ?? this.groupId,
     groupName: groupName ?? this.groupName,
     parentId: parentId.present ? parentId.value : this.parentId,
+    systemId: systemId.present ? systemId.value : this.systemId,
     refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
   );
   WalletCategoryCacheData copyWithCompanion(WalletCategoryCacheCompanion data) {
@@ -7267,6 +7309,7 @@ class WalletCategoryCacheData extends DataClass
       groupId: data.groupId.present ? data.groupId.value : this.groupId,
       groupName: data.groupName.present ? data.groupName.value : this.groupName,
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
+      systemId: data.systemId.present ? data.systemId.value : this.systemId,
       refreshedAtEpochMs: data.refreshedAtEpochMs.present
           ? data.refreshedAtEpochMs.value
           : this.refreshedAtEpochMs,
@@ -7281,14 +7324,22 @@ class WalletCategoryCacheData extends DataClass
           ..write('groupId: $groupId, ')
           ..write('groupName: $groupName, ')
           ..write('parentId: $parentId, ')
+          ..write('systemId: $systemId, ')
           ..write('refreshedAtEpochMs: $refreshedAtEpochMs')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, groupId, groupName, parentId, refreshedAtEpochMs);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    groupId,
+    groupName,
+    parentId,
+    systemId,
+    refreshedAtEpochMs,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7298,6 +7349,7 @@ class WalletCategoryCacheData extends DataClass
           other.groupId == this.groupId &&
           other.groupName == this.groupName &&
           other.parentId == this.parentId &&
+          other.systemId == this.systemId &&
           other.refreshedAtEpochMs == this.refreshedAtEpochMs);
 }
 
@@ -7308,6 +7360,7 @@ class WalletCategoryCacheCompanion
   final Value<String> groupId;
   final Value<String> groupName;
   final Value<String?> parentId;
+  final Value<String?> systemId;
   final Value<int> refreshedAtEpochMs;
   final Value<int> rowid;
   const WalletCategoryCacheCompanion({
@@ -7316,6 +7369,7 @@ class WalletCategoryCacheCompanion
     this.groupId = const Value.absent(),
     this.groupName = const Value.absent(),
     this.parentId = const Value.absent(),
+    this.systemId = const Value.absent(),
     this.refreshedAtEpochMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -7325,6 +7379,7 @@ class WalletCategoryCacheCompanion
     this.groupId = const Value.absent(),
     this.groupName = const Value.absent(),
     this.parentId = const Value.absent(),
+    this.systemId = const Value.absent(),
     required int refreshedAtEpochMs,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -7336,6 +7391,7 @@ class WalletCategoryCacheCompanion
     Expression<String>? groupId,
     Expression<String>? groupName,
     Expression<String>? parentId,
+    Expression<String>? systemId,
     Expression<int>? refreshedAtEpochMs,
     Expression<int>? rowid,
   }) {
@@ -7345,6 +7401,7 @@ class WalletCategoryCacheCompanion
       if (groupId != null) 'group_id': groupId,
       if (groupName != null) 'group_name': groupName,
       if (parentId != null) 'parent_id': parentId,
+      if (systemId != null) 'system_id': systemId,
       if (refreshedAtEpochMs != null)
         'refreshed_at_epoch_ms': refreshedAtEpochMs,
       if (rowid != null) 'rowid': rowid,
@@ -7357,6 +7414,7 @@ class WalletCategoryCacheCompanion
     Value<String>? groupId,
     Value<String>? groupName,
     Value<String?>? parentId,
+    Value<String?>? systemId,
     Value<int>? refreshedAtEpochMs,
     Value<int>? rowid,
   }) {
@@ -7366,6 +7424,7 @@ class WalletCategoryCacheCompanion
       groupId: groupId ?? this.groupId,
       groupName: groupName ?? this.groupName,
       parentId: parentId ?? this.parentId,
+      systemId: systemId ?? this.systemId,
       refreshedAtEpochMs: refreshedAtEpochMs ?? this.refreshedAtEpochMs,
       rowid: rowid ?? this.rowid,
     );
@@ -7389,6 +7448,9 @@ class WalletCategoryCacheCompanion
     if (parentId.present) {
       map['parent_id'] = Variable<String>(parentId.value);
     }
+    if (systemId.present) {
+      map['system_id'] = Variable<String>(systemId.value);
+    }
     if (refreshedAtEpochMs.present) {
       map['refreshed_at_epoch_ms'] = Variable<int>(refreshedAtEpochMs.value);
     }
@@ -7406,6 +7468,7 @@ class WalletCategoryCacheCompanion
           ..write('groupId: $groupId, ')
           ..write('groupName: $groupName, ')
           ..write('parentId: $parentId, ')
+          ..write('systemId: $systemId, ')
           ..write('refreshedAtEpochMs: $refreshedAtEpochMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -17283,6 +17346,7 @@ typedef $$WalletCategoryCacheTableCreateCompanionBuilder =
       Value<String> groupId,
       Value<String> groupName,
       Value<String?> parentId,
+      Value<String?> systemId,
       required int refreshedAtEpochMs,
       Value<int> rowid,
     });
@@ -17293,6 +17357,7 @@ typedef $$WalletCategoryCacheTableUpdateCompanionBuilder =
       Value<String> groupId,
       Value<String> groupName,
       Value<String?> parentId,
+      Value<String?> systemId,
       Value<int> refreshedAtEpochMs,
       Value<int> rowid,
     });
@@ -17328,6 +17393,11 @@ class $$WalletCategoryCacheTableFilterComposer
 
   ColumnFilters<String> get parentId => $composableBuilder(
     column: $table.parentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemId => $composableBuilder(
+    column: $table.systemId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17371,6 +17441,11 @@ class $$WalletCategoryCacheTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get systemId => $composableBuilder(
+    column: $table.systemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get refreshedAtEpochMs => $composableBuilder(
     column: $table.refreshedAtEpochMs,
     builder: (column) => ColumnOrderings(column),
@@ -17400,6 +17475,9 @@ class $$WalletCategoryCacheTableAnnotationComposer
 
   GeneratedColumn<String> get parentId =>
       $composableBuilder(column: $table.parentId, builder: (column) => column);
+
+  GeneratedColumn<String> get systemId =>
+      $composableBuilder(column: $table.systemId, builder: (column) => column);
 
   GeneratedColumn<int> get refreshedAtEpochMs => $composableBuilder(
     column: $table.refreshedAtEpochMs,
@@ -17455,6 +17533,7 @@ class $$WalletCategoryCacheTableTableManager
                 Value<String> groupId = const Value.absent(),
                 Value<String> groupName = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
+                Value<String?> systemId = const Value.absent(),
                 Value<int> refreshedAtEpochMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletCategoryCacheCompanion(
@@ -17463,6 +17542,7 @@ class $$WalletCategoryCacheTableTableManager
                 groupId: groupId,
                 groupName: groupName,
                 parentId: parentId,
+                systemId: systemId,
                 refreshedAtEpochMs: refreshedAtEpochMs,
                 rowid: rowid,
               ),
@@ -17473,6 +17553,7 @@ class $$WalletCategoryCacheTableTableManager
                 Value<String> groupId = const Value.absent(),
                 Value<String> groupName = const Value.absent(),
                 Value<String?> parentId = const Value.absent(),
+                Value<String?> systemId = const Value.absent(),
                 required int refreshedAtEpochMs,
                 Value<int> rowid = const Value.absent(),
               }) => WalletCategoryCacheCompanion.insert(
@@ -17481,6 +17562,7 @@ class $$WalletCategoryCacheTableTableManager
                 groupId: groupId,
                 groupName: groupName,
                 parentId: parentId,
+                systemId: systemId,
                 refreshedAtEpochMs: refreshedAtEpochMs,
                 rowid: rowid,
               ),

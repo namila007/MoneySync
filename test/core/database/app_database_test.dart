@@ -48,7 +48,7 @@ void main() {
     test(
       'reports the frozen v5 schema and enforces foreign keys after opening',
       () async {
-        expect(database.schemaVersion, 14);
+        expect(database.schemaVersion, 15);
 
         await expectLater(
           database
@@ -241,7 +241,7 @@ void main() {
         addTearDown(database.close);
 
         expect(suppliedKey, same(key));
-        expect(database.schemaVersion, 14);
+        expect(database.schemaVersion, 15);
         expect(await database.smsEvents.count().getSingle(), 0);
       },
     );

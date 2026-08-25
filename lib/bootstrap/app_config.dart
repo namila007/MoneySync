@@ -1,6 +1,5 @@
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/bootstrap/production_policy.dart';
-import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 
 enum AppFlavor { privateFull, playManual }
 
@@ -47,8 +46,6 @@ final class AppConfig {
       productionPolicy.compileTimeFlavorConstraints;
 
   /// Config can resolve only the permanent, no-write production mutation port.
-  WalletMutationPort get walletMutationPort =>
-      compileTimeFlavorConstraints.resolveWalletMutationPort();
 
   /// Preferences are advisory only; capability activation needs audited evidence.
   AppCapabilities capabilitiesFor(UserCapabilityPreference preference) =>

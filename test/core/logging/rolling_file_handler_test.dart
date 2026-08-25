@@ -40,7 +40,11 @@ void main() {
       expect(content, contains('Test message'));
     });
 
-    test('redacts blocked content', () async {
+    // M5.22 WP-F: the record is now written with the secret masked, rather
+    // than the whole record being dropped. Dropping is what left every log
+    // file empty — the file must exist and the surrounding context must
+    // survive, with only the secret gone.
+    test('masks blocked content but still writes the record', () async {
       final dir = Directory.systemTemp.createTempSync('log_test_');
       addTearDown(() => dir.deleteSync(recursive: true));
 
@@ -52,15 +56,18 @@ void main() {
 
       final logger = Logger('test');
       logger.onRecord.listen(handler.handleLogRecord);
-      logger.info('Bearer eyJhbGciOiJIUzI1NiJ9');
+      logger.info('connecting with Bearer eyJhbGciOiJIUzI1NiJ9');
 
-      await Future.delayed(const Duration(milliseconds: 50));
+      await Future.delayed(const Duration(milliseconds: 200));
+      await handler.close();
 
       final file = File('${dir.path}/redact.log');
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        expect(content, isEmpty);
-      }
+      expect(await file.exists(), isTrue);
+      final content = await file.readAsString();
+      expect(content, isNotEmpty);
+      expect(content, isNot(contains('eyJhbGciOiJIUzI1NiJ9')));
+      expect(content, contains('<redacted:token>'));
+      expect(content, contains('connecting with'));
     });
 
     test('rotates file when maxBytes exceeded', () async {
@@ -105,6 +112,44 @@ void main() {
       expect(() => logger.info('Your OTP is 123456'), returnsNormally);
 
       await Future.delayed(const Duration(milliseconds: 50));
+    });
+
+    // M5.22 WP-F. Once the redaction fix let records through, concurrent
+    // unawaited appends started interleaving and tearing lines apart on
+    // device — the log showed fragments like "de=null)" and " background...".
+    // Every line must arrive whole and in one piece.
+    test('bursts of records are written without interleaving', () async {
+      final dir = Directory.systemTemp.createTempSync('log_test_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+
+      final handler = RollingFileHandler(
+        logDirectory: dir,
+        baseName: 'burst.log',
+        maxBytes: 1024 * 1024,
+      );
+
+      final logger = Logger('test');
+      logger.onRecord.listen(handler.handleLogRecord);
+
+      // Fire synchronously, the way Logger.root delivers to its listener.
+      for (var i = 0; i < 40; i++) {
+        logger.info(
+          'record-$i payload that is long enough to tear ${'x' * 80}',
+        );
+      }
+      await handler.close();
+
+      final lines = await File('${dir.path}/burst.log').readAsLines();
+      expect(lines, hasLength(40));
+      for (var i = 0; i < 40; i++) {
+        expect(
+          lines.where((l) => l.contains('record-$i ')),
+          hasLength(1),
+          reason: 'record-$i must appear exactly once, on its own line',
+        );
+      }
+      // A torn write shows up as a line missing the formatted prefix.
+      expect(lines.every((l) => l.contains('[ INFO] test:')), isTrue);
     });
 
     test('close does not throw', () async {

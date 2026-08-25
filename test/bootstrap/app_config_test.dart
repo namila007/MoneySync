@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/production_policy.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
-import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 
 void main() {
   test('M0 flavor configurations are named and fail closed', () {
@@ -66,10 +65,9 @@ void main() {
         ),
         isFalse,
       );
-      expect(
-        configuration.walletMutationPort,
-        isA<ProductionDisabledWalletMutationPort>(),
-      );
+      // M5.22 WP-B: the walletMutationPort assertion was removed with the
+      // port itself — it had no production consumer, and asserting it implied
+      // Wallet writes were disabled when the live path had already shipped.
     }
   });
 
