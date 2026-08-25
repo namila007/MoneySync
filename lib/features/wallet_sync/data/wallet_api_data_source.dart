@@ -64,6 +64,11 @@ abstract interface class WalletApiDataSource {
   );
 
   Future<WalletUsageStats> getUsageStats();
+
+  /// Resolves the id of the label named [name], creating it in Wallet if it
+  /// does not already exist (M5.22 WP-L). Returns null if the label could
+  /// not be resolved or created — callers must not block a create on this.
+  Future<String?> ensureLabel(String name);
 }
 
 /// Raised by data-source implementations on transport failure. Carries only

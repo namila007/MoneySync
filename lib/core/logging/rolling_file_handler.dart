@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -20,18 +21,30 @@ final class RollingFileHandler {
 
   File get _currentFile => File('${_logDirectory.path}/$_baseName');
 
+  /// Tail of the serialized append chain. See [handleLogRecord].
+  Future<void> _writes = Future<void>.value();
+
   void handleLogRecord(LogRecord record) {
     try {
       final message = _format(record);
-      if (redactionPolicy != null) {
-        final redacted = redactionPolicy!.redact(message);
-        if (redacted == null) return;
-        _writeWithRotation(redacted);
-      } else {
-        _writeWithRotation(message);
-      }
-    } on FileSystemException {
-      // best-effort: log write failures never crash the app
+      // M5.22 WP-F: redact() masks in place and always returns a string. It
+      // used to return null to mean "drop this record", which silently
+      // discarded every non-allowlisted line and left the log files empty.
+      final line = redactionPolicy?.redact(message) ?? message;
+      // Serialize appends. handleLogRecord is a synchronous listener, so
+      // several records can be in flight at once; concurrent
+      // writeAsString(append) calls interleave and tear lines apart
+      // ("...de=null)" / " background..."). Chaining keeps one write in
+      // flight at a time without blocking the caller.
+      _writes = _writes.then((_) => _writeWithRotation(line)).catchError((
+        Object e,
+      ) {
+        stderr.writeln('RollingFileHandler: log write failed: $e');
+      });
+    } on FileSystemException catch (e) {
+      // A logger that cannot write must not crash the app — but it must not be
+      // undebuggable either.
+      stderr.writeln('RollingFileHandler: log write failed: $e');
     }
   }
 
@@ -48,9 +61,12 @@ final class RollingFileHandler {
     return '$time [$level] ${record.loggerName}: $msg';
   }
 
-  void _writeWithRotation(String line) async {
+  Future<void> _writeWithRotation(String line) async {
     try {
       final file = _currentFile;
+      if (!await _logDirectory.exists()) {
+        await _logDirectory.create(recursive: true);
+      }
       if (await file.exists()) {
         final length = await file.length();
         if (length > maxBytes) {
@@ -58,8 +74,8 @@ final class RollingFileHandler {
         }
       }
       await file.writeAsString('$line\n', mode: FileMode.append);
-    } on FileSystemException {
-      // best-effort
+    } on FileSystemException catch (e) {
+      stderr.writeln('RollingFileHandler: rotation/append failed: $e');
     }
   }
 
@@ -78,7 +94,6 @@ final class RollingFileHandler {
     }
   }
 
-  Future<void> close() async {
-    // no open resources to close
-  }
+  /// Waits for any queued appends to reach disk.
+  Future<void> close() => _writes;
 }

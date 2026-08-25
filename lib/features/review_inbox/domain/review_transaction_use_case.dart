@@ -1,7 +1,7 @@
-import 'dart:developer' as developer;
-
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart'
     show StalePrivacyEpochException;
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
@@ -85,11 +85,11 @@ final class ReviewTransactionUseCase {
     String? detailMessage,
   }) async {
     final evaluation = _policy.evaluate(context);
-    developer.log(
+    final log = Logger('review.usecase');
+    log.info(
       '[UseCase] Gate evaluation: allowed=${evaluation.allowed} '
       'blockedGate=${evaluation.firstBlockedGateIndex} '
       'reason=${evaluation.firstBlockReason}',
-      name: 'ReviewUseCase',
     );
     if (!evaluation.allowed) {
       return ReviewBlocked(
@@ -99,10 +99,9 @@ final class ReviewTransactionUseCase {
     }
 
     final alreadyActive = await _writer.hasActiveLineage(intent.candidateId);
-    developer.log(
+    log.info(
       '[UseCase] Lineage check: candidateId=${intent.candidateId} '
       'alreadyActive=$alreadyActive',
-      name: 'ReviewUseCase',
     );
     if (alreadyActive) return const ReviewDuplicate();
 
@@ -122,25 +121,20 @@ final class ReviewTransactionUseCase {
         decisionTraceCode: decisionTraceCode,
         detailMessage: detailMessage,
       );
-      developer.log(
+      log.info(
         '[UseCase] submitAtomically completed — mutationId=${intent.id} '
         'state=${intent.state.name}',
-        name: 'ReviewUseCase',
       );
       return const ReviewSubmitted();
     } on StalePrivacyEpochException {
-      developer.log(
-        '[UseCase] STALE_PRIVACY_EPOCH — mutationId=${intent.id}',
-        name: 'ReviewUseCase',
-      );
+      log.error('[UseCase] STALE_PRIVACY_EPOCH — mutationId=${intent.id}');
       return const ReviewBlocked(
         0,
         'Stale privacy epoch. Re-confirm before sending.',
       );
     } on UniqueLineageViolationException {
-      developer.log(
+      log.error(
         '[UseCase] DUPLICATE_LINEAGE — candidateId=${intent.candidateId}',
-        name: 'ReviewUseCase',
       );
       return const ReviewDuplicate();
     }

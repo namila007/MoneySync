@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
-import 'package:money_sync/app/app.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
+import 'package:money_sync/app/app.dart';
+import 'package:money_sync/core/capabilities/app_capabilities.dart';
+import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/database/app_database.dart';
@@ -14,6 +16,7 @@ import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/log_redaction_policy.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
+import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart'
     as data_control;
 import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
@@ -25,6 +28,7 @@ import 'package:money_sync/features/wallet_connection/application/wallet_connect
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secret_store.dart';
 import 'package:money_sync/features/wallet_connection/data/production_wallet_connection_actions.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/application/wallet_mutation_recovery_service.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 
@@ -46,16 +50,90 @@ Future<void> _initActivityEventWriter(
     privacyEpochProvider: () => _loadPrivacyEpoch(db),
     generation: generation,
   );
-  Logger(
-    'app.info',
-  ).onRecord.listen((record) => activityWriter.writeFromLogRecord(record));
+  // M5.22 WP-F. One listener, on the root only.
+  //
+  // There were three, and two of them were bugs:
+  //
+  //  * A second listener on `Logger('app.info')`. Hierarchical logging is
+  //    disabled, so every logger already publishes to the root — that
+  //    listener wrote each app.info record to the activity table a second
+  //    time.
+  //
+  //  * A listener that re-logged every record through `Logger('bootstrap')`.
+  //    `bootstrap` is a child of root, so the re-log published straight back
+  //    to the root and re-entered this same listener: an unbounded feedback
+  //    loop that blew the stack on every single log record. On device it
+  //    showed up as E/flutter stack traces full of `Logger._publish` frames
+  //    around each create.
+  //
+  // It was most likely a workaround for the redaction policy dropping
+  // everything (see LogRedactionPolicy) — with that fixed, re-logging is
+  // both unnecessary and harmful.
   Logger.root.onRecord.listen(
     (record) => activityWriter.writeFromLogRecord(record),
   );
-  Logger.root.onRecord.listen((record) {
-    debugPrint('[${record.loggerName}] ${record.message}');
-  });
 }
+
+/// Result of interpreting a [WalletConnectionActionResult] from the
+/// startup reconnect attempt: what to log, what activity event to record,
+/// and whether the stored key must be removed (M5.22 WP-H).
+typedef WalletStartupOutcome = ({
+  String logMessage,
+  bool isError,
+  ActivityEventCode activityCode,
+  String activityMessage,
+  bool removeKey,
+});
+
+/// Pure decision logic for [_AwaitingStartupState._connectWalletAtStartup]
+/// — kept outside the widget so it is unit-testable without a database or
+/// widget tree. Only [WalletReadFailureKind.invalidToken] (an
+/// authentication rejection) requests key removal; every other failure
+/// kind is a transport/service problem and must keep the stored key.
+WalletStartupOutcome walletStartupOutcomeFor(
+  WalletConnectionActionResult result,
+) => switch (result) {
+  WalletConnectionCatalogReady(:final catalog) => (
+    logMessage:
+        'Wallet reconnected on restart: ${catalog.accounts.length} accounts',
+    isError: false,
+    activityCode: ActivityEventCode.walletConnected,
+    activityMessage: 'Wallet reconnected on app restart',
+    removeKey: false,
+  ),
+  WalletConnectionCatalogOffline() => (
+    logMessage: 'Wallet catalog offline on restart (cached data kept)',
+    isError: false,
+    activityCode: ActivityEventCode.walletRefreshed,
+    activityMessage: 'Wallet catalog served from cache on restart',
+    removeKey: false,
+  ),
+  WalletConnectionActionFailure(:final failure)
+      when failure.kind == WalletReadFailureKind.invalidToken =>
+    (
+      logMessage: 'Wallet token rejected on restart, removing key',
+      isError: true,
+      activityCode: ActivityEventCode.walletDisconnected,
+      activityMessage: 'Wallet key rejected on restart and removed',
+      removeKey: true,
+    ),
+  WalletConnectionActionFailure(:final failure) => (
+    logMessage:
+        'Wallet refresh failed on restart (${failure.kind.name}), key kept',
+    isError: true,
+    activityCode: ActivityEventCode.walletRefreshed,
+    activityMessage: 'Wallet refresh failed on restart (${failure.kind.name})',
+    removeKey: false,
+  ),
+  WalletConnectionFreshAuthenticationRequired() ||
+  WalletConnectionActionUnavailable() => (
+    logMessage: 'Wallet startup refresh returned an unexpected result',
+    isError: true,
+    activityCode: ActivityEventCode.walletRefreshed,
+    activityMessage: 'Wallet startup refresh returned an unexpected result',
+    removeKey: false,
+  ),
+};
 
 Future<int> _loadPrivacyEpoch(AppDatabase db) async {
   try {
@@ -181,20 +259,37 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     // reaches the mutation flows. Best-effort — recovery failure must not
     // block startup.
     try {
-      final recovered = await WalletMutationRecoveryService(
+      final recovery = WalletMutationRecoveryService(
         dao: WalletMutationsDao(database: db),
-      ).recoverInterrupted();
+      );
+      final recovered = await recovery.recoverInterrupted();
       if (recovered > 0) {
         log.info('Recovered $recovered interrupted outbox mutation(s)');
+      }
+
+      // M5.22 WP-E: recoverInterrupted only parks rows on `reconciling`;
+      // without this second half they stayed there forever. Ask Wallet
+      // whether each unresolved create actually landed, and settle it.
+      // Reconcile-first, never retry-first — plan/05 forbids resending until
+      // the API has conclusively proven the original create did not succeed.
+      final caps = ref.read(appCapabilitiesProvider);
+      if (caps.isEnabled(AppCapability.walletCreate)) {
+        final repository = ref.read(walletRepositoryProvider);
+        final settled = await recovery.reconcilePending(
+          findByMarker: repository.findRecordForReconciliation,
+        );
+        if (settled > 0) {
+          log.info('Reconciled $settled pending mutation(s) to succeeded');
+        }
       }
     } on Exception catch (e, s) {
       log.error('Outbox recovery scan failed', e, s);
     }
 
     // Auto-connect wallet at startup if a token was previously saved.
-    // Non-blocking — the catalog cache is refreshed in the background so
-    // the wallet connection page and dropdowns pick up fresh data.
-    _connectWalletAtStartup(db, log);
+    // Awaited so wallet_connection_status/activity are settled before the
+    // app reaches ready state, but internally best-effort — never throws.
+    await _connectWalletAtStartup(db, log);
 
     log.info('Health check and onboarding repo ready');
     await startupNotifier.initialize(
@@ -207,8 +302,12 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   }
 
   /// Check if a wallet token was previously saved and refresh the catalog
-  /// cache in the background. Non-blocking — failures are logged but never
-  /// prevent startup.
+  /// cache in the background. Non-blocking (awaited by the caller, but
+  /// never prevents startup) — every outcome is written to
+  /// `wallet_connection_status`, logged, and recorded as an activity event.
+  /// Only an authentication rejection (invalid token) removes the stored
+  /// key; a transport failure (offline/timeout/tls/service/...) must never
+  /// destroy a still-valid credential (M5.22 WP-H).
   Future<void> _connectWalletAtStartup(AppDatabase db, Logger log) async {
     try {
       final channel = ref.read(nativeSecurityChannelProvider);
@@ -226,21 +325,50 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       if (!actions.isAvailable) return;
 
       log.info('Wallet token found, refreshing catalog in background...');
+      final privacyEpoch = await _loadPrivacyEpoch(db);
       final result = await actions.refresh(lifecycleEpoch: 0);
-      switch (result) {
-        case WalletConnectionCatalogReady():
-          log.info(
-            'Wallet catalog refreshed: ${result.catalog.accounts.length} accounts',
-          );
-        case WalletConnectionCatalogOffline():
-          log.info('Wallet catalog offline (cached data available)');
-        case WalletConnectionActionFailure():
-          log.warning('Wallet catalog refresh failed: ${result.failure}');
-        default:
-          break;
+      final outcome = walletStartupOutcomeFor(result);
+      log.info(outcome.logMessage);
+      if (outcome.isError) {
+        log.error(outcome.logMessage);
       }
+      // Credential is genuinely no longer valid — remove it so the user is
+      // asked to supply a new key next time they open the wallet
+      // connection page (reuses the same disconnect path the page's manual
+      // "disconnect" button uses). A transport failure never removes the
+      // key — cache.write() inside actions.refresh already flips
+      // wallet_connection_status to 'connected' on success and is simply
+      // left untouched on a transport failure.
+      if (outcome.removeKey) {
+        await actions.disconnect(lifecycleEpoch: 0);
+      }
+      await _recordWalletStartupActivity(
+        db,
+        outcome.activityCode,
+        outcome.activityMessage,
+        privacyEpoch,
+      );
     } on Exception catch (e) {
       log.warning('Startup wallet connect skipped: $e');
+    }
+  }
+
+  Future<void> _recordWalletStartupActivity(
+    AppDatabase db,
+    ActivityEventCode code,
+    String message,
+    int privacyEpoch,
+  ) async {
+    try {
+      await db.insertActivity(
+        activityType: code,
+        safeDetailCode: ActivityStateTransition.logEvent,
+        occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        privacyEpoch: privacyEpoch,
+        detailMessage: message,
+      );
+    } on Exception catch (e) {
+      Logger('startup').warning('Wallet startup activity log failed: $e');
     }
   }
 

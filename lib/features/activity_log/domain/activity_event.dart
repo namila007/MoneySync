@@ -6,6 +6,11 @@ enum ActivityEventCode {
   activityRetentionApplied('privacy.activity_retention.applied'),
   candidateNeedsReview('candidate.needs_review'),
   walletRecordCreated('wallet.record.created'),
+
+  /// A create that did not end in a confirmed record — rejected, held for
+  /// reconciliation, or scheduled for retry (M5.22 WP-N). Stored by `.name`
+  /// like every other code, so adding it needs no migration.
+  walletRecordFailed('wallet.record.failed'),
   walletConnected('wallet.connected'),
   walletDisconnected('wallet.disconnected'),
   walletRefreshed('wallet.refreshed'),

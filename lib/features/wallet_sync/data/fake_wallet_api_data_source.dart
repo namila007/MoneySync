@@ -1,5 +1,5 @@
-import 'dart:developer' as developer;
-
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_api_data_source.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_outcome.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
@@ -47,30 +47,47 @@ final class FakeWalletApiDataSource implements WalletApiDataSource {
   ) async {
     createCalls++;
     lastCreatePayload = payload;
-    developer.log(
+    final log = Logger('wallet.fake');
+    log.info(
       '[FakeAPI] createRecord #$createCalls: '
       'account=${payload.accountId} amount=${payload.amountMinor} '
       '${payload.currencyCode} date=${payload.recordDateUtc} '
       'payment=${payload.paymentType.wireName} category=${payload.categoryId}',
-      name: 'FakeWalletApi',
     );
     if (_error case final error?) {
-      developer.log('[FakeAPI] ERROR: $error', name: 'FakeWalletApi');
+      log.error('[FakeAPI] ERROR: $error', error);
       throw error;
     }
     final outcome =
         _createOutcome ?? const WalletCreateAllSucceeded(recordId: 'record-1');
-    developer.log(
+    log.info(
       '[FakeAPI] → ${outcome.runtimeType} recordId=${outcome is WalletCreateAllSucceeded ? outcome.recordId : "partial"}',
-      name: 'FakeWalletApi',
     );
+    // M5.22 WP-N: remember what was created so a read-back can find it. A
+    // fake that reports "created" and then "no such record" does not model
+    // the API, and would make every caller look like an unverified create.
+    if (outcome is WalletCreateAllSucceeded) {
+      _created[outcome.recordId] = WalletRecordRead(
+        id: outcome.recordId,
+        amountMinor: payload.amountMinor,
+        currencyCode: payload.currencyCode,
+        note: payload.note,
+        counterParty: payload.counterParty,
+        recordDateUtc: payload.recordDateUtc,
+      );
+    }
     return outcome;
   }
+
+  /// Records this fake has "created", keyed by id.
+  final Map<String, WalletRecordRead> _created = {};
 
   @override
   Future<WalletRecordRead?> getRecord(String id) async {
     getRecordCalls++;
-    return _record;
+    // An explicitly injected record wins, so a test can still model the
+    // record-missing case.
+    return _record ?? _created[id];
   }
 
   @override
@@ -90,5 +107,15 @@ final class FakeWalletApiDataSource implements WalletApiDataSource {
           requestCount: 0,
           rateLimitRemaining: null,
         );
+  }
+
+  /// Name -> id, mirroring the real API's find-or-create (M5.22 WP-L).
+  final Map<String, String> _labels = {};
+  int ensureLabelCalls = 0;
+
+  @override
+  Future<String?> ensureLabel(String name) async {
+    ensureLabelCalls++;
+    return _labels.putIfAbsent(name, () => 'label-${_labels.length + 1}');
   }
 }

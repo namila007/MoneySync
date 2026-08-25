@@ -93,8 +93,7 @@ void main() {
         payload: const {'amountMinor': -100},
         state: WalletMutationState.queued,
       );
-      final disabled = await const ProductionDisabledWalletMutationPort()
-          .submit(intent);
+      const disabled = WalletMutationDisabled();
       final fake = _FakeWalletMutationPort([
         const WalletMutationPreTransmissionFailure(),
         WalletMutationRemoteSuccess(
@@ -139,14 +138,15 @@ void main() {
   });
 }
 
-final class _FakeWalletMutationPort implements WalletMutationPort {
+/// Local stub. M5.22 WP-B deleted `WalletMutationPort`; the ledger never
+/// depended on it, so this no longer implements anything.
+final class _FakeWalletMutationPort {
   _FakeWalletMutationPort(Iterable<WalletMutationResult> outcomes)
     : _outcomes = Queue<WalletMutationResult>.of(outcomes);
 
   final Queue<WalletMutationResult> _outcomes;
   final List<WalletMutationIntent> submitted = <WalletMutationIntent>[];
 
-  @override
   Future<WalletMutationResult> submit(WalletMutationIntent intent) async {
     submitted.add(intent);
     if (_outcomes.isEmpty) return const WalletMutationPreTransmissionFailure();

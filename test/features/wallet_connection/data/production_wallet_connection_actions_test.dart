@@ -18,6 +18,8 @@ void main() {
       final adapter = _QueueAdapter([
         _json(200, {'accounts': [], 'nextOffset': null}),
         _json(200, {'categories': [], 'nextOffset': null}),
+        // M5.22 WP-L: the catalog now fetches labels as a third page.
+        _json(200, {'labels': [], 'nextOffset': null}),
       ]);
       final secretStore = _FakeSecretStore();
       final cache = _FakeCache();
@@ -85,6 +87,8 @@ void main() {
       final adapter = _QueueAdapter([
         _json(200, {'accounts': [], 'nextOffset': null}),
         _json(200, {'categories': [], 'nextOffset': null}),
+        // M5.22 WP-L: the catalog now fetches labels as a third page.
+        _json(200, {'labels': [], 'nextOffset': null}),
       ]);
       final secretStore = _FakeSecretStore()
         ..saved = WalletToken.parse('stored-token');

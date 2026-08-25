@@ -1,4 +1,39 @@
 import 'package:money_sync/core/errors/domain_failure.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
+
+/// Applies the Wallet sign convention to an unsigned amount magnitude.
+///
+/// **M5.22 WP-M.** Wallet derives `recordType` from the amount sign — expense
+/// < 0 < income — so a debit sent as a positive number is filed as *income*.
+/// The parser yields an unsigned magnitude and keeps direction in a separate
+/// field (the project rule: direction is preserved separately from kind), so
+/// the sign has to be applied at the point the wire payload is built.
+///
+/// Device evidence 2026-08-25: an SMS reading "LKR 4425.00 debited", shown in
+/// the UI as expense/debit, was POSTed as `+442500` and came back from Wallet
+/// as `recordType: "income"`. Every expense was being recorded sign-inverted.
+///
+/// [TransactionDirection.neutral] keeps the magnitude unchanged: transfers and
+/// other neutral flows are review-only and must not be coerced either way.
+/// [kind] overrides the direction for refunds. plan/05:108 is explicit that
+/// "income/credit and refund serialize as positive", and a refund can carry a
+/// debit direction — so signing on direction alone would record a refund with
+/// the wrong sign, the same class of defect WP-M fixed for expenses.
+///
+/// Refunds are review-only today and cannot reach a create, so this is a
+/// guard placed ahead of the policy change rather than a live fix.
+int signedMinorUnits(
+  int amountMinor,
+  TransactionDirection direction, {
+  TransactionKind? kind,
+}) {
+  if (kind == TransactionKind.refund) return amountMinor.abs();
+  return switch (direction) {
+    TransactionDirection.debit => -amountMinor.abs(),
+    TransactionDirection.credit => amountMinor.abs(),
+    TransactionDirection.neutral => amountMinor,
+  };
+}
 
 /// Wire form of the Wallet `paymentType` enum (plan/05 §Create-record contract).
 enum WalletPaymentType {

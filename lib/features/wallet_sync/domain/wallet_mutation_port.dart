@@ -1,5 +1,3 @@
-import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
-
 sealed class WalletMutationResult {
   const WalletMutationResult();
 }
@@ -69,16 +67,8 @@ final class WalletMutationReconciledOwnership extends WalletMutationResult {
   final String remoteRecordId;
 }
 
-abstract interface class WalletMutationPort {
-  Future<WalletMutationResult> submit(WalletMutationIntent intent);
-}
-
-/// Production composition is intentionally non-operational until M3 contract,
-/// credential, fresh-auth, and reconciliation gates have passed.
-final class ProductionDisabledWalletMutationPort implements WalletMutationPort {
-  const ProductionDisabledWalletMutationPort();
-
-  @override
-  Future<WalletMutationResult> submit(WalletMutationIntent intent) async =>
-      const WalletMutationDisabled();
-}
+// M5.22 WP-B: `WalletMutationPort` and `ProductionDisabledWalletMutationPort`
+// were removed here. They had no production consumer — the live create path is
+// walletRepositoryProvider -> WalletRepository -> HttpWalletApiDataSource, live
+// since M5.20 — and their presence implied Wallet writes were still disabled
+// when they are not. The result types below remain in use.

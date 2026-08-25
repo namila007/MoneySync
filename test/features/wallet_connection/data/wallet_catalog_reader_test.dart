@@ -22,6 +22,11 @@ void main() {
           'categories': [_categoryJson],
           'nextOffset': null,
         }),
+        // M5.22 WP-L: the catalog now fetches labels as a third page.
+        _json(200, {
+          'labels': [_labelJson],
+          'nextOffset': null,
+        }),
       ]);
 
       final result = await reader(
@@ -36,7 +41,7 @@ void main() {
         success.catalog.accounts.single.eligibility,
         WalletAccountEligibility.eligible,
       );
-      expect(adapter.requests, hasLength(2));
+      expect(adapter.requests, hasLength(3));
       expect(
         adapter.requests.map((request) => request.method),
         everyElement('GET'),
@@ -46,6 +51,7 @@ void main() {
         containsAll(<String>[
           'https://rest.budgetbakers.com/wallet/v1/api/accounts?limit=100',
           'https://rest.budgetbakers.com/wallet/v1/api/categories?limit=100',
+          'https://rest.budgetbakers.com/wallet/v1/api/labels?limit=100',
         ]),
       );
       expect(
@@ -236,6 +242,8 @@ void main() {
       ).readCatalog(WalletToken.parse('synthetic-token'));
 
       expect(result, const WalletReadFailure.protocol());
+      // Two: this fails on the repeated offset while paging *accounts*, so
+      // categories and labels are never requested.
       expect(adapter.requests, hasLength(2));
     },
   );
@@ -274,6 +282,9 @@ final _accountJson = <String, dynamic>{
 };
 
 final _categoryJson = <String, dynamic>{'id': 'category-1', 'name': 'Food'};
+
+// M5.22 WP-L: labels are the catalog's third page.
+final _labelJson = <String, dynamic>{'id': 'label-1', 'name': 'money_sync'};
 
 ResponseBody _json(
   int statusCode,

@@ -162,4 +162,30 @@ void main() {
       expect(stats.recordCount, 42);
     });
   });
+
+  group('WalletRepository.ensureLabel (M5.22 WP-L)', () {
+    test('returns the existing id without creating a duplicate', () async {
+      final dataSource = FakeWalletApiDataSource();
+      final repository = WalletRepository(dataSource: dataSource);
+
+      final first = await repository.ensureLabel('money_sync');
+      final second = await repository.ensureLabel('money_sync');
+
+      expect(first, isNotNull);
+      expect(second, first);
+      expect(dataSource.ensureLabelCalls, 2);
+    });
+
+    test('creates and returns a new id when the label is absent', () async {
+      final dataSource = FakeWalletApiDataSource();
+      final repository = WalletRepository(dataSource: dataSource);
+
+      final moneySync = await repository.ensureLabel('money_sync');
+      final test = await repository.ensureLabel('test');
+
+      expect(moneySync, isNotNull);
+      expect(test, isNotNull);
+      expect(moneySync, isNot(test));
+    });
+  });
 }

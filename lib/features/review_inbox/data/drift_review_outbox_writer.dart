@@ -1,7 +1,7 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
 
 import 'package:drift/drift.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
@@ -48,11 +48,11 @@ final class DriftReviewOutboxWriter implements ReviewOutboxWriter {
     required DecisionTraceCode decisionTraceCode,
     String? detailMessage,
   }) {
-    developer.log(
+    final log = Logger('review.outbox');
+    log.info(
       '[Outbox] submitAtomically: smsEventId=$smsEventId '
       'candidateState=${candidateState.name} '
       'mutationState=${intent.state.name} mutationId=${intent.id}',
-      name: 'OutboxWriter',
     );
     return _database
         .transaction(() async {

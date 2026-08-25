@@ -21,8 +21,12 @@ final class ActivityEventWriter {
 
   Future<void> writeFromLogRecord(LogRecord record) async {
     final message = record.message.toString();
+    // The activity table keeps the strict allowlist. M5.22 WP-F relaxed
+    // redact() to masking so log FILES stop coming out empty; this sink must
+    // not inherit that relaxation, so it gates on the allowlist explicitly
+    // rather than on redact() returning null as it used to.
+    if (!_redaction.isAllowedForActivityLog(message)) return;
     final sanitized = _redaction.redact(message);
-    if (sanitized == null) return;
 
     final observedGeneration = _generation?.current;
 

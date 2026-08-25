@@ -408,6 +408,15 @@ class WalletCategoryCache extends Table {
   TextColumn get groupId => text().withDefault(const Constant('unknown'))();
   TextColumn get groupName => text().withDefault(const Constant('Unknown'))();
   TextColumn get parentId => text().nullable()();
+
+  /// The Wallet registry slug for a base category, e.g.
+  /// `food_and_drinks__general` (M5.22 WP-G, schema v15).
+  ///
+  /// This is what makes "select the whole group" expressible: a group is not
+  /// itself an assignable category, but each group owns a general base
+  /// category identified by `<groupId>__general`. Null for custom categories,
+  /// which have no registry slug.
+  TextColumn get systemId => text().nullable()();
   IntColumn get refreshedAtEpochMs => integer()();
 
   @override
@@ -640,7 +649,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1100,6 +1109,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 14) {
         await m.createTable(walletLabelCache);
       }
+      // M5.22 WP-G: carry the Wallet registry slug so the picker can resolve a
+      // group to its `<groupId>__general` base category. ALTER-add-column;
+      // existing rows keep null until the next catalog refresh.
+      //
+      // Guarded from >= 3 for the same reason as the M5.17 block above: the
+      // `from < 3` branch creates wallet_category_cache from the *current*
+      // definition, so a v1/v2 chain already has this column and adding it
+      // again fails with "duplicate column name".
+      if (from >= 3 && from < 15) {
+        await m.addColumn(walletCategoryCache, walletCategoryCache.systemId);
+      }
     },
   );
 
@@ -1164,6 +1184,24 @@ class AppDatabase extends _$AppDatabase {
         (t) => OrderingTerm.desc(t.id),
       ])
       ..limit(limit);
+    // M5.22 WP-D: a message whose candidate has been reviewed is done with the
+    // inbox. This exclusion lives here, in the one shared query builder, so
+    // every read path inherits it — the live stream and all the "Show all" /
+    // load-more pages alike.
+    //
+    // It used to sit in inbox_controller's stream instead, which filtered the
+    // first page only: reviewed messages reappeared as soon as the user paged.
+    // That version also ran one candidate lookup per row (an N+1 re-run on
+    // every sms_events write); as a subquery it is a single statement.
+    q.where(
+      (t) => notExistsQuery(
+        select(transactionCandidates)..where(
+          (c) =>
+              c.smsEventId.equalsExp(t.id) &
+              c.state.equalsValue(CandidateRecordState.retainedLocal),
+        ),
+      ),
+    );
     final hasCursor = beforeReceivedAtEpochMs != null && beforeId != null;
     if (senderKey != null ||
         fromReceivedAtEpochMs != null ||

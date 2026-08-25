@@ -1,5 +1,4 @@
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
-import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 
 /// Pinned, HTTPS-only Wallet origin. Paths are selected by audited transports.
 final class WalletHttpsOrigin {
@@ -54,10 +53,6 @@ final class CompileTimeFlavorConstraints {
   const CompileTimeFlavorConstraints.m0();
 
   bool allows(CompileTimeFlavorConstraint constraint) => false;
-
-  /// Production flavors have no fake or live mutation transport selection.
-  WalletMutationPort resolveWalletMutationPort() =>
-      const ProductionDisabledWalletMutationPort();
 }
 
 /// A user-level request for capabilities. It is a request, never an entitlement.
