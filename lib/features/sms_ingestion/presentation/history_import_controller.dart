@@ -5,6 +5,8 @@ import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart
 import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
 
+const _sentinel = Object();
+
 final class HistoryImportState {
   const HistoryImportState({
     this.preset = 7,
@@ -34,7 +36,7 @@ final class HistoryImportState {
 
   HistoryImportState copyWith({
     int? preset,
-    int? customDays,
+    Object? customDays = _sentinel,
     int? messageCap,
     List<String>? trackedSenders,
     bool? isScanning,
@@ -45,7 +47,9 @@ final class HistoryImportState {
   }) {
     return HistoryImportState(
       preset: preset ?? this.preset,
-      customDays: customDays ?? this.customDays,
+      customDays: customDays == _sentinel
+          ? this.customDays
+          : customDays as int?,
       messageCap: messageCap ?? this.messageCap,
       trackedSenders: trackedSenders ?? this.trackedSenders,
       isScanning: isScanning ?? this.isScanning,

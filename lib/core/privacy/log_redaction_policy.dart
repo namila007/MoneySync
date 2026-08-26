@@ -52,41 +52,6 @@ final class LogRedactionPolicy {
   /// log line.
   static final RegExp _longDigitRun = RegExp(r'\b\d{9,}\b');
 
-  /// The original allowlist, preserved for the **`activity_events` table only**.
-  ///
-  /// M5.22 WP-F loosened [redact] from allowlist-or-drop to deny-list+mask so
-  /// that log *files* stop coming out empty. The activity table is a different
-  /// sink with a different rule — plan/07 requires it to carry an allowlist of
-  /// sanitized metadata — and `ActivityEventWriter` previously depended on
-  /// `redact()` returning null to enforce exactly that. Without this predicate,
-  /// relaxing the file policy would have silently relaxed the database policy
-  /// with it.
-  ///
-  /// Returns true only when [message] matches a known-safe structured pattern.
-  bool isAllowedForActivityLog(String message) {
-    if (_tokenPattern.hasMatch(message)) return false;
-    if (_phonePattern.hasMatch(message)) return false;
-    if (_allowedActivityPatterns.any((p) => p.hasMatch(message))) return true;
-    return false;
-  }
-
-  static final _allowedActivityPatterns = <RegExp>[
-    RegExp(r'SafeErrorCode:\s*\w+'),
-    RegExp(r'CorrelationId:\s*[\w-]+'),
-    RegExp(r'entity_type:?\s*\w+'),
-    RegExp(r'bank_label:?\s*\w+'),
-    RegExp(r'Instrument:\s*\*{1,2}\d{1,2}'),
-    RegExp(r'amount_minor:\s*\d+'),
-    RegExp(r'currency:\s*[A-Z]{3}'),
-    RegExp(r'state_transition:\s*\w+'),
-    RegExp(r'event_code:\s*[\w.]+'),
-    RegExp(r'app\.(info|error)\b'),
-    RegExp(r'code=\w+'),
-    RegExp(r'PRAGMA|retry|delete|epoch|migration|schema'),
-    RegExp(r'DB_KEY_INVALID|CIPHER_UNSUPPORTED|EMPTY_SCHEMA|DB_ERROR'),
-    RegExp(r'^\*{1,2}\d{1,2}'),
-  ];
-
   /// Returns [message] with every sensitive span masked.
   ///
   /// Never returns null: dropping whole records is what left the log files

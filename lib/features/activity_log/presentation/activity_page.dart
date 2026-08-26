@@ -236,6 +236,7 @@ String _labelFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.rawCopyPurged => 'Message copy removed',
   ActivityEventCode.activityRetentionApplied => 'Old activity removed',
   ActivityEventCode.candidateNeedsReview => 'Transaction needs review',
+  ActivityEventCode.walletRecordQueued => 'Saved to Waiting',
   ActivityEventCode.walletRecordCreated => 'Wallet record created',
   ActivityEventCode.walletRecordFailed => 'Wallet record not created',
   ActivityEventCode.walletConnected => 'Wallet connected',
@@ -265,6 +266,7 @@ IconData _iconFor(ActivityEventCode code) => switch (code) {
   ActivityEventCode.candidateNeedsReview => Icons.rate_review_outlined,
   ActivityEventCode.walletRecordCreated =>
     Icons.account_balance_wallet_outlined,
+  ActivityEventCode.walletRecordQueued => Icons.schedule_outlined,
   ActivityEventCode.walletRecordFailed => Icons.error_outline,
   ActivityEventCode.walletConnected => Icons.link,
   ActivityEventCode.walletDisconnected => Icons.link_off,

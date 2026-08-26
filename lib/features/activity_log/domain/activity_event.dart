@@ -5,6 +5,13 @@ enum ActivityEventCode {
   rawCopyPurged('privacy.raw_copy.purged'),
   activityRetentionApplied('privacy.activity_retention.applied'),
   candidateNeedsReview('candidate.needs_review'),
+
+  /// Reviewed and placed in the outbox, but NOT yet sent. The review submit
+  /// used to log `walletRecordCreated` here, which told the user a record had
+  /// been created when "Save for later" had merely queued it — and, on a
+  /// failed create, contradicted the failure entry that followed (M5.22).
+  walletRecordQueued('wallet.record.queued'),
+
   walletRecordCreated('wallet.record.created'),
 
   /// A create that did not end in a confirmed record — rejected, held for

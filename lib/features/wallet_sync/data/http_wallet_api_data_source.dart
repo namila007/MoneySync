@@ -17,9 +17,15 @@ final _log = Logger('HttpWalletApi');
 /// POST /v1/api/records — creates up to 20 records per request.
 /// See: https://rest.budgetbakers.com/wallet/reference
 final class HttpWalletApiDataSource implements WalletApiDataSource {
-  HttpWalletApiDataSource({required Future<WalletToken> Function() tokenGetter})
-    : _tokenGetter = tokenGetter,
-      _dio = _createDio();
+  HttpWalletApiDataSource({
+    required Future<WalletToken> Function() tokenGetter,
+    HttpClientAdapter? httpClientAdapter,
+  }) : _tokenGetter = tokenGetter,
+       _dio = _createDio() {
+    if (httpClientAdapter != null) {
+      _dio.httpClientAdapter = httpClientAdapter;
+    }
+  }
 
   final Future<WalletToken> Function() _tokenGetter;
   final Dio _dio;

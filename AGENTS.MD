@@ -90,10 +90,26 @@ lib/
 - Use Android Create Document/Open Document flows for exports/imports; do not request broad storage permission or retain passphrases/plaintext temporary files.
 - No personal data may be used until the encrypted database, backup exclusion, secure storage, retention, and deletion gates pass.
 
+## Activity log vs application log
+
+The `activity_events` table (shown on the Activity tab) is the **user's personal record** of what MoneySync did on their behalf. It answers: "What actions did this app take with my data or accounts?" Examples: wallet connected or refreshed, a transaction was reviewed and then queued or created in the Wallet or failed, a message was imported or rejected back to inbox, a mapping rule was created, the user's stored data was removed.
+
+This is **not** a developer log. Database health checks ("ready code=null"), schema migrations, PRAGMA statements, schema version bumps, and startup diagnostics must never appear in the activity table — they belong in the `Logger` output or on-disk log files in `code_cache/logs/`.
+
+Activity events are written **explicitly and deliberately** only at the moment the user-facing action actually occurs, via `AppDatabase.insertActivity(...)`. They are never scraped or copied from Logger records. M5.22 removed an `ActivityEventWriter` that listened to `Logger.root` and copied allowlisted log lines into the table — that design caused health checks and startup noise to dominate the user's view of their own activity.
+
+Entries must be **truthful about timing and outcome**. Record what has actually happened at that instant, not what is expected to happen. For example: log `walletRecordQueued` when the outbox entry is created; log `walletRecordCreated` only after the API has confirmed a successful create; log `walletRecordFailed` if the create was rejected or timed out. M5.22 fixed a case where "Save for Later" logged "Wallet record created" before any transmission occurred, causing users to see both "created" and "not created" entries for the same record, and failed creates to claim creation as well.
+
+Redaction uses two independent guards — do not confuse them:
+- `ActivityRedaction` (`core/privacy/redaction.dart`): guards the `activity_events` table strictly — throws on any violation and maintains a tightly scoped allowlist of sanitized metadata.
+- `LogRedactionPolicy` (`core/privacy/log_redaction_policy.dart`): governs only the on-disk log files and masks sensitive spans rather than dropping entire records.
+
+When adding a user-facing capability, first ask: would the user want to see this action in their own history? If yes, define an `ActivityEventCode` and write it explicitly when the action completes; if it is only useful to a developer or operator, route it to the logger instead.
+
 ## Testing rules
 
 - Coverage is informational for M0 placeholder/framework boilerplate; do not add tests solely to increase that metric. From M1, minimum substantive authored-code coverage is 80% line and branch. Parser, identity, redaction, state machine, outbox/reconciliation, ownership, policy, cryptography/envelope validation, and model-bundle validation target at least 90% line and branch.
-- Flutter 3.44.6 supports native branch coverage. Use `flutter test --coverage --branch-coverage`, and report unavailable coverage dimensions honestly on older toolchains.
+- Flutter 3.44.6 (Dart 3.12.2, `package:coverage` 1.15.1) accepts `--branch-coverage` and the Dart VM returns branch data, but the lcov formatter emits only `BRDA` records (per-line hit/miss) — the `BRF`/`BRH` summary totals are not written. Branch coverage IS collected at the BRDA level (verified: 3641 BRDA records across 142 source files on a full test run), but standard lcov consumers (e.g. `genhtml`) that rely on BRF/BRH will report zero branch coverage. To measure a branch-coverage percentage, parse BRDA records directly. The `--branch-coverage` flag should remain in the test command so the data is present when tooling catches up. Report unavailable coverage dimensions honestly on older toolchains.
 - Unit-test domain/value objects/use cases with fakes. Widget-test rendering, navigation, accessibility, loading/error/locked states, and provider overrides. Integration-test Drift, platform bridges, manifests, storage, network contracts, and lifecycle boundaries. Exercise critical journeys end to end on Pixel 7/Android 16.
 - Tests must prove negative behavior: no source-SMS mutation, no duplicate create, no blind retry, no unsafe permission, no secret/log leakage, and fail-closed behavior after cancellation, crash, restart, timeout, or corrupt input.
 - Never weaken a correct test to make an implementation pass. Fix the implementation unless the requirement or test is demonstrably wrong, then update the authoritative plan and test together.

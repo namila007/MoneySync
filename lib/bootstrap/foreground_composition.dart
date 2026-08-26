@@ -9,11 +9,10 @@ import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/database/database_health.dart';
-import 'package:money_sync/core/logging/activity_event_writer.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/privacy/clear_local_data.dart';
-import 'package:money_sync/core/privacy/log_redaction_policy.dart';
+import 'package:money_sync/core/privacy/retention_policy.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
@@ -38,41 +37,6 @@ final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
     return DriftConfigurationRepository(database: db);
   },
 );
-
-Future<void> _initActivityEventWriter(
-  AppDatabase db,
-  ActivityWriterGeneration generation,
-) async {
-  final redaction = const LogRedactionPolicy();
-  final activityWriter = ActivityEventWriter(
-    database: db,
-    redaction: redaction,
-    privacyEpochProvider: () => _loadPrivacyEpoch(db),
-    generation: generation,
-  );
-  // M5.22 WP-F. One listener, on the root only.
-  //
-  // There were three, and two of them were bugs:
-  //
-  //  * A second listener on `Logger('app.info')`. Hierarchical logging is
-  //    disabled, so every logger already publishes to the root — that
-  //    listener wrote each app.info record to the activity table a second
-  //    time.
-  //
-  //  * A listener that re-logged every record through `Logger('bootstrap')`.
-  //    `bootstrap` is a child of root, so the re-log published straight back
-  //    to the root and re-entered this same listener: an unbounded feedback
-  //    loop that blew the stack on every single log record. On device it
-  //    showed up as E/flutter stack traces full of `Logger._publish` frames
-  //    around each create.
-  //
-  // It was most likely a workaround for the redaction policy dropping
-  // everything (see LogRedactionPolicy) — with that fixed, re-logging is
-  // both unnecessary and harmful.
-  Logger.root.onRecord.listen(
-    (record) => activityWriter.writeFromLogRecord(record),
-  );
-}
 
 /// Result of interpreting a [WalletConnectionActionResult] from the
 /// startup reconnect attempt: what to log, what activity event to record,
@@ -151,6 +115,41 @@ Future<int> _loadPrivacyEpoch(AppDatabase db) async {
   return 0;
 }
 
+/// Runs [RawBodyRetentionSweep] using the user-configured
+/// `app_settings.rawCopyRetentionDays` and records one `rawCopyPurged`
+/// activity event when anything was purged. The sweep itself never touches
+/// `activity_events` (independent retention domain, see [RawBodyRetentionSweep])
+/// — the write happens here, at the call site. Best-effort: a failure is
+/// logged and swallowed, never blocking startup.
+Future<void> runRawBodyRetentionSweep(AppDatabase db, Logger log) async {
+  try {
+    final setting = await (db.select(
+      db.appSettings,
+    )..where((row) => row.singletonId.equals(1))).getSingleOrNull();
+    final retentionDays = setting?.rawCopyRetentionDays ?? 0;
+
+    final sweep = RawBodyRetentionSweep(
+      database: db,
+      retentionDays: retentionDays,
+    );
+    final result = await sweep.call(nowUtc: DateTime.now().toUtc());
+    if (result.totalPurged > 0) {
+      log.info('Retention sweep purged ${result.totalPurged} raw bodies');
+      final privacyEpoch = await _loadPrivacyEpoch(db);
+      await db.insertActivity(
+        activityType: ActivityEventCode.rawCopyPurged,
+        safeDetailCode: ActivityStateTransition.rawCopyPurged,
+        occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+        privacyEpoch: privacyEpoch,
+        count: result.totalPurged,
+        detailMessage: 'Stored message copies removed',
+      );
+    }
+  } on Exception catch (e) {
+    log.warning('Retention sweep skipped: $e');
+  }
+}
+
 class BootstrapGate extends ConsumerWidget {
   const BootstrapGate({super.key, required this.config});
   final AppConfig config;
@@ -205,7 +204,6 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _wireActivityWriter();
     _initialize();
   }
 
@@ -221,16 +219,6 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       ref.read(foregroundLockControllerProvider.notifier).onAppPaused();
     } else if (state == AppLifecycleState.resumed) {
       ref.read(smsPermissionStatusProvider.notifier).refresh();
-    }
-  }
-
-  Future<void> _wireActivityWriter() async {
-    try {
-      final db = await ref.read(appDatabaseProvider.future);
-      await _initActivityEventWriter(db, _activityGeneration);
-      Logger('bootstrap').info('ActivityEvent writer wired to DB');
-    } on Exception {
-      // DB not available — ActivityEvent writer deferred
     }
   }
 
@@ -285,6 +273,11 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     } on Exception catch (e, s) {
       log.error('Outbox recovery scan failed', e, s);
     }
+
+    // M5.21 WP6/G2: purge encrypted SMS bodies past the configured
+    // retention window. Best-effort — a sweep failure must never block
+    // startup (mirrors the outbox recovery block above).
+    await runRawBodyRetentionSweep(db, log);
 
     // Auto-connect wallet at startup if a token was previously saved.
     // Awaited so wallet_connection_status/activity are settled before the

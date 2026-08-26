@@ -129,6 +129,10 @@ final class WalletMutationTransmitter {
           );
         }
         _log.info('state_transition: succeeded');
+        await _recordActivity(
+          ActivityEventCode.walletRecordCreated,
+          'Record created in Wallet',
+        );
 
       // The request may or may not have been applied remotely. Reconciliation
       // must resolve it before any retry — a blind resend here would risk a
@@ -233,10 +237,16 @@ final class WalletMutationTransmitter {
   /// Best-effort: the mutation state is the source of truth, so a failure to
   /// write the audit row must never mask the outcome that was already
   /// recorded. It is logged rather than thrown.
-  Future<void> _recordFailure(String safeDetail) async {
+  Future<void> _recordFailure(String safeDetail) =>
+      _recordActivity(ActivityEventCode.walletRecordFailed, safeDetail);
+
+  Future<void> _recordActivity(
+    ActivityEventCode code,
+    String safeDetail,
+  ) async {
     try {
       await _database.insertActivity(
-        activityType: ActivityEventCode.walletRecordFailed,
+        activityType: code,
         safeDetailCode: ActivityStateTransition.logEvent,
         occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         privacyEpoch: await _currentPrivacyEpoch(),

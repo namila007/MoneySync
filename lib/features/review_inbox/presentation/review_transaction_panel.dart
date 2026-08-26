@@ -165,6 +165,10 @@ class _ReviewTransactionPanelState
             context,
           ).showSnackBar(const SnackBar(content: Text('Record created')));
           context.pop();
+        } else if (result is ReviewBlocked && result.gateIndex == -1) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(result.reason)));
         }
       },
     );
