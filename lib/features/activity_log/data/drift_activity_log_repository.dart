@@ -4,7 +4,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/activity_log/domain/activity_log_repository.dart';
 
 /// Read-only Drift implementation. This repository never writes: activity rows
-/// are produced by ActivityEventWriter and only ever read back here.
+/// are written deliberately at user-facing moments and only ever read back here.
 final class DriftActivityLogRepository implements ActivityLogRepository {
   const DriftActivityLogRepository({required this._database});
 

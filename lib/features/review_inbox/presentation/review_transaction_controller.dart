@@ -134,6 +134,21 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     );
   }
 
+  /// Validates required fields before submit. Returns a user-facing error
+  /// message listing all missing fields, or null when the form is complete.
+  String? validatePreSubmit() {
+    final missing = <String>[];
+    if (state.amountMinor == 0) missing.add('Amount');
+    if (state.categoryId == null || state.categoryId!.isEmpty) {
+      missing.add('Category');
+    }
+    if (state.accountId == null || state.accountId!.isEmpty) {
+      missing.add('Account');
+    }
+    if (missing.isEmpty) return null;
+    return 'Missing: ${missing.join(', ')}';
+  }
+
   /// Evaluates the M5.8 gate chain for the current edits and stores the full
   /// ordered outcome list for display.
   Future<void> evaluate({
@@ -157,6 +172,15 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     state = state.copyWith(submitting: true);
 
     try {
+      final validationError = validatePreSubmit();
+      if (validationError != null) {
+        state = state.copyWith(
+          submitting: false,
+          result: ReviewBlocked(-1, validationError),
+        );
+        return;
+      }
+
       final context = await _buildContext(senderNormalized: senderNormalized);
       final evaluation = const WalletCreateEligibilityPolicy().evaluate(
         context,
@@ -230,6 +254,9 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
           'direction': state.direction.name,
           'paymentType': state.paymentType,
           if (state.categoryId != null) 'categoryId': state.categoryId,
+          if (state.counterParty.isNotEmpty) 'counterParty': state.counterParty,
+          if (noteWithMarker != null) 'note': noteWithMarker,
+          if (labelIds.isNotEmpty) 'labelIds': labelIds,
         },
         // M5.22 WP-K: always `queued`. This used to write `succeeded` directly
         // on the Create-now path, which marked the record complete without any
@@ -253,10 +280,10 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
         intent: intent,
         itemLegRole: WalletItemLegRole.primary,
         itemPayloadCiphertext: serializedBody,
-        activityType: ActivityEventCode.walletRecordCreated,
+        activityType: ActivityEventCode.walletRecordQueued,
         safeDetailCode: ActivityStateTransition.needsReview,
         decisionTraceCode: DecisionTraceCode.initialReview,
-        detailMessage: 'Wallet record created',
+        detailMessage: 'Reviewed and queued for Wallet',
       );
 
       log.info('Review submit for message $_smsEventId: ${result.runtimeType}');

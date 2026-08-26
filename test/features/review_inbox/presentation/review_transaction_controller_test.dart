@@ -9,6 +9,7 @@ import 'package:money_sync/features/mappings/presentation/mapping_providers.dart
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_controller.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_api_data_source.dart';
@@ -267,6 +268,7 @@ void main() {
     controller.update(
       amountMinor: -450000,
       accountId: 'account-1',
+      categoryId: 'cat-1',
       counterParty: 'CAFE',
       dateUtc: DateTime.utc(2026, 7, 18),
     );
@@ -313,7 +315,11 @@ void main() {
       final controller = container.read(
         reviewTransactionControllerProvider(1).notifier,
       );
-      controller.update(amountMinor: -450000, accountId: 'account-1');
+      controller.update(
+        amountMinor: -450000,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
       await controller.submit(
         encryptedPayload: '{"kind":"expense"}',
         senderNormalized: 'BANK ALPHA',
@@ -349,7 +355,11 @@ void main() {
         final controller = container.read(
           reviewTransactionControllerProvider(1).notifier,
         );
-        controller.update(amountMinor: -450000, accountId: 'account-1');
+        controller.update(
+          amountMinor: -450000,
+          accountId: 'account-1',
+          categoryId: 'cat-1',
+        );
         await controller.submit(
           encryptedPayload: '{"kind":"expense"}',
           senderNormalized: 'BANK ALPHA',
@@ -403,7 +413,11 @@ void main() {
         final controller = container.read(
           reviewTransactionControllerProvider(1).notifier,
         );
-        controller.update(amountMinor: -450000, accountId: 'account-1');
+        controller.update(
+          amountMinor: -450000,
+          accountId: 'account-1',
+          categoryId: 'cat-1',
+        );
         await controller.submit(
           encryptedPayload: '{"kind":"expense"}',
           senderNormalized: 'BANK ALPHA',
@@ -429,7 +443,11 @@ void main() {
       final controller = container.read(
         reviewTransactionControllerProvider(1).notifier,
       );
-      controller.update(amountMinor: -450000, accountId: 'account-1');
+      controller.update(
+        amountMinor: -450000,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
       await controller.submit(
         encryptedPayload: '{"kind":"expense"}',
         senderNormalized: 'BANK ALPHA',
@@ -461,7 +479,11 @@ void main() {
       final controller = container.read(
         reviewTransactionControllerProvider(1).notifier,
       );
-      controller.update(amountMinor: -450000, accountId: 'account-1');
+      controller.update(
+        amountMinor: -450000,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
       await controller.submit(
         encryptedPayload: '{"kind":"expense"}',
         senderNormalized: 'BANK ALPHA',
@@ -488,7 +510,11 @@ void main() {
       final controller = container.read(
         reviewTransactionControllerProvider(1).notifier,
       );
-      controller.update(amountMinor: -450000, accountId: 'account-1');
+      controller.update(
+        amountMinor: -450000,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
       await controller.submit(
         encryptedPayload: '{"kind":"expense"}',
         senderNormalized: 'BANK ALPHA',
@@ -531,6 +557,7 @@ void main() {
       controller.update(
         amountMinor: -450000,
         accountId: 'account-1',
+        categoryId: 'cat-1',
         labelIds: const ['user-picked'],
       );
       await controller.submit(
@@ -556,7 +583,11 @@ void main() {
       final controller = container.read(
         reviewTransactionControllerProvider(1).notifier,
       );
-      controller.update(amountMinor: -450000, accountId: 'account-1');
+      controller.update(
+        amountMinor: -450000,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
       await controller.submit(
         encryptedPayload: '{"kind":"expense"}',
         senderNormalized: 'BANK ALPHA',
@@ -570,6 +601,202 @@ void main() {
       expect(source.lastPayload!.labelIds, isEmpty);
       final mutations = await db.select(db.walletMutations).get();
       expect(mutations.single.state, WalletMutationState.succeeded);
+    });
+  });
+
+  // Gap C: pre-create validation — amount, kind, direction, category, account.
+  group('pre-create validation (Gap C)', () {
+    test('validatePreSubmit returns null when all fields are filled', () async {
+      final (_, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: -100000,
+        kind: TransactionKind.expense,
+        direction: TransactionDirection.debit,
+        categoryId: 'cat-1',
+        accountId: 'account-1',
+      );
+      expect(controller.validatePreSubmit(), isNull);
+    });
+
+    test('submit blocks when amount is zero', () async {
+      final (_, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: 0,
+        accountId: 'account-1',
+        categoryId: 'cat-1',
+      );
+      await controller.submit(
+        encryptedPayload: '{}',
+        senderNormalized: 'BANK ALPHA',
+        revision: 1,
+      );
+
+      final result = container
+          .read(reviewTransactionControllerProvider(1))
+          .result;
+      expect(result, isA<ReviewBlocked>());
+      expect((result as ReviewBlocked).reason, contains('Amount'));
+    });
+
+    test('submit blocks when category is not selected', () async {
+      final (_, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: -100000,
+        accountId: 'account-1',
+        categoryId: null,
+      );
+      await controller.submit(
+        encryptedPayload: '{}',
+        senderNormalized: 'BANK ALPHA',
+        revision: 1,
+      );
+
+      final result = container
+          .read(reviewTransactionControllerProvider(1))
+          .result;
+      expect(result, isA<ReviewBlocked>());
+      expect((result as ReviewBlocked).reason, contains('Category'));
+    });
+
+    test('submit blocks when account is not selected', () async {
+      final (_, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: -100000,
+        accountId: null,
+        categoryId: 'cat-1',
+      );
+      await controller.submit(
+        encryptedPayload: '{}',
+        senderNormalized: 'BANK ALPHA',
+        revision: 1,
+      );
+
+      final result = container
+          .read(reviewTransactionControllerProvider(1))
+          .result;
+      expect(result, isA<ReviewBlocked>());
+      expect((result as ReviewBlocked).reason, contains('Account'));
+    });
+
+    test('submit blocks with all missing fields named', () async {
+      final (_, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      // Default state: amountMinor=0, categoryId=null, accountId=null.
+      await controller.submit(
+        encryptedPayload: '{}',
+        senderNormalized: 'BANK ALPHA',
+        revision: 1,
+      );
+
+      final result = container
+          .read(reviewTransactionControllerProvider(1))
+          .result;
+      expect(result, isA<ReviewBlocked>());
+      final reason = (result as ReviewBlocked).reason;
+      expect(reason, contains('Amount'));
+      expect(reason, contains('Category'));
+      expect(reason, contains('Account'));
+    });
+
+    test('validatePreSubmit returns error for empty categoryId', () async {
+      final (_, container) = await build();
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: -100000,
+        accountId: 'account-1',
+        categoryId: '',
+      );
+      expect(controller.validatePreSubmit(), contains('Category'));
+    });
+
+    test('validatePreSubmit returns error for empty accountId', () async {
+      final (_, container) = await build();
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      controller.update(
+        amountMinor: -100000,
+        accountId: '',
+        categoryId: 'cat-1',
+      );
+      expect(controller.validatePreSubmit(), contains('Account'));
+    });
+
+    test('submit does not write to DB when validation fails', () async {
+      final (db, container) = await build(
+        disclosureAccepted: true,
+        onboardingCompleted: true,
+        catalog: _writableCatalog(),
+      );
+      addTearDown(container.dispose);
+
+      final controller = container.read(
+        reviewTransactionControllerProvider(1).notifier,
+      );
+      // Amount is 0 -> validation blocks before any DB write.
+      controller.update(amountMinor: 0, accountId: 'account-1');
+      await controller.submit(
+        encryptedPayload: '{}',
+        senderNormalized: 'BANK ALPHA',
+        revision: 1,
+      );
+
+      final mutations = await db.select(db.walletMutations).get();
+      expect(
+        mutations,
+        isEmpty,
+        reason: 'no mutation written on validation fail',
+      );
     });
   });
 }
