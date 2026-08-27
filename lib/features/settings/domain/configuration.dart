@@ -49,6 +49,7 @@ final class ConfigurationState {
     this.secureWindowEnabled = true,
     this.autoImportEnabled = false,
     this.autoCreateEnabled = false,
+    this.autoImportIntervalMinutes = 15,
   });
   final AppThemeMode themeMode;
   final AppLockPreferences appLock;
@@ -59,4 +60,5 @@ final class ConfigurationState {
   final bool secureWindowEnabled;
   final bool autoImportEnabled;
   final bool autoCreateEnabled;
+  final int autoImportIntervalMinutes;
 }

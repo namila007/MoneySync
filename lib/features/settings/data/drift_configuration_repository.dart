@@ -45,6 +45,7 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
       secureWindowEnabled: secureRow?.value != 'false',
       autoImportEnabled: setting.autoImportEnabled,
       autoCreateEnabled: setting.autoCreateEnabled,
+      autoImportIntervalMinutes: setting.autoImportIntervalMinutes,
     );
   }
 
@@ -76,6 +77,19 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
       await (database.update(database.appSettings)
             ..where((row) => row.singletonId.equals(1)))
           .write(AppSettingsCompanion(autoCreateEnabled: Value(enabled)));
+      await _incrementRevision();
+    });
+  }
+
+  @override
+  Future<void> updateAutoImportIntervalMinutes(int minutes) async {
+    final clamped = minutes < 15 ? 15 : minutes;
+    await database.transaction(() async {
+      await (database.update(
+        database.appSettings,
+      )..where((row) => row.singletonId.equals(1))).write(
+        AppSettingsCompanion(autoImportIntervalMinutes: Value(clamped)),
+      );
       await _incrementRevision();
     });
   }

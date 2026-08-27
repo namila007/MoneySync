@@ -184,6 +184,8 @@ class AppSettings extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get autoCreateEnabled =>
       boolean().withDefault(const Constant(false))();
+  IntColumn get autoImportIntervalMinutes =>
+      integer().withDefault(const Constant(15))();
 
   @override
   Set<Column<Object>> get primaryKey => {singletonId};
@@ -671,7 +673,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 16;
+  int get schemaVersion => 17;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -1153,6 +1155,9 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'INSERT OR IGNORE INTO tracking_state (id) VALUES (1)',
         );
+      }
+      if (from < 17) {
+        await m.addColumn(appSettings, appSettings.autoImportIntervalMinutes);
       }
     },
   );
