@@ -59,6 +59,8 @@ final class AutoCreateOrDefer {
   Future<AutoCreateOutcome> call(
     TransactionCandidate candidate, {
     required String senderNormalized,
+    required int smsEventId,
+    required String candidatePayload,
   }) async {
     if (!autoCreateEnabled ||
         !capabilities.isEnabled(AppCapability.automaticSync)) {
@@ -120,15 +122,15 @@ final class AutoCreateOrDefer {
 
     try {
       await outboxWriter.submitAtomically(
-        smsEventId: 0,
+        smsEventId: smsEventId,
         candidateState: CandidateRecordState.retainedLocal,
-        encryptedPayload: '',
+        encryptedPayload: candidatePayload,
         revision: 1,
         createdAtEpochMs: DateTime.now().millisecondsSinceEpoch,
         privacyEpoch: 0,
         intent: intent,
         itemLegRole: WalletItemLegRole.primary,
-        itemPayloadCiphertext: '',
+        itemPayloadCiphertext: candidatePayload,
         activityType: ActivityEventCode.walletRecordQueued,
         safeDetailCode: ActivityStateTransition.needsReview,
         decisionTraceCode: DecisionTraceCode.initialReview,
