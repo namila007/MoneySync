@@ -26,6 +26,7 @@ import 'package:money_sync/features/settings/presentation/notification_permissio
 import 'package:money_sync/features/settings/presentation/permissions_page.dart';
 import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
+import 'package:money_sync/features/settings/presentation/auto_import_settings_page.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
 import 'package:money_sync/features/wallet_sync/presentation/wallet_retry_view.dart';
@@ -161,6 +162,10 @@ GoRouter createAppRouter() {
           GoRoute(
             path: 'tracked-senders',
             builder: (context, state) => const TrackedSendersPage(),
+          ),
+          GoRoute(
+            path: 'auto-import',
+            builder: (context, state) => const AutoImportSettingsPage(),
           ),
           GoRoute(
             path: 'permissions',
