@@ -8,4 +8,6 @@ abstract interface class ConfigurationRepository {
   Future<void> updateProcessingMode(ProcessingMode mode);
   Future<void> updateHistoryImport(HistoryImportPreferences prefs);
   Future<void> updateSecureWindowEnabled(bool enabled);
+  Future<void> updateAutoImportEnabled(bool enabled);
+  Future<void> updateAutoCreateEnabled(bool enabled);
 }
