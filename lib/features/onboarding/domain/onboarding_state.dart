@@ -9,6 +9,7 @@ enum OnboardingStep {
   disclosure,
   smsAccessDisclosure,
   smsAccessDecision,
+  notificationPermissionDecision,
 }
 
 final class OnboardingState {
@@ -48,7 +49,8 @@ final class OnboardingState {
   /// the disclosure step is skipped and never counted (M4.3 §Step machine).
   final bool smsAccessAvailable;
 
-  bool get isLastStep => currentStep == OnboardingStep.smsAccessDecision;
+  bool get isLastStep =>
+      currentStep == OnboardingStep.notificationPermissionDecision;
 
   /// Steps that carry their own primary actions, so the page-level Next button
   /// must not be shown beside them. Advancing past the SMS disclosure with a
@@ -56,7 +58,8 @@ final class OnboardingState {
   /// request, which is exactly what the disclosure screen exists to gate.
   bool get providesOwnAdvanceAction =>
       currentStep == OnboardingStep.smsAccessDisclosure ||
-      currentStep == OnboardingStep.smsAccessDecision;
+      currentStep == OnboardingStep.smsAccessDecision ||
+      currentStep == OnboardingStep.notificationPermissionDecision;
 
   OnboardingState nextStep() {
     if (isComplete) return this;
