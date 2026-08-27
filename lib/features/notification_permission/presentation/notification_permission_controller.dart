@@ -7,13 +7,16 @@ import 'package:money_sync/features/notification_permission/domain/request_notif
 
 final notificationPermissionGatewayProvider =
     Provider<NotificationPermissionGateway>((ref) {
-  throw StateError('notificationPermissionGatewayProvider must be overridden.');
-});
+      throw StateError(
+        'notificationPermissionGatewayProvider must be overridden.',
+      );
+    });
 
-final notificationPermissionStatusProvider = NotifierProvider<
-  NotificationPermissionNotifier,
-  AsyncValue<NotificationPermissionStatus>
->(NotificationPermissionNotifier.new);
+final notificationPermissionStatusProvider =
+    NotifierProvider<
+      NotificationPermissionNotifier,
+      AsyncValue<NotificationPermissionStatus>
+    >(NotificationPermissionNotifier.new);
 
 class NotificationPermissionNotifier
     extends Notifier<AsyncValue<NotificationPermissionStatus>> {

@@ -37,14 +37,11 @@ void main() {
       expect(status.requiresSystemSettings, isFalse);
     });
 
-    test(
-      'granted is not requestable and does not require system settings',
-      () {
-        const status = NotificationPermissionStatus.granted;
-        expect(status.isRequestable, isFalse);
-        expect(status.requiresSystemSettings, isFalse);
-        expect(status.canNotify, isTrue);
-      },
-    );
+    test('granted is not requestable and does not require system settings', () {
+      const status = NotificationPermissionStatus.granted;
+      expect(status.isRequestable, isFalse);
+      expect(status.requiresSystemSettings, isFalse);
+      expect(status.canNotify, isTrue);
+    });
   });
 }

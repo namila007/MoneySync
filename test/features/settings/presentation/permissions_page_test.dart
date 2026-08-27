@@ -38,18 +38,14 @@ void main() {
     });
 
     testWidgets('SMS granted shows On glyph', (tester) async {
-      await tester.pumpWidget(
-        _app(smsStatus: SmsPermissionStatus.granted),
-      );
+      await tester.pumpWidget(_app(smsStatus: SmsPermissionStatus.granted));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('On'), findsWidgets);
     });
 
     testWidgets('SMS off shows Off glyph', (tester) async {
-      await tester.pumpWidget(
-        _app(smsStatus: SmsPermissionStatus.denied),
-      );
+      await tester.pumpWidget(_app(smsStatus: SmsPermissionStatus.denied));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Off'), findsWidgets);
@@ -66,9 +62,7 @@ void main() {
 
     testWidgets('notifications off shows Off', (tester) async {
       await tester.pumpWidget(
-        _app(
-          notificationStatus: NotificationPermissionStatus.notRequested,
-        ),
+        _app(notificationStatus: NotificationPermissionStatus.notRequested),
       );
       await tester.pumpAndSettle();
 
@@ -92,8 +86,7 @@ final class _FixedSmsGateway implements SmsPermissionGateway {
   Future<void> openAppSettings() async {}
 }
 
-final class _FixedNotificationGateway
-    implements NotificationPermissionGateway {
+final class _FixedNotificationGateway implements NotificationPermissionGateway {
   _FixedNotificationGateway(this.status);
 
   final NotificationPermissionStatus status;
