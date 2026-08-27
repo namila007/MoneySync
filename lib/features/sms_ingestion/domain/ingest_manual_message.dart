@@ -20,6 +20,7 @@ final class ManualIngestStored extends ManualIngestOutcome {
   const ManualIngestStored({
     required this.eventId,
     this.duplicateSuspected = false,
+    this.autoCreated = false,
   });
 
   final int eventId;
@@ -27,6 +28,11 @@ final class ManualIngestStored extends ManualIngestOutcome {
   /// Same content hash as an existing row, but a distinct canonical key —
   /// stored anyway; surfaced as a review hint, never a drop (M4.14 WP4).
   final bool duplicateSuspected;
+
+  /// M6.5: when true, the candidate was auto-created from a mapping rule
+  /// and no longer needs review. ImportSmsHistory uses this to avoid
+  /// counting it in candidatesNeedingReview.
+  final bool autoCreated;
 }
 
 final class ManualIngestAlreadyPresent extends ManualIngestOutcome {
@@ -53,6 +59,7 @@ final class IngestManualMessage {
     required this.database,
     this.interpret,
     required this.identitySigner,
+    this.candidateHook,
   });
 
   final AppDatabase database;
@@ -67,6 +74,12 @@ final class IngestManualMessage {
     required DateTime receivedAtUtc,
   })?
   interpret;
+
+  /// Optional M6.5 auto-create hook. Called after a candidate is stored
+  /// (ManualIngestStored). Returns true when the candidate was auto-created
+  /// (written to the outbox, no longer needs review). The hook is pure
+  /// domain — no DB, no Riverpod — injected by the caller.
+  final Future<bool> Function(TransactionCandidate candidate)? candidateHook;
 
   /// Keyed-HMAC boundary for canonical identity (M4.14 WP4). Required: a
   /// message must never be stored under a weak hash. Wired by the caller with
@@ -140,7 +153,7 @@ final class IngestManualMessage {
             detailMessage: 'Message imported',
           );
         }
-        await _interpretAndStore(
+        final candidate = await _interpretAndStore(
           eventId: result.id,
           normalizedBody: accepted.normalizedBody,
           normalizedSender: accepted.normalizedSender,
@@ -148,9 +161,24 @@ final class IngestManualMessage {
           privacyEpoch: privacyEpoch,
           recordActivity: recordCandidateActivity,
         );
+        // M6.5: after a candidate is stored, attempt automatic creation.
+        // The hook is injected by the caller with repository access; the
+        // domain use case stays pure. Returns true when the candidate was
+        // auto-created (written to the outbox, no longer needs review).
+        var autoCreated = false;
+        final hook = candidateHook;
+        if (hook != null && candidate != null) {
+          try {
+            autoCreated = await hook(candidate);
+          } catch (_) {
+            // Hook failure must never fail the ingest — candidate stays
+            // needsReview, which is the safe default.
+          }
+        }
         return ManualIngestStored(
           eventId: result.id,
           duplicateSuspected: result.duplicateSuspected,
+          autoCreated: autoCreated,
         );
       }
       return ManualIngestAlreadyPresent(result.id);
@@ -181,7 +209,7 @@ final class IngestManualMessage {
     return trimmed.isEmpty ? normalizedSender : trimmed;
   }
 
-  Future<void> _interpretAndStore({
+  Future<TransactionCandidate?> _interpretAndStore({
     required int eventId,
     required String normalizedBody,
     required String normalizedSender,
@@ -190,7 +218,7 @@ final class IngestManualMessage {
     bool recordActivity = true,
   }) async {
     final interpret = this.interpret;
-    if (interpret == null) return;
+    if (interpret == null) return null;
 
     InterpretationResult result;
     try {
@@ -205,9 +233,9 @@ final class IngestManualMessage {
     } catch (_) {
       // Interpretation is best-effort: a parser failure must not fail the
       // ingest. The message stays stored for review.
-      return;
+      return null;
     }
-    if (result is! InterpretedCandidate) return;
+    if (result is! InterpretedCandidate) return null;
 
     final candidate = result.candidate;
     await database.insertCandidateAndActivityAtomically(
@@ -222,6 +250,7 @@ final class IngestManualMessage {
       privacyEpoch: privacyEpoch,
       recordActivity: recordActivity,
     );
+    return candidate;
   }
 
   String _candidatePayload(TransactionCandidate candidate) {
