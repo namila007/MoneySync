@@ -103,11 +103,21 @@ final class WalletMutationRecoveryService {
       }
 
       try {
+        final accountId = intent.payload['accountId'] as String?;
+        final amountMinor = intent.payload['amountMinor'] as int?;
+        if (accountId == null || accountId.isEmpty || amountMinor == null) {
+          log.error(
+            'Reconciliation skipped: malformed payload for ${intent.id} '
+            '| SafeErrorCode: PAYLOAD_MALFORMED',
+          );
+          continue;
+        }
+
         final matches = await findByMarker(
           WalletReconciliationQuery(
             marker: marker,
-            accountId: (intent.payload['accountId'] as String?) ?? '',
-            amountMinor: (intent.payload['amountMinor'] as int?) ?? 0,
+            accountId: accountId,
+            amountMinor: amountMinor,
           ),
         );
 

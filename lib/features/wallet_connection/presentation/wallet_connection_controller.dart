@@ -329,15 +329,19 @@ class WalletConnectionController extends Notifier<WalletConnectionViewState> {
     try {
       final db = ref.read(appDatabaseProvider).asData?.value;
       if (db == null) return;
-      db.select(db.appSettings).getSingleOrNull().then((setting) {
-        db.insertActivity(
-          activityType: code,
-          safeDetailCode: ActivityStateTransition.logEvent,
-          occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-          privacyEpoch: setting?.privacyEpoch ?? 0,
-          detailMessage: message,
-        );
-      });
+      db
+          .select(db.appSettings)
+          .getSingleOrNull()
+          .then((setting) {
+            db.insertActivity(
+              activityType: code,
+              safeDetailCode: ActivityStateTransition.logEvent,
+              occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+              privacyEpoch: setting?.privacyEpoch ?? 0,
+              detailMessage: message,
+            );
+          })
+          .catchError((_) {});
     } catch (_) {}
   }
 }

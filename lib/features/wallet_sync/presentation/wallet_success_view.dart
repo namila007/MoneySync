@@ -4,9 +4,11 @@ import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 /// Mutations in succeeded state, for the success view.
 final succeededMutationsProvider = FutureProvider<List<WalletMutation>>((
@@ -15,24 +17,16 @@ final succeededMutationsProvider = FutureProvider<List<WalletMutation>>((
   final db = await ref.watch(appDatabaseProvider.future);
   return (db.select(db.walletMutations)
         ..where(
-          (m) => m.state.equals(_storedState(WalletMutationState.succeeded)),
+          (m) => m.state.equals(
+            storedMutationState(WalletMutationState.succeeded),
+          ),
         )
-        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)]))
+        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+        ..limit(200))
       .get();
 });
 
-String _storedState(WalletMutationState s) => switch (s) {
-  WalletMutationState.queued => 'queued',
-  WalletMutationState.syncing => 'syncing',
-  WalletMutationState.reconciling => 'reconciling',
-  WalletMutationState.unknownDelivery => 'unknown_delivery',
-  WalletMutationState.unknownUpdate => 'unknown_update',
-  WalletMutationState.unknownDelete => 'unknown_delete',
-  WalletMutationState.retryScheduled => 'retry_scheduled',
-  WalletMutationState.succeeded => 'succeeded',
-  WalletMutationState.permanentFailure => 'permanent_failure',
-  WalletMutationState.supersededBeforeSend => 'superseded_before_send',
-};
+final _log = Logger('WalletSuccessView');
 
 class SuccessView extends ConsumerWidget {
   const SuccessView({super.key});
@@ -84,7 +78,8 @@ class SuccessView extends ConsumerWidget {
       final decoded = jsonDecode(jsonStr);
       if (decoded is Map<String, Object?>) return decoded;
       return {};
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Failed to decode mutation payload', e);
       return {};
     }
   }

@@ -203,6 +203,34 @@ void main() {
         ),
       );
     });
+
+    test('503 → AmbiguousPostTransmission', () async {
+      final adapter = _QueueAdapter([_json(503, {})]);
+      expect(
+        () => dataSource(adapter).createRecord(makePayload()),
+        throwsA(
+          isA<WalletApiDataSourceException>().having(
+            (e) => e.classification,
+            'classification',
+            isA<AmbiguousPostTransmission>(),
+          ),
+        ),
+      );
+    });
+
+    test('500 → AmbiguousPostTransmission', () async {
+      final adapter = _QueueAdapter([_json(500, {})]);
+      expect(
+        () => dataSource(adapter).createRecord(makePayload()),
+        throwsA(
+          isA<WalletApiDataSourceException>().having(
+            (e) => e.classification,
+            'classification',
+            isA<AmbiguousPostTransmission>(),
+          ),
+        ),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------

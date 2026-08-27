@@ -87,8 +87,14 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
       _paymentType = rule.paymentType;
       _enabled = rule.enabled;
       setState(() => _loading = false);
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e, st) {
+      log.error('Failed to load mapping rule ${widget.ruleId}', e, st);
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not load mapping rule.')),
+        );
+      }
     }
   }
 
@@ -167,15 +173,19 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
     try {
       final db = ref.read(appDatabaseProvider).asData?.value;
       if (db == null) return;
-      db.select(db.appSettings).getSingleOrNull().then((setting) {
-        db.insertActivity(
-          activityType: code,
-          safeDetailCode: ActivityStateTransition.logEvent,
-          occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-          privacyEpoch: setting?.privacyEpoch ?? 0,
-          detailMessage: message,
-        );
-      });
+      db
+          .select(db.appSettings)
+          .getSingleOrNull()
+          .then((setting) {
+            db.insertActivity(
+              activityType: code,
+              safeDetailCode: ActivityStateTransition.logEvent,
+              occurredAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+              privacyEpoch: setting?.privacyEpoch ?? 0,
+              detailMessage: message,
+            );
+          })
+          .catchError((_) {});
     } catch (_) {}
   }
 
