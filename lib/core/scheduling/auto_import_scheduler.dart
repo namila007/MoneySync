@@ -2,10 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:workmanager/workmanager.dart';
 
 const _kTaskName = 'money_sync_sms_scan';
-const _kFrequency = Duration(minutes: 15);
 
 abstract interface class AutoImportScheduler {
-  Future<void> enable();
+  Future<void> enable({Duration frequency = const Duration(minutes: 15)});
   Future<void> disable();
 }
 
@@ -15,12 +14,12 @@ final autoImportSchedulerProvider = Provider<AutoImportScheduler>((ref) {
 
 final class WorkmanagerAutoImportScheduler implements AutoImportScheduler {
   @override
-  Future<void> enable() {
+  Future<void> enable({Duration frequency = const Duration(minutes: 15)}) {
     return Workmanager().registerPeriodicTask(
       _kTaskName,
       'sms_scan',
-      frequency: _kFrequency,
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+      frequency: frequency,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
       constraints: Constraints(requiresBatteryNotLow: true),
     );
   }
