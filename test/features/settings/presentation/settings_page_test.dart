@@ -69,7 +69,7 @@ void main() {
     });
 
     testWidgets(
-      'playManual shows the permission status without a grant affordance',
+      'Permissions tile is present and Message reading is not inline',
       (tester) async {
         await tester.pumpWidget(_app());
         await tester.pumpAndSettle();
@@ -79,14 +79,14 @@ void main() {
           matching: find.byType(Scrollable),
         );
         await tester.scrollUntilVisible(
-          find.text('Message reading'),
+          find.text('Permissions'),
           250,
           scrollable: scrollable,
         );
 
-        expect(find.text('Message reading'), findsOneWidget);
-        expect(find.text('Grant'), findsNothing);
-        expect(find.text('Allow'), findsNothing);
+        expect(find.text('Permissions'), findsOneWidget);
+        // Message reading moved to Permissions page — no longer inline.
+        expect(find.text('Message reading'), findsNothing);
       },
     );
 

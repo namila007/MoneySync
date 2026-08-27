@@ -29,6 +29,11 @@ void main() {
               const Scaffold(body: Text('APP-LOCK-DESTINATION')),
         ),
         GoRoute(
+          path: '/settings/permissions',
+          builder: (context, state) =>
+              const Scaffold(body: Text('PERMISSIONS-DESTINATION')),
+        ),
+        GoRoute(
           path: '/settings/message-reading',
           builder: (context, state) =>
               const Scaffold(body: Text('MESSAGE-READING')),
@@ -98,21 +103,21 @@ void main() {
       expect(find.text('HISTORY-IMPORT'), findsOneWidget);
     });
 
-    testWidgets('Message reading opens its page', (tester) async {
+    testWidgets('Permissions opens the permissions page', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('Message reading'),
+        find.text('Permissions'),
         250,
         scrollable: scrollableFinder(),
       );
-      await tester.ensureVisible(find.text('Message reading'));
+      await tester.ensureVisible(find.text('Permissions'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Message reading'));
+      await tester.tap(find.text('Permissions'));
       await tester.pumpAndSettle();
 
-      expect(find.text('MESSAGE-READING'), findsOneWidget);
+      expect(find.text('PERMISSIONS-DESTINATION'), findsOneWidget);
     });
 
     testWidgets('App lock still opens the security page', (tester) async {
