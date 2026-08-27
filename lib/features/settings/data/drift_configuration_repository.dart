@@ -43,6 +43,8 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
         messageCap: setting.historyMessageCap,
       ),
       secureWindowEnabled: secureRow?.value != 'false',
+      autoImportEnabled: setting.autoImportEnabled,
+      autoCreateEnabled: setting.autoCreateEnabled,
     );
   }
 
@@ -56,6 +58,30 @@ final class DriftConfigurationRepository implements ConfigurationRepository {
             value: enabled ? 'true' : 'false',
           ),
         );
+  }
+
+  @override
+  Future<void> updateAutoImportEnabled(bool enabled) async {
+    await database.transaction(() async {
+      await (database.update(
+        database.appSettings,
+      )..where((row) => row.singletonId.equals(1))).write(
+        AppSettingsCompanion(autoImportEnabled: Value(enabled)),
+      );
+      await _incrementRevision();
+    });
+  }
+
+  @override
+  Future<void> updateAutoCreateEnabled(bool enabled) async {
+    await database.transaction(() async {
+      await (database.update(
+        database.appSettings,
+      )..where((row) => row.singletonId.equals(1))).write(
+        AppSettingsCompanion(autoCreateEnabled: Value(enabled)),
+      );
+      await _incrementRevision();
+    });
   }
 
   @override

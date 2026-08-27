@@ -150,6 +150,12 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateHistoryImport(HistoryImportPreferences prefs) async {}
+
+  @override
+  Future<void> updateAutoImportEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoCreateEnabled(bool enabled) async {}
 }
 
 final class _UnavailableGateway implements SmsPermissionGateway {

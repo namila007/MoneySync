@@ -24,17 +24,19 @@ void main() {
       expect(row.privacyEpoch, 0);
     });
 
-    test('app_settings has auto-import and auto-create flags defaulting false',
-        () async {
-      final db = AppDatabase.inMemoryForTesting();
-      addTearDown(db.close);
+    test(
+      'app_settings has auto-import and auto-create flags defaulting false',
+      () async {
+        final db = AppDatabase.inMemoryForTesting();
+        addTearDown(db.close);
 
-      final setting = await (db.select(
-        db.appSettings,
-      )..where((row) => row.singletonId.equals(1))).getSingle();
+        final setting = await (db.select(
+          db.appSettings,
+        )..where((row) => row.singletonId.equals(1))).getSingle();
 
-      expect(setting.autoImportEnabled, false);
-      expect(setting.autoCreateEnabled, false);
-    });
+        expect(setting.autoImportEnabled, false);
+        expect(setting.autoCreateEnabled, false);
+      },
+    );
   });
 }
