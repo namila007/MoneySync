@@ -154,6 +154,7 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
         message: 'Mapping rule saved',
       );
       if (!mounted) return;
+      ref.invalidate(mappingRuleListProvider);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Mapping saved.')));
