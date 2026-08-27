@@ -4,6 +4,6 @@ import 'package:money_sync/features/sms_ingestion/background/sms_scan_callback_d
 import 'package:workmanager/workmanager.dart';
 
 void main() {
-  Workmanager().initialize(callbackDispatcher);
   bootstrap(const AppConfig.privateFull());
+  Workmanager().initialize(callbackDispatcher);
 }
