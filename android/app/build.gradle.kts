@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "me.namila.money_sync"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = "30.0.15729638"
 
     subprojects {

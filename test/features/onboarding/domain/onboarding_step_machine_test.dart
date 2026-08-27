@@ -86,8 +86,8 @@ void main() {
 
     test('SMS-unavailable progress shows 8 of 8 at the decision step', () {
       var state = OnboardingState.initial(smsAccessAvailable: false);
-      while (
-          state.currentStep != OnboardingStep.notificationPermissionDecision) {
+      while (state.currentStep !=
+          OnboardingStep.notificationPermissionDecision) {
         state = state.nextStep();
       }
       // Decision is the 8th visible step (index 7, zero-based); the indicator
