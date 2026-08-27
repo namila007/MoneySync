@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/features/notifications/data/flutter_local_notifications_service.dart';
 import 'package:money_sync/features/notifications/domain/notification_request.dart';
 
@@ -7,6 +8,7 @@ class FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
   final List<AndroidNotificationChannel> channels = [];
   final List<Map<String, Object?>> shown = [];
   final List<int> cancelled = [];
+  bool throwOnShow = false;
 
   @override
   Future<void> createNotificationChannel(
@@ -23,6 +25,7 @@ class FakeAndroidPlugin extends AndroidFlutterLocalNotificationsPlugin {
     AndroidNotificationDetails? notificationDetails,
     String? payload,
   }) async {
+    if (throwOnShow) throw StateError('plugin exploded');
     shown.add(<String, Object?>{'id': id, 'title': title, 'body': body});
   }
 
@@ -109,6 +112,35 @@ void main() {
     test('cancel does not throw for non-existent id', () async {
       await expectLater(service.cancel(const NotificationId(999)), completes);
       expect(fakeAndroid.cancelled, [999]);
+    });
+
+    test('show logs error when plugin throws and does not rethrow', () async {
+      fakeAndroid.throwOnShow = true;
+
+      final captured = <LogRecord>[];
+      final sub = Logger.root.onRecord.listen(captured.add);
+      addTearDown(sub.cancel);
+
+      const request = NotificationRequest(
+        id: NotificationId(10),
+        channelId: 'ch',
+        channelName: 'Ch',
+        title: 'T',
+        body: 'B',
+      );
+
+      // Must not throw — notification failure never fails the caller.
+      await expectLater(service.show(request), completes);
+
+      expect(
+        captured.any(
+          (r) =>
+              r.level == Level.SEVERE &&
+              r.loggerName == 'notifications' &&
+              r.message == 'Notification show failed',
+        ),
+        isTrue,
+      );
     });
   });
 }
