@@ -205,6 +205,18 @@ class $AppSettingsTable extends AppSettings
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _autoImportIntervalMinutesMeta =
+      const VerificationMeta('autoImportIntervalMinutes');
+  @override
+  late final GeneratedColumn<int> autoImportIntervalMinutes =
+      GeneratedColumn<int>(
+        'auto_import_interval_minutes',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(15),
+      );
   @override
   List<GeneratedColumn> get $columns => [
     singletonId,
@@ -223,6 +235,7 @@ class $AppSettingsTable extends AppSettings
     historyMessageCap,
     autoImportEnabled,
     autoCreateEnabled,
+    autoImportIntervalMinutes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -380,6 +393,15 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
+    if (data.containsKey('auto_import_interval_minutes')) {
+      context.handle(
+        _autoImportIntervalMinutesMeta,
+        autoImportIntervalMinutes.isAcceptableOrUnknown(
+          data['auto_import_interval_minutes']!,
+          _autoImportIntervalMinutesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -453,6 +475,10 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.bool,
         data['${effectivePrefix}auto_create_enabled'],
       )!,
+      autoImportIntervalMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}auto_import_interval_minutes'],
+      )!,
     );
   }
 
@@ -479,6 +505,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final int historyMessageCap;
   final bool autoImportEnabled;
   final bool autoCreateEnabled;
+  final int autoImportIntervalMinutes;
   const AppSetting({
     required this.singletonId,
     required this.privacyEpoch,
@@ -496,6 +523,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     required this.historyMessageCap,
     required this.autoImportEnabled,
     required this.autoCreateEnabled,
+    required this.autoImportIntervalMinutes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -522,6 +550,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['history_message_cap'] = Variable<int>(historyMessageCap);
     map['auto_import_enabled'] = Variable<bool>(autoImportEnabled);
     map['auto_create_enabled'] = Variable<bool>(autoCreateEnabled);
+    map['auto_import_interval_minutes'] = Variable<int>(
+      autoImportIntervalMinutes,
+    );
     return map;
   }
 
@@ -549,6 +580,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       historyMessageCap: Value(historyMessageCap),
       autoImportEnabled: Value(autoImportEnabled),
       autoCreateEnabled: Value(autoCreateEnabled),
+      autoImportIntervalMinutes: Value(autoImportIntervalMinutes),
     );
   }
 
@@ -584,6 +616,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       historyMessageCap: serializer.fromJson<int>(json['historyMessageCap']),
       autoImportEnabled: serializer.fromJson<bool>(json['autoImportEnabled']),
       autoCreateEnabled: serializer.fromJson<bool>(json['autoCreateEnabled']),
+      autoImportIntervalMinutes: serializer.fromJson<int>(
+        json['autoImportIntervalMinutes'],
+      ),
     );
   }
   @override
@@ -606,6 +641,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'historyMessageCap': serializer.toJson<int>(historyMessageCap),
       'autoImportEnabled': serializer.toJson<bool>(autoImportEnabled),
       'autoCreateEnabled': serializer.toJson<bool>(autoCreateEnabled),
+      'autoImportIntervalMinutes': serializer.toJson<int>(
+        autoImportIntervalMinutes,
+      ),
     };
   }
 
@@ -626,6 +664,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     int? historyMessageCap,
     bool? autoImportEnabled,
     bool? autoCreateEnabled,
+    int? autoImportIntervalMinutes,
   }) => AppSetting(
     singletonId: singletonId ?? this.singletonId,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
@@ -649,6 +688,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     historyMessageCap: historyMessageCap ?? this.historyMessageCap,
     autoImportEnabled: autoImportEnabled ?? this.autoImportEnabled,
     autoCreateEnabled: autoCreateEnabled ?? this.autoCreateEnabled,
+    autoImportIntervalMinutes:
+        autoImportIntervalMinutes ?? this.autoImportIntervalMinutes,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
@@ -700,6 +741,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       autoCreateEnabled: data.autoCreateEnabled.present
           ? data.autoCreateEnabled.value
           : this.autoCreateEnabled,
+      autoImportIntervalMinutes: data.autoImportIntervalMinutes.present
+          ? data.autoImportIntervalMinutes.value
+          : this.autoImportIntervalMinutes,
     );
   }
 
@@ -721,7 +765,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('historyWindowDays: $historyWindowDays, ')
           ..write('historyMessageCap: $historyMessageCap, ')
           ..write('autoImportEnabled: $autoImportEnabled, ')
-          ..write('autoCreateEnabled: $autoCreateEnabled')
+          ..write('autoCreateEnabled: $autoCreateEnabled, ')
+          ..write('autoImportIntervalMinutes: $autoImportIntervalMinutes')
           ..write(')'))
         .toString();
   }
@@ -744,6 +789,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     historyMessageCap,
     autoImportEnabled,
     autoCreateEnabled,
+    autoImportIntervalMinutes,
   );
   @override
   bool operator ==(Object other) =>
@@ -764,7 +810,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.historyWindowDays == this.historyWindowDays &&
           other.historyMessageCap == this.historyMessageCap &&
           other.autoImportEnabled == this.autoImportEnabled &&
-          other.autoCreateEnabled == this.autoCreateEnabled);
+          other.autoCreateEnabled == this.autoCreateEnabled &&
+          other.autoImportIntervalMinutes == this.autoImportIntervalMinutes);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
@@ -784,6 +831,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<int> historyMessageCap;
   final Value<bool> autoImportEnabled;
   final Value<bool> autoCreateEnabled;
+  final Value<int> autoImportIntervalMinutes;
   const AppSettingsCompanion({
     this.singletonId = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
@@ -801,6 +849,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.historyMessageCap = const Value.absent(),
     this.autoImportEnabled = const Value.absent(),
     this.autoCreateEnabled = const Value.absent(),
+    this.autoImportIntervalMinutes = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.singletonId = const Value.absent(),
@@ -819,6 +868,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.historyMessageCap = const Value.absent(),
     this.autoImportEnabled = const Value.absent(),
     this.autoCreateEnabled = const Value.absent(),
+    this.autoImportIntervalMinutes = const Value.absent(),
   });
   static Insertable<AppSetting> custom({
     Expression<int>? singletonId,
@@ -837,6 +887,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<int>? historyMessageCap,
     Expression<bool>? autoImportEnabled,
     Expression<bool>? autoCreateEnabled,
+    Expression<int>? autoImportIntervalMinutes,
   }) {
     return RawValuesInsertable({
       if (singletonId != null) 'singleton_id': singletonId,
@@ -860,6 +911,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (historyMessageCap != null) 'history_message_cap': historyMessageCap,
       if (autoImportEnabled != null) 'auto_import_enabled': autoImportEnabled,
       if (autoCreateEnabled != null) 'auto_create_enabled': autoCreateEnabled,
+      if (autoImportIntervalMinutes != null)
+        'auto_import_interval_minutes': autoImportIntervalMinutes,
     });
   }
 
@@ -880,6 +933,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<int>? historyMessageCap,
     Value<bool>? autoImportEnabled,
     Value<bool>? autoCreateEnabled,
+    Value<int>? autoImportIntervalMinutes,
   }) {
     return AppSettingsCompanion(
       singletonId: singletonId ?? this.singletonId,
@@ -901,6 +955,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       historyMessageCap: historyMessageCap ?? this.historyMessageCap,
       autoImportEnabled: autoImportEnabled ?? this.autoImportEnabled,
       autoCreateEnabled: autoCreateEnabled ?? this.autoCreateEnabled,
+      autoImportIntervalMinutes:
+          autoImportIntervalMinutes ?? this.autoImportIntervalMinutes,
     );
   }
 
@@ -963,6 +1019,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (autoCreateEnabled.present) {
       map['auto_create_enabled'] = Variable<bool>(autoCreateEnabled.value);
     }
+    if (autoImportIntervalMinutes.present) {
+      map['auto_import_interval_minutes'] = Variable<int>(
+        autoImportIntervalMinutes.value,
+      );
+    }
     return map;
   }
 
@@ -984,7 +1045,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('historyWindowDays: $historyWindowDays, ')
           ..write('historyMessageCap: $historyMessageCap, ')
           ..write('autoImportEnabled: $autoImportEnabled, ')
-          ..write('autoCreateEnabled: $autoCreateEnabled')
+          ..write('autoCreateEnabled: $autoCreateEnabled, ')
+          ..write('autoImportIntervalMinutes: $autoImportIntervalMinutes')
           ..write(')'))
         .toString();
   }
@@ -14063,6 +14125,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<int> historyMessageCap,
       Value<bool> autoImportEnabled,
       Value<bool> autoCreateEnabled,
+      Value<int> autoImportIntervalMinutes,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
@@ -14082,6 +14145,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<int> historyMessageCap,
       Value<bool> autoImportEnabled,
       Value<bool> autoCreateEnabled,
+      Value<int> autoImportIntervalMinutes,
     });
 
 class $$AppSettingsTableFilterComposer
@@ -14170,6 +14234,11 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<bool> get autoCreateEnabled => $composableBuilder(
     column: $table.autoCreateEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get autoImportIntervalMinutes => $composableBuilder(
+    column: $table.autoImportIntervalMinutes,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -14262,6 +14331,11 @@ class $$AppSettingsTableOrderingComposer
     column: $table.autoCreateEnabled,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get autoImportIntervalMinutes => $composableBuilder(
+    column: $table.autoImportIntervalMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -14352,6 +14426,11 @@ class $$AppSettingsTableAnnotationComposer
     column: $table.autoCreateEnabled,
     builder: (column) => column,
   );
+
+  GeneratedColumn<int> get autoImportIntervalMinutes => $composableBuilder(
+    column: $table.autoImportIntervalMinutes,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsTableTableManager
@@ -14401,6 +14480,7 @@ class $$AppSettingsTableTableManager
                 Value<int> historyMessageCap = const Value.absent(),
                 Value<bool> autoImportEnabled = const Value.absent(),
                 Value<bool> autoCreateEnabled = const Value.absent(),
+                Value<int> autoImportIntervalMinutes = const Value.absent(),
               }) => AppSettingsCompanion(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -14418,6 +14498,7 @@ class $$AppSettingsTableTableManager
                 historyMessageCap: historyMessageCap,
                 autoImportEnabled: autoImportEnabled,
                 autoCreateEnabled: autoCreateEnabled,
+                autoImportIntervalMinutes: autoImportIntervalMinutes,
               ),
           createCompanionCallback:
               ({
@@ -14437,6 +14518,7 @@ class $$AppSettingsTableTableManager
                 Value<int> historyMessageCap = const Value.absent(),
                 Value<bool> autoImportEnabled = const Value.absent(),
                 Value<bool> autoCreateEnabled = const Value.absent(),
+                Value<int> autoImportIntervalMinutes = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -14454,6 +14536,7 @@ class $$AppSettingsTableTableManager
                 historyMessageCap: historyMessageCap,
                 autoImportEnabled: autoImportEnabled,
                 autoCreateEnabled: autoCreateEnabled,
+                autoImportIntervalMinutes: autoImportIntervalMinutes,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
