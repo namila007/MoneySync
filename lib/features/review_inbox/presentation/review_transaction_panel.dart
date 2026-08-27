@@ -425,12 +425,8 @@ class _ReviewTransactionPanelState
     );
     if (picked == null || !mounted) return;
 
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: _dateUtc != null
-          ? TimeOfDay.fromDateTime(_dateUtc!)
-          : TimeOfDay.now(),
-    );
+    // ignore: use_build_context_synchronously — mounted checked on the line above
+    final pickedTime = await _pickTime(context);
     if (!mounted || pickedTime == null) return;
 
     _dateUtc = DateTime.utc(
@@ -442,6 +438,13 @@ class _ReviewTransactionPanelState
     );
     _pushUpdate();
   }
+
+  Future<TimeOfDay?> _pickTime(BuildContext context) => showTimePicker(
+    context: context,
+    initialTime: _dateUtc != null
+        ? TimeOfDay.fromDateTime(_dateUtc!)
+        : TimeOfDay.now(),
+  );
 }
 
 /// Wallet target picker: all LKR accounts are selectable. Archived accounts
