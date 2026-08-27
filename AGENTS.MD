@@ -33,6 +33,14 @@ For every code change:
    flutter build apk --debug
    ```
    For both flavors, build and inspect merged manifests. Verify generated code is reproducible.
+
+   **Pre-commit gate (mandatory):** Before EVERY commit, both of these must pass with zero issues:
+   ```sh
+   dart format --output=none --set-exit-if-changed .
+   flutter analyze
+   ```
+   If either fails, fix the issues before committing. No exceptions. `flutter analyze --fatal-infos --fatal-warnings` is the strictest check — use it when in doubt.
+
 6. **Deploy and test on a device.** Any change to UI, navigation, permissions, platform channels, or lifecycle must be exercised on a real Android device or emulator — a green test suite is not sufficient evidence for these. Follow "Device deployment and testing" below: check `adb`, ask the user to start the emulator if none is attached, install the flavor with its matching Dart entrypoint, then exercise the changed flow and capture evidence.
 7. **Review.** Request a Flutter/Dart/Kotlin review via the appropriate skill or subagent. Add a security review for permissions, SMS, storage, authentication, cryptography, network, imports, exports, or Wallet mutations. Address critical and high findings.
 8. **Add a worklog.** Write a dated entry in the guides `worklog/` directory describing what was done, what evidence was produced, what tests were added, what gates remain, and what milestone rows are affected. Reference the milestone, plan sections, and app commits. Do not pre-claim results — record only after tests pass and builds succeed.
