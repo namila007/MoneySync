@@ -114,9 +114,7 @@ class NotificationPermissionPage extends ConsumerWidget {
           const Divider(height: 32),
           ListTile(
             title: const Text('Turn off notifications'),
-            subtitle: const Text(
-              'Opens Android notification settings.',
-            ),
+            subtitle: const Text('Opens Android notification settings.'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               ref

@@ -20,8 +20,9 @@ void main() {
     test('first observation resolves to the gateway status', () async {
       final gateway = _MutableGateway(NotificationPermissionStatus.granted);
       final container = makeContainer(gateway);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       await notifier.refresh();
       expect(
@@ -31,11 +32,13 @@ void main() {
     });
 
     test('notRequested then granted transitions correctly', () async {
-      final gateway =
-          _MutableGateway(NotificationPermissionStatus.notRequested);
+      final gateway = _MutableGateway(
+        NotificationPermissionStatus.notRequested,
+      );
       final container = makeContainer(gateway);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       await notifier.refresh();
       expect(
@@ -52,11 +55,13 @@ void main() {
     });
 
     test('request when requestable reaches the gateway', () async {
-      final gateway =
-          _MutableGateway(NotificationPermissionStatus.notRequested);
+      final gateway = _MutableGateway(
+        NotificationPermissionStatus.notRequested,
+      );
       final container = makeContainer(gateway);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       final outcome = await notifier.request();
 
@@ -67,8 +72,9 @@ void main() {
     test('request when already granted does not call request', () async {
       final gateway = _MutableGateway(NotificationPermissionStatus.granted);
       final container = makeContainer(gateway);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       final outcome = await notifier.request();
 
@@ -77,11 +83,13 @@ void main() {
     });
 
     test('request when permanentlyDenied does not call request', () async {
-      final gateway =
-          _MutableGateway(NotificationPermissionStatus.permanentlyDenied);
+      final gateway = _MutableGateway(
+        NotificationPermissionStatus.permanentlyDenied,
+      );
       final container = makeContainer(gateway);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       final outcome = await notifier.request();
 
@@ -92,11 +100,10 @@ void main() {
     test(
       'a gateway that throws an Error resolves to error, not loading',
       () async {
-        final container = makeContainer(
-          _ThrowingGateway(StateError('boom')),
+        final container = makeContainer(_ThrowingGateway(StateError('boom')));
+        final notifier = container.read(
+          notificationPermissionStatusProvider.notifier,
         );
-        final notifier =
-            container.read(notificationPermissionStatusProvider.notifier);
 
         await notifier.refresh();
 
@@ -109,8 +116,9 @@ void main() {
     test('a missing gateway override resolves to error, not loading', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-      final notifier =
-          container.read(notificationPermissionStatusProvider.notifier);
+      final notifier = container.read(
+        notificationPermissionStatusProvider.notifier,
+      );
 
       await notifier.refresh();
 
@@ -133,17 +141,15 @@ void main() {
     });
 
     test('passes permanentlyDenied without re-requesting', () async {
-      final gateway =
-          _MutableGateway(NotificationPermissionStatus.permanentlyDenied);
+      final gateway = _MutableGateway(
+        NotificationPermissionStatus.permanentlyDenied,
+      );
       final useCase = RequestNotificationPermission(gateway: gateway);
 
       final outcome = await useCase();
       expect(outcome, isA<NotificationPermissionRequestCompleted>());
       final completed = outcome as NotificationPermissionRequestCompleted;
-      expect(
-        completed.status,
-        NotificationPermissionStatus.permanentlyDenied,
-      );
+      expect(completed.status, NotificationPermissionStatus.permanentlyDenied);
       expect(gateway.requestCalled, isFalse);
     });
 
@@ -156,8 +162,9 @@ void main() {
     });
 
     test('requests when status is notRequested', () async {
-      final gateway =
-          _MutableGateway(NotificationPermissionStatus.notRequested);
+      final gateway = _MutableGateway(
+        NotificationPermissionStatus.notRequested,
+      );
       final useCase = RequestNotificationPermission(gateway: gateway);
 
       await useCase();

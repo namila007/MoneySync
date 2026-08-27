@@ -186,86 +186,92 @@ void main() {
     });
   });
 
-  group('NotificationPermissionDecisionStep inside the onboarding scroll host',
-      () {
-    testWidgets('renders the granted copy', (tester) async {
-      await tester.pumpWidget(
-        _scoped(
-          _inOnboardingHost(const NotificationPermissionDecisionStep()),
-          notificationGateway:
-              _FixedNotificationGateway(NotificationPermissionStatus.granted),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Notifications are on'), findsOneWidget);
-      expect(find.text('Finish'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('renders the off copy when not requested', (tester) async {
-      await tester.pumpWidget(
-        _scoped(
-          _inOnboardingHost(const NotificationPermissionDecisionStep()),
-          notificationGateway:
-              _FixedNotificationGateway(NotificationPermissionStatus.notRequested),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Notifications are off'), findsOneWidget);
-      expect(find.text('Finish'), findsOneWidget);
-      expect(find.text('Try again'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('permanentlyDenied shows Open system settings', (tester) async {
-      await tester.pumpWidget(
-        _scoped(
-          _inOnboardingHost(const NotificationPermissionDecisionStep()),
-          notificationGateway: _FixedNotificationGateway(
-            NotificationPermissionStatus.permanentlyDenied,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Open system settings'), findsOneWidget);
-      expect(find.text('Try again'), findsNothing);
-      expect(find.text('Finish'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('gateway failure still allows Finish', (tester) async {
-      await tester.pumpWidget(
-        _scoped(
-          _inOnboardingHost(const NotificationPermissionDecisionStep()),
-          notificationGateway: _ThrowingNotificationGateway(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('Notification status unavailable'), findsOneWidget);
-      expect(find.text('Finish'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets(
-      'renders the checking copy while the status is still loading',
-      (tester) async {
+  group(
+    'NotificationPermissionDecisionStep inside the onboarding scroll host',
+    () {
+      testWidgets('renders the granted copy', (tester) async {
         await tester.pumpWidget(
           _scoped(
             _inOnboardingHost(const NotificationPermissionDecisionStep()),
-            notificationGateway: _NeverCompletingNotificationGateway(),
+            notificationGateway: _FixedNotificationGateway(
+              NotificationPermissionStatus.granted,
+            ),
           ),
         );
-        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.text('Checking notification status'), findsOneWidget);
+        expect(find.text('Notifications are on'), findsOneWidget);
+        expect(find.text('Finish'), findsOneWidget);
         expect(tester.takeException(), isNull);
-      },
-    );
-  });
+      });
+
+      testWidgets('renders the off copy when not requested', (tester) async {
+        await tester.pumpWidget(
+          _scoped(
+            _inOnboardingHost(const NotificationPermissionDecisionStep()),
+            notificationGateway: _FixedNotificationGateway(
+              NotificationPermissionStatus.notRequested,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Notifications are off'), findsOneWidget);
+        expect(find.text('Finish'), findsOneWidget);
+        expect(find.text('Try again'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('permanentlyDenied shows Open system settings', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _scoped(
+            _inOnboardingHost(const NotificationPermissionDecisionStep()),
+            notificationGateway: _FixedNotificationGateway(
+              NotificationPermissionStatus.permanentlyDenied,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Open system settings'), findsOneWidget);
+        expect(find.text('Try again'), findsNothing);
+        expect(find.text('Finish'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('gateway failure still allows Finish', (tester) async {
+        await tester.pumpWidget(
+          _scoped(
+            _inOnboardingHost(const NotificationPermissionDecisionStep()),
+            notificationGateway: _ThrowingNotificationGateway(),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Notification status unavailable'), findsOneWidget);
+        expect(find.text('Finish'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets(
+        'renders the checking copy while the status is still loading',
+        (tester) async {
+          await tester.pumpWidget(
+            _scoped(
+              _inOnboardingHost(const NotificationPermissionDecisionStep()),
+              notificationGateway: _NeverCompletingNotificationGateway(),
+            ),
+          );
+          await tester.pump();
+
+          expect(find.text('Checking notification status'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    },
+  );
 
   group('accessibility (M4.3 exit criteria)', () {
     testWidgets('disclosure step is fully readable at 200% text scale', (
@@ -371,8 +377,7 @@ final class _ThrowingGateway implements SmsPermissionGateway {
   Future<void> openAppSettings() async {}
 }
 
-final class _FixedNotificationGateway
-    implements NotificationPermissionGateway {
+final class _FixedNotificationGateway implements NotificationPermissionGateway {
   _FixedNotificationGateway(this.status);
 
   final NotificationPermissionStatus status;

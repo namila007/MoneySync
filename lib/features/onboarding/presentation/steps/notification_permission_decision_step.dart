@@ -83,7 +83,9 @@ class NotificationPermissionDecisionStep extends ConsumerWidget {
               onFinish: onFinish,
               secondaryLabel: 'Try again',
               onSecondary: () {
-                ref.read(notificationPermissionStatusProvider.notifier).request();
+                ref
+                    .read(notificationPermissionStatusProvider.notifier)
+                    .request();
               },
             );
         }
