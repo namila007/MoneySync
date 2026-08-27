@@ -6,6 +6,7 @@ import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
+import 'package:money_sync/core/scheduling/auto_import_scheduler.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 
@@ -19,9 +20,11 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final capabilities = ref.watch(appCapabilitiesProvider);
-    final secureWindowAsync = ref.watch(_configurationStateProvider);
+    final configStateAsync = ref.watch(_configurationStateProvider);
     final secureWindowEnabled =
-        secureWindowAsync.value?.secureWindowEnabled ?? true;
+        configStateAsync.value?.secureWindowEnabled ?? true;
+    final autoImportEnabled =
+        configStateAsync.value?.autoImportEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -94,12 +97,16 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Text('100'),
                 onTap: () => context.push('/settings/history-import'),
               ),
-              const _ReadOnlySettingTile(
-                title: 'Incoming tracking',
-                value: 'Not yet — M6',
-                explanation: 'Automatic live tracking arrives with M6.',
-                icon: Icons.campaign_outlined,
-              ),
+              if (config.flavor == AppFlavor.privateFull)
+                SwitchListTile(
+                  secondary: const Icon(Icons.campaign_outlined),
+                  title: const Text('Auto-import'),
+                  subtitle: const Text(
+                    'Periodically scan new messages from tracked senders',
+                  ),
+                  value: autoImportEnabled,
+                  onChanged: (value) => _toggleAutoImport(ref, value),
+                ),
             ],
           ),
           _ConfigurationSection(
@@ -163,6 +170,18 @@ Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
   } catch (_) {
     // Non-fatal: the preference is persisted; the native call is best-effort
     // (e.g. unavailable before the engine fully wires the channel).
+  }
+}
+
+Future<void> _toggleAutoImport(WidgetRef ref, bool enabled) async {
+  final repo = await ref.read(configurationRepositoryProvider.future);
+  await repo.updateAutoImportEnabled(enabled);
+  ref.invalidate(_configurationStateProvider);
+  final scheduler = ref.read(autoImportSchedulerProvider);
+  if (enabled) {
+    await scheduler.enable();
+  } else {
+    await scheduler.disable();
   }
 }
 
