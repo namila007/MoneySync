@@ -35,6 +35,7 @@ final class ImportSmsHistory {
     TransactionCandidate candidate,
     int eventId,
     String candidatePayload,
+    String normalizedSender,
   )?
   candidateHook;
 

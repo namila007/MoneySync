@@ -44,6 +44,7 @@ final class ScanTrackedSenders {
     TransactionCandidate candidate,
     int eventId,
     String candidatePayload,
+    String normalizedSender,
   )?
   candidateHook;
 
