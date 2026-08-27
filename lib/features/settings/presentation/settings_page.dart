@@ -8,8 +8,6 @@ import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
-import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
-import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
 /// The Settings root. The former Configuration hub was flattened into this
 /// page (M4.15 WP5): SMS & tracking controls moved up, duplicated sections
@@ -21,7 +19,6 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final capabilities = ref.watch(appCapabilitiesProvider);
-    final smsStatusAsync = ref.watch(smsPermissionStatusProvider);
     final secureWindowAsync = ref.watch(_configurationStateProvider);
     final secureWindowEnabled =
         secureWindowAsync.value?.secureWindowEnabled ?? true;
@@ -49,6 +46,13 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push(AppRoute.securityPrivacy.path),
               ),
               ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Permissions'),
+                subtitle: const Text('Message reading, notifications'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/permissions'),
+              ),
+              ListTile(
                 leading: const Icon(Icons.assignment_outlined),
                 title: const Text('Show onboarding'),
                 subtitle: const Text('Re-view the introduction flow'),
@@ -69,37 +73,6 @@ class SettingsPage extends ConsumerWidget {
           _ConfigurationSection(
             title: 'SMS & Tracking',
             children: [
-              smsStatusAsync.when(
-                loading: () => const ListTile(
-                  leading: Icon(Icons.sms_outlined),
-                  title: Text('Message reading'),
-                  subtitle: Text('Checking\u2026'),
-                ),
-                error: (e, _) => ListTile(
-                  leading: const Icon(Icons.sms_outlined),
-                  title: const Text('Message reading'),
-                  subtitle: Text('Status unavailable'),
-                ),
-                data: (status) {
-                  final (label, symbol) = switch (status) {
-                    SmsPermissionStatus.granted => ('\u25cf  On', '\u25cf'),
-                    _ => ('\u25cb  Off', '\u25cb'),
-                  };
-                  return ListTile(
-                    leading: ExcludeSemantics(child: Text(symbol)),
-                    title: const Text('Message reading'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(label),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right, size: 16),
-                      ],
-                    ),
-                    onTap: () => context.push('/settings/message-reading'),
-                  );
-                },
-              ),
               ListTile(
                 leading: const Icon(Icons.history),
                 title: const Text('History window'),

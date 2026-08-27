@@ -22,6 +22,8 @@ import 'package:money_sync/features/sms_ingestion/presentation/history_scan_page
 import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
+import 'package:money_sync/features/settings/presentation/notification_permission_page.dart';
+import 'package:money_sync/features/settings/presentation/permissions_page.dart';
 import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
@@ -159,6 +161,14 @@ GoRouter createAppRouter() {
           GoRoute(
             path: 'tracked-senders',
             builder: (context, state) => const TrackedSendersPage(),
+          ),
+          GoRoute(
+            path: 'permissions',
+            builder: (context, state) => const PermissionsPage(),
+          ),
+          GoRoute(
+            path: 'notification-permission',
+            builder: (context, state) => const NotificationPermissionPage(),
           ),
         ],
       ),
