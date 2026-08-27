@@ -180,6 +180,11 @@ class AppSettings extends Table {
   IntColumn get historyMessageCap =>
       integer().withDefault(const Constant(100))();
 
+  BoolColumn get autoImportEnabled =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get autoCreateEnabled =>
+      boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column<Object>> get primaryKey => {singletonId};
 
@@ -618,6 +623,22 @@ class IngestionCheckpoints extends Table {
   String get tableName => 'ingestion_checkpoint';
 }
 
+/// Singleton tracking state for periodic SMS scanning (M6).
+/// One row, id = 1. Separate from IngestionCheckpoints (append-only audit log).
+class TrackingState extends Table {
+  IntColumn get id => integer().withDefault(const Constant(1))();
+  IntColumn get lastScanAtEpochMs => integer().nullable()();
+  TextColumn get lastScanOutcome => text().nullable()();
+  TextColumn get lastSafeErrorCode => text().nullable()();
+  IntColumn get privacyEpoch => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'tracking_state';
+}
+
 @DriftDatabase(
   tables: [
     AppSettings,
@@ -641,6 +662,7 @@ class IngestionCheckpoints extends Table {
     CapabilityLedger,
     RulePacks,
     IngestionCheckpoints,
+    TrackingState,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -649,7 +671,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -665,6 +687,9 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'INSERT OR IGNORE INTO wallet_connection_status '
         '(singleton_id) VALUES (1)',
+      );
+      await customStatement(
+        'INSERT OR IGNORE INTO tracking_state (id) VALUES (1)',
       );
 
       // Partial unique indexes cannot be expressed in Drift's declarative
@@ -1119,6 +1144,15 @@ class AppDatabase extends _$AppDatabase {
       // again fails with "duplicate column name".
       if (from >= 3 && from < 15) {
         await m.addColumn(walletCategoryCache, walletCategoryCache.systemId);
+      }
+      if (from < 16) {
+        await m.addColumn(appSettings, appSettings.autoImportEnabled);
+        await m.addColumn(appSettings, appSettings.autoCreateEnabled);
+
+        await m.createTable(trackingState);
+        await customStatement(
+          'INSERT OR IGNORE INTO tracking_state (id) VALUES (1)',
+        );
       }
     },
   );

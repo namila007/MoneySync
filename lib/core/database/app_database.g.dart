@@ -175,6 +175,36 @@ class $AppSettingsTable extends AppSettings
     requiredDuringInsert: false,
     defaultValue: const Constant(100),
   );
+  static const VerificationMeta _autoImportEnabledMeta = const VerificationMeta(
+    'autoImportEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> autoImportEnabled = GeneratedColumn<bool>(
+    'auto_import_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_import_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _autoCreateEnabledMeta = const VerificationMeta(
+    'autoCreateEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> autoCreateEnabled = GeneratedColumn<bool>(
+    'auto_create_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_create_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     singletonId,
@@ -191,6 +221,8 @@ class $AppSettingsTable extends AppSettings
     historySmsEnabled,
     historyWindowDays,
     historyMessageCap,
+    autoImportEnabled,
+    autoCreateEnabled,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -330,6 +362,24 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
+    if (data.containsKey('auto_import_enabled')) {
+      context.handle(
+        _autoImportEnabledMeta,
+        autoImportEnabled.isAcceptableOrUnknown(
+          data['auto_import_enabled']!,
+          _autoImportEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_create_enabled')) {
+      context.handle(
+        _autoCreateEnabledMeta,
+        autoCreateEnabled.isAcceptableOrUnknown(
+          data['auto_create_enabled']!,
+          _autoCreateEnabledMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -395,6 +445,14 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.int,
         data['${effectivePrefix}history_message_cap'],
       )!,
+      autoImportEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_import_enabled'],
+      )!,
+      autoCreateEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_create_enabled'],
+      )!,
     );
   }
 
@@ -419,6 +477,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final bool historySmsEnabled;
   final int historyWindowDays;
   final int historyMessageCap;
+  final bool autoImportEnabled;
+  final bool autoCreateEnabled;
   const AppSetting({
     required this.singletonId,
     required this.privacyEpoch,
@@ -434,6 +494,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     required this.historySmsEnabled,
     required this.historyWindowDays,
     required this.historyMessageCap,
+    required this.autoImportEnabled,
+    required this.autoCreateEnabled,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -458,6 +520,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['history_sms_enabled'] = Variable<bool>(historySmsEnabled);
     map['history_window_days'] = Variable<int>(historyWindowDays);
     map['history_message_cap'] = Variable<int>(historyMessageCap);
+    map['auto_import_enabled'] = Variable<bool>(autoImportEnabled);
+    map['auto_create_enabled'] = Variable<bool>(autoCreateEnabled);
     return map;
   }
 
@@ -483,6 +547,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       historySmsEnabled: Value(historySmsEnabled),
       historyWindowDays: Value(historyWindowDays),
       historyMessageCap: Value(historyMessageCap),
+      autoImportEnabled: Value(autoImportEnabled),
+      autoCreateEnabled: Value(autoCreateEnabled),
     );
   }
 
@@ -516,6 +582,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       historySmsEnabled: serializer.fromJson<bool>(json['historySmsEnabled']),
       historyWindowDays: serializer.fromJson<int>(json['historyWindowDays']),
       historyMessageCap: serializer.fromJson<int>(json['historyMessageCap']),
+      autoImportEnabled: serializer.fromJson<bool>(json['autoImportEnabled']),
+      autoCreateEnabled: serializer.fromJson<bool>(json['autoCreateEnabled']),
     );
   }
   @override
@@ -536,6 +604,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'historySmsEnabled': serializer.toJson<bool>(historySmsEnabled),
       'historyWindowDays': serializer.toJson<int>(historyWindowDays),
       'historyMessageCap': serializer.toJson<int>(historyMessageCap),
+      'autoImportEnabled': serializer.toJson<bool>(autoImportEnabled),
+      'autoCreateEnabled': serializer.toJson<bool>(autoCreateEnabled),
     };
   }
 
@@ -554,6 +624,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     bool? historySmsEnabled,
     int? historyWindowDays,
     int? historyMessageCap,
+    bool? autoImportEnabled,
+    bool? autoCreateEnabled,
   }) => AppSetting(
     singletonId: singletonId ?? this.singletonId,
     privacyEpoch: privacyEpoch ?? this.privacyEpoch,
@@ -575,6 +647,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     historySmsEnabled: historySmsEnabled ?? this.historySmsEnabled,
     historyWindowDays: historyWindowDays ?? this.historyWindowDays,
     historyMessageCap: historyMessageCap ?? this.historyMessageCap,
+    autoImportEnabled: autoImportEnabled ?? this.autoImportEnabled,
+    autoCreateEnabled: autoCreateEnabled ?? this.autoCreateEnabled,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
@@ -620,6 +694,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       historyMessageCap: data.historyMessageCap.present
           ? data.historyMessageCap.value
           : this.historyMessageCap,
+      autoImportEnabled: data.autoImportEnabled.present
+          ? data.autoImportEnabled.value
+          : this.autoImportEnabled,
+      autoCreateEnabled: data.autoCreateEnabled.present
+          ? data.autoCreateEnabled.value
+          : this.autoCreateEnabled,
     );
   }
 
@@ -639,7 +719,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('smsDisclosureRevision: $smsDisclosureRevision, ')
           ..write('historySmsEnabled: $historySmsEnabled, ')
           ..write('historyWindowDays: $historyWindowDays, ')
-          ..write('historyMessageCap: $historyMessageCap')
+          ..write('historyMessageCap: $historyMessageCap, ')
+          ..write('autoImportEnabled: $autoImportEnabled, ')
+          ..write('autoCreateEnabled: $autoCreateEnabled')
           ..write(')'))
         .toString();
   }
@@ -660,6 +742,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     historySmsEnabled,
     historyWindowDays,
     historyMessageCap,
+    autoImportEnabled,
+    autoCreateEnabled,
   );
   @override
   bool operator ==(Object other) =>
@@ -678,7 +762,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.smsDisclosureRevision == this.smsDisclosureRevision &&
           other.historySmsEnabled == this.historySmsEnabled &&
           other.historyWindowDays == this.historyWindowDays &&
-          other.historyMessageCap == this.historyMessageCap);
+          other.historyMessageCap == this.historyMessageCap &&
+          other.autoImportEnabled == this.autoImportEnabled &&
+          other.autoCreateEnabled == this.autoCreateEnabled);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
@@ -696,6 +782,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<bool> historySmsEnabled;
   final Value<int> historyWindowDays;
   final Value<int> historyMessageCap;
+  final Value<bool> autoImportEnabled;
+  final Value<bool> autoCreateEnabled;
   const AppSettingsCompanion({
     this.singletonId = const Value.absent(),
     this.privacyEpoch = const Value.absent(),
@@ -711,6 +799,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.historySmsEnabled = const Value.absent(),
     this.historyWindowDays = const Value.absent(),
     this.historyMessageCap = const Value.absent(),
+    this.autoImportEnabled = const Value.absent(),
+    this.autoCreateEnabled = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.singletonId = const Value.absent(),
@@ -727,6 +817,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.historySmsEnabled = const Value.absent(),
     this.historyWindowDays = const Value.absent(),
     this.historyMessageCap = const Value.absent(),
+    this.autoImportEnabled = const Value.absent(),
+    this.autoCreateEnabled = const Value.absent(),
   });
   static Insertable<AppSetting> custom({
     Expression<int>? singletonId,
@@ -743,6 +835,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<bool>? historySmsEnabled,
     Expression<int>? historyWindowDays,
     Expression<int>? historyMessageCap,
+    Expression<bool>? autoImportEnabled,
+    Expression<bool>? autoCreateEnabled,
   }) {
     return RawValuesInsertable({
       if (singletonId != null) 'singleton_id': singletonId,
@@ -764,6 +858,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (historySmsEnabled != null) 'history_sms_enabled': historySmsEnabled,
       if (historyWindowDays != null) 'history_window_days': historyWindowDays,
       if (historyMessageCap != null) 'history_message_cap': historyMessageCap,
+      if (autoImportEnabled != null) 'auto_import_enabled': autoImportEnabled,
+      if (autoCreateEnabled != null) 'auto_create_enabled': autoCreateEnabled,
     });
   }
 
@@ -782,6 +878,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<bool>? historySmsEnabled,
     Value<int>? historyWindowDays,
     Value<int>? historyMessageCap,
+    Value<bool>? autoImportEnabled,
+    Value<bool>? autoCreateEnabled,
   }) {
     return AppSettingsCompanion(
       singletonId: singletonId ?? this.singletonId,
@@ -801,6 +899,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       historySmsEnabled: historySmsEnabled ?? this.historySmsEnabled,
       historyWindowDays: historyWindowDays ?? this.historyWindowDays,
       historyMessageCap: historyMessageCap ?? this.historyMessageCap,
+      autoImportEnabled: autoImportEnabled ?? this.autoImportEnabled,
+      autoCreateEnabled: autoCreateEnabled ?? this.autoCreateEnabled,
     );
   }
 
@@ -857,6 +957,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (historyMessageCap.present) {
       map['history_message_cap'] = Variable<int>(historyMessageCap.value);
     }
+    if (autoImportEnabled.present) {
+      map['auto_import_enabled'] = Variable<bool>(autoImportEnabled.value);
+    }
+    if (autoCreateEnabled.present) {
+      map['auto_create_enabled'] = Variable<bool>(autoCreateEnabled.value);
+    }
     return map;
   }
 
@@ -876,7 +982,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('smsDisclosureRevision: $smsDisclosureRevision, ')
           ..write('historySmsEnabled: $historySmsEnabled, ')
           ..write('historyWindowDays: $historyWindowDays, ')
-          ..write('historyMessageCap: $historyMessageCap')
+          ..write('historyMessageCap: $historyMessageCap, ')
+          ..write('autoImportEnabled: $autoImportEnabled, ')
+          ..write('autoCreateEnabled: $autoCreateEnabled')
           ..write(')'))
         .toString();
   }
@@ -13459,6 +13567,393 @@ class IngestionCheckpointsCompanion
   }
 }
 
+class $TrackingStateTable extends TrackingState
+    with TableInfo<$TrackingStateTable, TrackingStateData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackingStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _lastScanAtEpochMsMeta = const VerificationMeta(
+    'lastScanAtEpochMs',
+  );
+  @override
+  late final GeneratedColumn<int> lastScanAtEpochMs = GeneratedColumn<int>(
+    'last_scan_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastScanOutcomeMeta = const VerificationMeta(
+    'lastScanOutcome',
+  );
+  @override
+  late final GeneratedColumn<String> lastScanOutcome = GeneratedColumn<String>(
+    'last_scan_outcome',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSafeErrorCodeMeta = const VerificationMeta(
+    'lastSafeErrorCode',
+  );
+  @override
+  late final GeneratedColumn<String> lastSafeErrorCode =
+      GeneratedColumn<String>(
+        'last_safe_error_code',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _privacyEpochMeta = const VerificationMeta(
+    'privacyEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> privacyEpoch = GeneratedColumn<int>(
+    'privacy_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    lastScanAtEpochMs,
+    lastScanOutcome,
+    lastSafeErrorCode,
+    privacyEpoch,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tracking_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackingStateData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('last_scan_at_epoch_ms')) {
+      context.handle(
+        _lastScanAtEpochMsMeta,
+        lastScanAtEpochMs.isAcceptableOrUnknown(
+          data['last_scan_at_epoch_ms']!,
+          _lastScanAtEpochMsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_scan_outcome')) {
+      context.handle(
+        _lastScanOutcomeMeta,
+        lastScanOutcome.isAcceptableOrUnknown(
+          data['last_scan_outcome']!,
+          _lastScanOutcomeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_safe_error_code')) {
+      context.handle(
+        _lastSafeErrorCodeMeta,
+        lastSafeErrorCode.isAcceptableOrUnknown(
+          data['last_safe_error_code']!,
+          _lastSafeErrorCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('privacy_epoch')) {
+      context.handle(
+        _privacyEpochMeta,
+        privacyEpoch.isAcceptableOrUnknown(
+          data['privacy_epoch']!,
+          _privacyEpochMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TrackingStateData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackingStateData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      lastScanAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_scan_at_epoch_ms'],
+      ),
+      lastScanOutcome: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_scan_outcome'],
+      ),
+      lastSafeErrorCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_safe_error_code'],
+      ),
+      privacyEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}privacy_epoch'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackingStateTable createAlias(String alias) {
+    return $TrackingStateTable(attachedDatabase, alias);
+  }
+}
+
+class TrackingStateData extends DataClass
+    implements Insertable<TrackingStateData> {
+  final int id;
+  final int? lastScanAtEpochMs;
+  final String? lastScanOutcome;
+  final String? lastSafeErrorCode;
+  final int privacyEpoch;
+  const TrackingStateData({
+    required this.id,
+    this.lastScanAtEpochMs,
+    this.lastScanOutcome,
+    this.lastSafeErrorCode,
+    required this.privacyEpoch,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || lastScanAtEpochMs != null) {
+      map['last_scan_at_epoch_ms'] = Variable<int>(lastScanAtEpochMs);
+    }
+    if (!nullToAbsent || lastScanOutcome != null) {
+      map['last_scan_outcome'] = Variable<String>(lastScanOutcome);
+    }
+    if (!nullToAbsent || lastSafeErrorCode != null) {
+      map['last_safe_error_code'] = Variable<String>(lastSafeErrorCode);
+    }
+    map['privacy_epoch'] = Variable<int>(privacyEpoch);
+    return map;
+  }
+
+  TrackingStateCompanion toCompanion(bool nullToAbsent) {
+    return TrackingStateCompanion(
+      id: Value(id),
+      lastScanAtEpochMs: lastScanAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastScanAtEpochMs),
+      lastScanOutcome: lastScanOutcome == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastScanOutcome),
+      lastSafeErrorCode: lastSafeErrorCode == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSafeErrorCode),
+      privacyEpoch: Value(privacyEpoch),
+    );
+  }
+
+  factory TrackingStateData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackingStateData(
+      id: serializer.fromJson<int>(json['id']),
+      lastScanAtEpochMs: serializer.fromJson<int?>(json['lastScanAtEpochMs']),
+      lastScanOutcome: serializer.fromJson<String?>(json['lastScanOutcome']),
+      lastSafeErrorCode: serializer.fromJson<String?>(
+        json['lastSafeErrorCode'],
+      ),
+      privacyEpoch: serializer.fromJson<int>(json['privacyEpoch']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'lastScanAtEpochMs': serializer.toJson<int?>(lastScanAtEpochMs),
+      'lastScanOutcome': serializer.toJson<String?>(lastScanOutcome),
+      'lastSafeErrorCode': serializer.toJson<String?>(lastSafeErrorCode),
+      'privacyEpoch': serializer.toJson<int>(privacyEpoch),
+    };
+  }
+
+  TrackingStateData copyWith({
+    int? id,
+    Value<int?> lastScanAtEpochMs = const Value.absent(),
+    Value<String?> lastScanOutcome = const Value.absent(),
+    Value<String?> lastSafeErrorCode = const Value.absent(),
+    int? privacyEpoch,
+  }) => TrackingStateData(
+    id: id ?? this.id,
+    lastScanAtEpochMs: lastScanAtEpochMs.present
+        ? lastScanAtEpochMs.value
+        : this.lastScanAtEpochMs,
+    lastScanOutcome: lastScanOutcome.present
+        ? lastScanOutcome.value
+        : this.lastScanOutcome,
+    lastSafeErrorCode: lastSafeErrorCode.present
+        ? lastSafeErrorCode.value
+        : this.lastSafeErrorCode,
+    privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+  );
+  TrackingStateData copyWithCompanion(TrackingStateCompanion data) {
+    return TrackingStateData(
+      id: data.id.present ? data.id.value : this.id,
+      lastScanAtEpochMs: data.lastScanAtEpochMs.present
+          ? data.lastScanAtEpochMs.value
+          : this.lastScanAtEpochMs,
+      lastScanOutcome: data.lastScanOutcome.present
+          ? data.lastScanOutcome.value
+          : this.lastScanOutcome,
+      lastSafeErrorCode: data.lastSafeErrorCode.present
+          ? data.lastSafeErrorCode.value
+          : this.lastSafeErrorCode,
+      privacyEpoch: data.privacyEpoch.present
+          ? data.privacyEpoch.value
+          : this.privacyEpoch,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackingStateData(')
+          ..write('id: $id, ')
+          ..write('lastScanAtEpochMs: $lastScanAtEpochMs, ')
+          ..write('lastScanOutcome: $lastScanOutcome, ')
+          ..write('lastSafeErrorCode: $lastSafeErrorCode, ')
+          ..write('privacyEpoch: $privacyEpoch')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    lastScanAtEpochMs,
+    lastScanOutcome,
+    lastSafeErrorCode,
+    privacyEpoch,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackingStateData &&
+          other.id == this.id &&
+          other.lastScanAtEpochMs == this.lastScanAtEpochMs &&
+          other.lastScanOutcome == this.lastScanOutcome &&
+          other.lastSafeErrorCode == this.lastSafeErrorCode &&
+          other.privacyEpoch == this.privacyEpoch);
+}
+
+class TrackingStateCompanion extends UpdateCompanion<TrackingStateData> {
+  final Value<int> id;
+  final Value<int?> lastScanAtEpochMs;
+  final Value<String?> lastScanOutcome;
+  final Value<String?> lastSafeErrorCode;
+  final Value<int> privacyEpoch;
+  const TrackingStateCompanion({
+    this.id = const Value.absent(),
+    this.lastScanAtEpochMs = const Value.absent(),
+    this.lastScanOutcome = const Value.absent(),
+    this.lastSafeErrorCode = const Value.absent(),
+    this.privacyEpoch = const Value.absent(),
+  });
+  TrackingStateCompanion.insert({
+    this.id = const Value.absent(),
+    this.lastScanAtEpochMs = const Value.absent(),
+    this.lastScanOutcome = const Value.absent(),
+    this.lastSafeErrorCode = const Value.absent(),
+    this.privacyEpoch = const Value.absent(),
+  });
+  static Insertable<TrackingStateData> custom({
+    Expression<int>? id,
+    Expression<int>? lastScanAtEpochMs,
+    Expression<String>? lastScanOutcome,
+    Expression<String>? lastSafeErrorCode,
+    Expression<int>? privacyEpoch,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (lastScanAtEpochMs != null) 'last_scan_at_epoch_ms': lastScanAtEpochMs,
+      if (lastScanOutcome != null) 'last_scan_outcome': lastScanOutcome,
+      if (lastSafeErrorCode != null) 'last_safe_error_code': lastSafeErrorCode,
+      if (privacyEpoch != null) 'privacy_epoch': privacyEpoch,
+    });
+  }
+
+  TrackingStateCompanion copyWith({
+    Value<int>? id,
+    Value<int?>? lastScanAtEpochMs,
+    Value<String?>? lastScanOutcome,
+    Value<String?>? lastSafeErrorCode,
+    Value<int>? privacyEpoch,
+  }) {
+    return TrackingStateCompanion(
+      id: id ?? this.id,
+      lastScanAtEpochMs: lastScanAtEpochMs ?? this.lastScanAtEpochMs,
+      lastScanOutcome: lastScanOutcome ?? this.lastScanOutcome,
+      lastSafeErrorCode: lastSafeErrorCode ?? this.lastSafeErrorCode,
+      privacyEpoch: privacyEpoch ?? this.privacyEpoch,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (lastScanAtEpochMs.present) {
+      map['last_scan_at_epoch_ms'] = Variable<int>(lastScanAtEpochMs.value);
+    }
+    if (lastScanOutcome.present) {
+      map['last_scan_outcome'] = Variable<String>(lastScanOutcome.value);
+    }
+    if (lastSafeErrorCode.present) {
+      map['last_safe_error_code'] = Variable<String>(lastSafeErrorCode.value);
+    }
+    if (privacyEpoch.present) {
+      map['privacy_epoch'] = Variable<int>(privacyEpoch.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackingStateCompanion(')
+          ..write('id: $id, ')
+          ..write('lastScanAtEpochMs: $lastScanAtEpochMs, ')
+          ..write('lastScanOutcome: $lastScanOutcome, ')
+          ..write('lastSafeErrorCode: $lastSafeErrorCode, ')
+          ..write('privacyEpoch: $privacyEpoch')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -13499,6 +13994,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RulePacksTable rulePacks = $RulePacksTable(this);
   late final $IngestionCheckpointsTable ingestionCheckpoints =
       $IngestionCheckpointsTable(this);
+  late final $TrackingStateTable trackingState = $TrackingStateTable(this);
   late final Index idxParserRulesSenderFamily = Index(
     'idx_parser_rules_sender_family',
     'CREATE UNIQUE INDEX idx_parser_rules_sender_family ON parser_rules (sender_hash, parser_family)',
@@ -13541,6 +14037,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     capabilityLedger,
     rulePacks,
     ingestionCheckpoints,
+    trackingState,
     idxParserRulesSenderFamily,
     idxSmsEventsReceivedDesc,
     idxSmsEventsSenderReceived,
@@ -13564,6 +14061,8 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<bool> historySmsEnabled,
       Value<int> historyWindowDays,
       Value<int> historyMessageCap,
+      Value<bool> autoImportEnabled,
+      Value<bool> autoCreateEnabled,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
@@ -13581,6 +14080,8 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<bool> historySmsEnabled,
       Value<int> historyWindowDays,
       Value<int> historyMessageCap,
+      Value<bool> autoImportEnabled,
+      Value<bool> autoCreateEnabled,
     });
 
 class $$AppSettingsTableFilterComposer
@@ -13659,6 +14160,16 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get historyMessageCap => $composableBuilder(
     column: $table.historyMessageCap,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoImportEnabled => $composableBuilder(
+    column: $table.autoImportEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoCreateEnabled => $composableBuilder(
+    column: $table.autoCreateEnabled,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -13741,6 +14252,16 @@ class $$AppSettingsTableOrderingComposer
     column: $table.historyMessageCap,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get autoImportEnabled => $composableBuilder(
+    column: $table.autoImportEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoCreateEnabled => $composableBuilder(
+    column: $table.autoCreateEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -13821,6 +14342,16 @@ class $$AppSettingsTableAnnotationComposer
     column: $table.historyMessageCap,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get autoImportEnabled => $composableBuilder(
+    column: $table.autoImportEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoCreateEnabled => $composableBuilder(
+    column: $table.autoCreateEnabled,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsTableTableManager
@@ -13868,6 +14399,8 @@ class $$AppSettingsTableTableManager
                 Value<bool> historySmsEnabled = const Value.absent(),
                 Value<int> historyWindowDays = const Value.absent(),
                 Value<int> historyMessageCap = const Value.absent(),
+                Value<bool> autoImportEnabled = const Value.absent(),
+                Value<bool> autoCreateEnabled = const Value.absent(),
               }) => AppSettingsCompanion(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -13883,6 +14416,8 @@ class $$AppSettingsTableTableManager
                 historySmsEnabled: historySmsEnabled,
                 historyWindowDays: historyWindowDays,
                 historyMessageCap: historyMessageCap,
+                autoImportEnabled: autoImportEnabled,
+                autoCreateEnabled: autoCreateEnabled,
               ),
           createCompanionCallback:
               ({
@@ -13900,6 +14435,8 @@ class $$AppSettingsTableTableManager
                 Value<bool> historySmsEnabled = const Value.absent(),
                 Value<int> historyWindowDays = const Value.absent(),
                 Value<int> historyMessageCap = const Value.absent(),
+                Value<bool> autoImportEnabled = const Value.absent(),
+                Value<bool> autoCreateEnabled = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 singletonId: singletonId,
                 privacyEpoch: privacyEpoch,
@@ -13915,6 +14452,8 @@ class $$AppSettingsTableTableManager
                 historySmsEnabled: historySmsEnabled,
                 historyWindowDays: historyWindowDays,
                 historyMessageCap: historyMessageCap,
+                autoImportEnabled: autoImportEnabled,
+                autoCreateEnabled: autoCreateEnabled,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -20723,6 +21262,212 @@ typedef $$IngestionCheckpointsTableProcessedTableManager =
       IngestionCheckpoint,
       PrefetchHooks Function()
     >;
+typedef $$TrackingStateTableCreateCompanionBuilder =
+    TrackingStateCompanion Function({
+      Value<int> id,
+      Value<int?> lastScanAtEpochMs,
+      Value<String?> lastScanOutcome,
+      Value<String?> lastSafeErrorCode,
+      Value<int> privacyEpoch,
+    });
+typedef $$TrackingStateTableUpdateCompanionBuilder =
+    TrackingStateCompanion Function({
+      Value<int> id,
+      Value<int?> lastScanAtEpochMs,
+      Value<String?> lastScanOutcome,
+      Value<String?> lastSafeErrorCode,
+      Value<int> privacyEpoch,
+    });
+
+class $$TrackingStateTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackingStateTable> {
+  $$TrackingStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastScanAtEpochMs => $composableBuilder(
+    column: $table.lastScanAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastScanOutcome => $composableBuilder(
+    column: $table.lastScanOutcome,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastSafeErrorCode => $composableBuilder(
+    column: $table.lastSafeErrorCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$TrackingStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackingStateTable> {
+  $$TrackingStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastScanAtEpochMs => $composableBuilder(
+    column: $table.lastScanAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastScanOutcome => $composableBuilder(
+    column: $table.lastScanOutcome,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastSafeErrorCode => $composableBuilder(
+    column: $table.lastSafeErrorCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$TrackingStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackingStateTable> {
+  $$TrackingStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get lastScanAtEpochMs => $composableBuilder(
+    column: $table.lastScanAtEpochMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastScanOutcome => $composableBuilder(
+    column: $table.lastScanOutcome,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastSafeErrorCode => $composableBuilder(
+    column: $table.lastSafeErrorCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get privacyEpoch => $composableBuilder(
+    column: $table.privacyEpoch,
+    builder: (column) => column,
+  );
+}
+
+class $$TrackingStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackingStateTable,
+          TrackingStateData,
+          $$TrackingStateTableFilterComposer,
+          $$TrackingStateTableOrderingComposer,
+          $$TrackingStateTableAnnotationComposer,
+          $$TrackingStateTableCreateCompanionBuilder,
+          $$TrackingStateTableUpdateCompanionBuilder,
+          (
+            TrackingStateData,
+            BaseReferences<
+              _$AppDatabase,
+              $TrackingStateTable,
+              TrackingStateData
+            >,
+          ),
+          TrackingStateData,
+          PrefetchHooks Function()
+        > {
+  $$TrackingStateTableTableManager(_$AppDatabase db, $TrackingStateTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackingStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackingStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackingStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int?> lastScanAtEpochMs = const Value.absent(),
+                Value<String?> lastScanOutcome = const Value.absent(),
+                Value<String?> lastSafeErrorCode = const Value.absent(),
+                Value<int> privacyEpoch = const Value.absent(),
+              }) => TrackingStateCompanion(
+                id: id,
+                lastScanAtEpochMs: lastScanAtEpochMs,
+                lastScanOutcome: lastScanOutcome,
+                lastSafeErrorCode: lastSafeErrorCode,
+                privacyEpoch: privacyEpoch,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int?> lastScanAtEpochMs = const Value.absent(),
+                Value<String?> lastScanOutcome = const Value.absent(),
+                Value<String?> lastSafeErrorCode = const Value.absent(),
+                Value<int> privacyEpoch = const Value.absent(),
+              }) => TrackingStateCompanion.insert(
+                id: id,
+                lastScanAtEpochMs: lastScanAtEpochMs,
+                lastScanOutcome: lastScanOutcome,
+                lastSafeErrorCode: lastSafeErrorCode,
+                privacyEpoch: privacyEpoch,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$TrackingStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackingStateTable,
+      TrackingStateData,
+      $$TrackingStateTableFilterComposer,
+      $$TrackingStateTableOrderingComposer,
+      $$TrackingStateTableAnnotationComposer,
+      $$TrackingStateTableCreateCompanionBuilder,
+      $$TrackingStateTableUpdateCompanionBuilder,
+      (
+        TrackingStateData,
+        BaseReferences<_$AppDatabase, $TrackingStateTable, TrackingStateData>,
+      ),
+      TrackingStateData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -20772,4 +21517,6 @@ class $AppDatabaseManager {
       $$RulePacksTableTableManager(_db, _db.rulePacks);
   $$IngestionCheckpointsTableTableManager get ingestionCheckpoints =>
       $$IngestionCheckpointsTableTableManager(_db, _db.ingestionCheckpoints);
+  $$TrackingStateTableTableManager get trackingState =>
+      $$TrackingStateTableTableManager(_db, _db.trackingState);
 }

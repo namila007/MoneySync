@@ -9,7 +9,7 @@ void main() {
     test('schema version is 5', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 15);
+      expect(db.schemaVersion, 16);
     });
 
     group('v5 schema has all required tables', () {
@@ -45,6 +45,7 @@ void main() {
         expect(tableNames, contains('capability_ledger'));
         expect(tableNames, contains('rule_packs'));
         expect(tableNames, contains('ingestion_checkpoint'));
+        expect(tableNames, contains('tracking_state'));
       });
 
       // NOTE: v5 indexes are created via raw SQL in onUpgrade(from < 5),
@@ -105,6 +106,18 @@ void main() {
         expect(setting.historySmsEnabled, false);
         expect(setting.historyWindowDays, 7);
         expect(setting.historyMessageCap, 100);
+      });
+
+      test('v16 auto-import and auto-create columns', () async {
+        final db = AppDatabase.inMemoryForTesting();
+        addTearDown(db.close);
+
+        final setting = await (db.select(
+          db.appSettings,
+        )..where((row) => row.singletonId.equals(1))).getSingle();
+
+        expect(setting.autoImportEnabled, false);
+        expect(setting.autoCreateEnabled, false);
       });
     });
 
@@ -360,6 +373,23 @@ void main() {
 
         final checkpoints = await db.select(db.ingestionCheckpoints).get();
         expect(checkpoints, isEmpty);
+      });
+    });
+
+    group('v16 new tables', () {
+      test('tracking_state singleton row exists with safe defaults', () async {
+        final db = AppDatabase.inMemoryForTesting();
+        addTearDown(db.close);
+
+        final row = await (db.select(
+          db.trackingState,
+        )..where((row) => row.id.equals(1))).getSingle();
+
+        expect(row.id, 1);
+        expect(row.lastScanAtEpochMs, isNull);
+        expect(row.lastScanOutcome, isNull);
+        expect(row.lastSafeErrorCode, isNull);
+        expect(row.privacyEpoch, 0);
       });
     });
 
