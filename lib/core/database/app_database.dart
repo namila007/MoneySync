@@ -1460,6 +1460,35 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Reads the singleton tracking-state row (M6.4). The row is seeded by
+  /// the v16 migration and `beforeOpen`; on a fresh in-memory test DB it
+  /// is created by the `INSERT OR IGNORE` in `beforeOpen`.
+  Future<TrackingStateData> trackingStateOrDefault() async {
+    final row = await (select(
+      trackingState,
+    )..where((row) => row.id.equals(1))).getSingleOrNull();
+    return row ?? const TrackingStateData(id: 1, privacyEpoch: 0);
+  }
+
+  /// Partial-update the singleton tracking-state row. Pass [Value.absent()]
+  /// (or null for nullable fields) to leave a field untouched. Non-null
+  /// values overwrite the current content.
+  Future<void> updateTrackingState({
+    Value<int?> lastScanAtEpochMs = const Value.absent(),
+    Value<String?> lastScanOutcome = const Value.absent(),
+    Value<String?> lastSafeErrorCode = const Value.absent(),
+    Value<int> privacyEpoch = const Value.absent(),
+  }) async {
+    await (update(trackingState)..where((row) => row.id.equals(1))).write(
+      TrackingStateCompanion(
+        lastScanAtEpochMs: lastScanAtEpochMs,
+        lastScanOutcome: lastScanOutcome,
+        lastSafeErrorCode: lastSafeErrorCode,
+        privacyEpoch: privacyEpoch,
+      ),
+    );
+  }
+
   Future<void> _requireCurrentPrivacyEpoch(int capturedEpoch) async {
     final setting = await (select(
       appSettings,
