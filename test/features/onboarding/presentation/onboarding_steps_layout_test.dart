@@ -3,8 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_sync/features/onboarding/presentation/steps/notification_permission_decision_step.dart';
 import 'package:money_sync/features/onboarding/presentation/steps/sms_access_decision_step.dart';
 import 'package:money_sync/features/onboarding/presentation/steps/sms_access_disclosure_step.dart';
+import 'package:money_sync/features/notification_permission/domain/notification_permission_gateway.dart';
+import 'package:money_sync/features/notification_permission/domain/notification_permission_status.dart';
+import 'package:money_sync/features/notification_permission/presentation/notification_permission_controller.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_gateway.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
@@ -43,11 +47,19 @@ Widget _inOnboardingHost(
   );
 }
 
-Widget _scoped(Widget child, {SmsPermissionGateway? gateway}) {
+Widget _scoped(
+  Widget child, {
+  SmsPermissionGateway? gateway,
+  NotificationPermissionGateway? notificationGateway,
+}) {
   return ProviderScope(
     overrides: [
       if (gateway != null)
         smsPermissionGatewayProvider.overrideWithValue(gateway),
+      if (notificationGateway != null)
+        notificationPermissionGatewayProvider.overrideWithValue(
+          notificationGateway,
+        ),
     ],
     child: child,
   );
@@ -174,6 +186,87 @@ void main() {
     });
   });
 
+  group('NotificationPermissionDecisionStep inside the onboarding scroll host',
+      () {
+    testWidgets('renders the granted copy', (tester) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const NotificationPermissionDecisionStep()),
+          notificationGateway:
+              _FixedNotificationGateway(NotificationPermissionStatus.granted),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notifications are on'), findsOneWidget);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('renders the off copy when not requested', (tester) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const NotificationPermissionDecisionStep()),
+          notificationGateway:
+              _FixedNotificationGateway(NotificationPermissionStatus.notRequested),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notifications are off'), findsOneWidget);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('permanentlyDenied shows Open system settings', (tester) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const NotificationPermissionDecisionStep()),
+          notificationGateway: _FixedNotificationGateway(
+            NotificationPermissionStatus.permanentlyDenied,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open system settings'), findsOneWidget);
+      expect(find.text('Try again'), findsNothing);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('gateway failure still allows Finish', (tester) async {
+      await tester.pumpWidget(
+        _scoped(
+          _inOnboardingHost(const NotificationPermissionDecisionStep()),
+          notificationGateway: _ThrowingNotificationGateway(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Notification status unavailable'), findsOneWidget);
+      expect(find.text('Finish'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'renders the checking copy while the status is still loading',
+      (tester) async {
+        await tester.pumpWidget(
+          _scoped(
+            _inOnboardingHost(const NotificationPermissionDecisionStep()),
+            notificationGateway: _NeverCompletingNotificationGateway(),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.text('Checking notification status'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
+
   group('accessibility (M4.3 exit criteria)', () {
     testWidgets('disclosure step is fully readable at 200% text scale', (
       tester,
@@ -272,6 +365,50 @@ final class _ThrowingGateway implements SmsPermissionGateway {
 
   @override
   Future<SmsPermissionStatus> request() async =>
+      throw StateError('platform channel unavailable');
+
+  @override
+  Future<void> openAppSettings() async {}
+}
+
+final class _FixedNotificationGateway
+    implements NotificationPermissionGateway {
+  _FixedNotificationGateway(this.status);
+
+  final NotificationPermissionStatus status;
+
+  @override
+  Future<NotificationPermissionStatus> current() async => status;
+
+  @override
+  Future<NotificationPermissionStatus> request() async => status;
+
+  @override
+  Future<void> openAppSettings() async {}
+}
+
+final class _NeverCompletingNotificationGateway
+    implements NotificationPermissionGateway {
+  @override
+  Future<NotificationPermissionStatus> current() =>
+      Completer<NotificationPermissionStatus>().future;
+
+  @override
+  Future<NotificationPermissionStatus> request() =>
+      Completer<NotificationPermissionStatus>().future;
+
+  @override
+  Future<void> openAppSettings() async {}
+}
+
+final class _ThrowingNotificationGateway
+    implements NotificationPermissionGateway {
+  @override
+  Future<NotificationPermissionStatus> current() async =>
+      throw StateError('platform channel unavailable');
+
+  @override
+  Future<NotificationPermissionStatus> request() async =>
       throw StateError('platform channel unavailable');
 
   @override

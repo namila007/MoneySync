@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_state.dart';
 import 'package:money_sync/features/onboarding/presentation/onboarding_controller.dart';
+import 'package:money_sync/features/onboarding/presentation/steps/notification_permission_decision_step.dart';
 import 'package:money_sync/features/onboarding/presentation/steps/sms_access_decision_step.dart';
 import 'package:money_sync/features/onboarding/presentation/steps/sms_access_disclosure_step.dart';
 
@@ -55,6 +56,8 @@ class OnboardingPage extends ConsumerWidget {
                       const SmsAccessDisclosureStep(),
                     OnboardingStep.smsAccessDecision =>
                       const SmsAccessDecisionStep(),
+                    OnboardingStep.notificationPermissionDecision =>
+                      const NotificationPermissionDecisionStep(),
                   },
                 ),
               ),
