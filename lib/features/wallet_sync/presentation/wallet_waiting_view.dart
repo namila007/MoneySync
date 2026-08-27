@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
@@ -11,6 +12,7 @@ import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart'
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
+import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
     show succeededMutationsProvider;
 
@@ -25,26 +27,16 @@ final waitingMutationsProvider = FutureProvider<List<WalletMutation>>((
   return (db.select(db.walletMutations)
         ..where(
           (m) => m.state.isIn([
-            _storedState(WalletMutationState.queued),
-            _storedState(WalletMutationState.syncing),
+            storedMutationState(WalletMutationState.queued),
+            storedMutationState(WalletMutationState.syncing),
           ]),
         )
-        ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)]))
+        ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
+        ..limit(200))
       .get();
 });
 
-String _storedState(WalletMutationState s) => switch (s) {
-  WalletMutationState.queued => 'queued',
-  WalletMutationState.syncing => 'syncing',
-  WalletMutationState.reconciling => 'reconciling',
-  WalletMutationState.unknownDelivery => 'unknown_delivery',
-  WalletMutationState.unknownUpdate => 'unknown_update',
-  WalletMutationState.unknownDelete => 'unknown_delete',
-  WalletMutationState.retryScheduled => 'retry_scheduled',
-  WalletMutationState.succeeded => 'succeeded',
-  WalletMutationState.permanentFailure => 'permanent_failure',
-  WalletMutationState.supersededBeforeSend => 'superseded_before_send',
-};
+final _log = Logger('WalletWaitingView');
 
 class WaitingView extends ConsumerStatefulWidget {
   const WaitingView({super.key});
@@ -188,7 +180,8 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
         } else {
           failed++;
         }
-      } catch (_) {
+      } catch (e, st) {
+        _log.warning('Batch approve failed for mutation $id', e, st);
         failed++;
       }
     }
@@ -217,7 +210,8 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
       final decoded = jsonDecode(jsonStr);
       if (decoded is Map<String, Object?>) return decoded;
       return {};
-    } catch (_) {
+    } catch (e) {
+      _log.warning('Failed to decode mutation payload', e);
       return {};
     }
   }

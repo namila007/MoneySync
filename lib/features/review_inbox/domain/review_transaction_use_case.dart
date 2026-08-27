@@ -44,6 +44,9 @@ abstract interface class ReviewOutboxWriter {
     required int privacyEpoch,
     required WalletMutationIntent intent,
     required WalletItemLegRole itemLegRole,
+
+    /// Plaintext JSON payload. Despite the name, this is NOT pre-encrypted;
+    /// protection comes from SQLCipher database-level encryption only.
     required String itemPayloadCiphertext,
     required ActivityEventCode activityType,
     required ActivityStateTransition safeDetailCode,
@@ -98,6 +101,10 @@ final class ReviewTransactionUseCase {
       );
     }
 
+    // Latency optimization: reject early if a create for this candidate is
+    // already active. The REAL double-submit guard is the DB-level
+    // UniqueLineageViolationException caught around submitAtomically — this
+    // pre-check just avoids the wasted write attempt.
     final alreadyActive = await _writer.hasActiveLineage(intent.candidateId);
     log.info(
       '[UseCase] Lineage check: candidateId=${intent.candidateId} '

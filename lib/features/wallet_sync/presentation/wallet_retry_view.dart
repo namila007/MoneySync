@@ -6,6 +6,7 @@ import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/data/drift_activity_recovery_actions.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 /// Mutations in retryScheduled state, for the retry view.
 final retryMutationsProvider = FutureProvider<List<WalletMutation>>((
@@ -14,25 +15,14 @@ final retryMutationsProvider = FutureProvider<List<WalletMutation>>((
   final db = await ref.watch(appDatabaseProvider.future);
   return (db.select(db.walletMutations)
         ..where(
-          (m) =>
-              m.state.equals(_storedState(WalletMutationState.retryScheduled)),
+          (m) => m.state.equals(
+            storedMutationState(WalletMutationState.retryScheduled),
+          ),
         )
-        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)]))
+        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+        ..limit(200))
       .get();
 });
-
-String _storedState(WalletMutationState s) => switch (s) {
-  WalletMutationState.queued => 'queued',
-  WalletMutationState.syncing => 'syncing',
-  WalletMutationState.reconciling => 'reconciling',
-  WalletMutationState.unknownDelivery => 'unknown_delivery',
-  WalletMutationState.unknownUpdate => 'unknown_update',
-  WalletMutationState.unknownDelete => 'unknown_delete',
-  WalletMutationState.retryScheduled => 'retry_scheduled',
-  WalletMutationState.succeeded => 'succeeded',
-  WalletMutationState.permanentFailure => 'permanent_failure',
-  WalletMutationState.supersededBeforeSend => 'superseded_before_send',
-};
 
 class RetryView extends ConsumerStatefulWidget {
   const RetryView({super.key});
@@ -118,6 +108,7 @@ class _RetryViewState extends ConsumerState<RetryView> {
     for (final id in _selected) {
       await actions.retryNow(id);
     }
+    if (!mounted) return;
     setState(() => _selected.clear());
     ref.invalidate(retryMutationsProvider);
   }
@@ -132,6 +123,7 @@ class _RetryViewState extends ConsumerState<RetryView> {
     for (final m in mutations) {
       await actions.retryNow(m.id);
     }
+    if (!mounted) return;
     ref.invalidate(retryMutationsProvider);
   }
 

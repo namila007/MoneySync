@@ -199,7 +199,20 @@ class _RecoveryActions extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 onPressed: actionsAsync.hasValue
-                    ? () => actionsAsync.requireValue.retryNow(mutationId)
+                    ? () async {
+                        try {
+                          await actionsAsync.requireValue.retryNow(mutationId);
+                        } catch (e, st) {
+                          Logger('activity').error('retry failed', e, st);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Retry failed. Try again.'),
+                              ),
+                            );
+                          }
+                        }
+                      }
                     : null,
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Retry'),
@@ -211,7 +224,22 @@ class _RecoveryActions extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 onPressed: actionsAsync.hasValue
-                    ? () => actionsAsync.requireValue.verifyInWallet(mutationId)
+                    ? () async {
+                        try {
+                          await actionsAsync.requireValue.verifyInWallet(
+                            mutationId,
+                          );
+                        } catch (e, st) {
+                          Logger('activity').error('verify failed', e, st);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Verify failed. Try again.'),
+                              ),
+                            );
+                          }
+                        }
+                      }
                     : null,
                 icon: const Icon(Icons.verified_user_outlined, size: 16),
                 label: const Text('Verify'),

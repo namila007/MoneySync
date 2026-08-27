@@ -66,18 +66,28 @@ final class HttpWalletApiDataSource implements WalletApiDataSource {
     _log.fine('Request body prepared: ${bodyJson.length} bytes');
 
     final token = await _tokenGetter();
-    final response = await _dio.post(
-      _recordsPath,
-      data: body,
-      options: Options(
-        headers: {
-          'Authorization': 'Bearer ${token.toPersistenceString()}',
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        validateStatus: (status) => status != null && status < 500,
-      ),
-    );
+    final Response response;
+    try {
+      response = await _dio.post(
+        _recordsPath,
+        data: body,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer ${token.toPersistenceString()}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+    } on DioException catch (e) {
+      // 5xx responses fail validateStatus and Dio throws. A POST to the
+      // Wallet API that receives a 5xx is delivery-ambiguous — the write
+      // may have landed — so route it to reconciliation, not pre-transmission
+      // retry.
+      _log.severe('POST $_recordsPath — 5xx transport failure: ${e.type.name}');
+      throw WalletApiDataSourceException(const AmbiguousPostTransmission());
+    }
 
     _log.info('Response: ${response.statusCode} ${response.statusMessage}');
 
