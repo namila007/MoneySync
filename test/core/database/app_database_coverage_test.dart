@@ -705,7 +705,7 @@ void main() {
       final db = await _migrateFrom(1, _seedV1);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
 
       final tables = await db
           .customSelect(
@@ -762,7 +762,7 @@ void main() {
       final db = await _migrateFrom(3, _seedV3);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
 
       // wallet_category_cache should have groupId, groupName, parentId, systemId
       final cols = await db
@@ -799,7 +799,7 @@ void main() {
       final db = await _migrateFrom(7, _seedV7);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     });
   });
 
@@ -808,7 +808,7 @@ void main() {
       final db = await _migrateFrom(9, _seedV9);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     });
   });
 
@@ -817,7 +817,7 @@ void main() {
       final db = await _migrateFrom(11, _seedV11);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     });
   });
 
@@ -826,7 +826,7 @@ void main() {
       final db = await _migrateFrom(13, _seedV13);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     });
   });
 
@@ -835,7 +835,7 @@ void main() {
       final db = await _migrateFrom(14, _seedV14);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
 
       final cols = await db
           .customSelect(
