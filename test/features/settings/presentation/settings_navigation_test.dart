@@ -148,6 +148,12 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateSecureWindowEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoImportEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoCreateEnabled(bool enabled) async {}
 }
 
 final class _UnavailableGateway implements SmsPermissionGateway {
