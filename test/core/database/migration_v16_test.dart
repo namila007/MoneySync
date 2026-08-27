@@ -6,7 +6,7 @@ void main() {
     test('schema version is 16', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 16);
+      expect(db.schemaVersion, 17);
     });
 
     test('tracking_state singleton row exists with safe defaults', () async {

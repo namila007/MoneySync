@@ -160,53 +160,36 @@ void main() {
       expect(find.text('Auto-import'), findsOneWidget);
     });
 
-    testWidgets(
-      'auto-import toggle on calls scheduler.enable, off calls scheduler.disable',
-      (tester) async {
-        final scheduler = _FakeAutoImportScheduler();
-        final repo = _FakeConfigRepo(autoImportEnabled: false);
-        await tester.pumpWidget(
-          _app(
-            flavor: AppFlavor.privateFull,
-            configRepo: repo,
-            scheduler: scheduler,
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets('auto-import tile shows status and navigates on tap', (
+      tester,
+    ) async {
+      final scheduler = _FakeAutoImportScheduler();
+      final repo = _FakeConfigRepo(autoImportEnabled: false);
+      await tester.pumpWidget(
+        _app(
+          flavor: AppFlavor.privateFull,
+          configRepo: repo,
+          scheduler: scheduler,
+        ),
+      );
+      await tester.pumpAndSettle();
 
-        final scrollable = find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text('Auto-import'),
-          250,
-          scrollable: scrollable,
-        );
-        await tester.ensureVisible(find.text('Auto-import'));
-        await tester.pumpAndSettle();
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Auto-import'),
+        250,
+        scrollable: scrollable,
+      );
+      await tester.ensureVisible(find.text('Auto-import'));
+      await tester.pumpAndSettle();
 
-        // Find the SwitchListTile that is a descendant of the Auto-import text's ancestor
-        final autoImportTile = find.ancestor(
-          of: find.text('Auto-import'),
-          matching: find.byType(SwitchListTile),
-        );
-
-        // Tap to turn on
-        await tester.tap(autoImportTile);
-        await tester.pumpAndSettle();
-
-        expect(repo.autoImportUpdates, [true]);
-        expect(scheduler.calls, ['enable']);
-
-        // Tap again to turn off
-        await tester.tap(autoImportTile);
-        await tester.pumpAndSettle();
-
-        expect(repo.autoImportUpdates, [true, false]);
-        expect(scheduler.calls, ['enable', 'disable']);
-      },
-    );
+      // The auto-import tile is now a ListTile (not SwitchListTile)
+      // showing status text "Off" when disabled.
+      expect(find.text('Off'), findsWidgets);
+    });
   });
 }
 
@@ -255,13 +238,18 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateAutoCreateEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoImportIntervalMinutes(int minutes) async {}
 }
 
 final class _FakeAutoImportScheduler implements AutoImportScheduler {
   final List<String> calls = [];
 
   @override
-  Future<void> enable() async => calls.add('enable');
+  Future<void> enable({
+    Duration frequency = const Duration(minutes: 15),
+  }) async => calls.add('enable');
 
   @override
   Future<void> disable() async => calls.add('disable');
