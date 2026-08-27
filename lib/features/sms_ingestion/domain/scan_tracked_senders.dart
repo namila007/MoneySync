@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart'
     hide TransactionCandidate;
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/notifications/domain/notification_request.dart';
 import 'package:money_sync/features/notifications/domain/notification_service.dart';
 import 'package:money_sync/features/sms_ingestion/application/import_sms_history.dart';
@@ -11,6 +13,8 @@ import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/sms_tracking/domain/tracked_senders.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
+
+final _log = Logger('sms.scan');
 
 const NotificationId _scanNotificationId = NotificationId(1001);
 const String _scanChannelId = 'background_sms_scan';
@@ -62,7 +66,10 @@ final class ScanTrackedSenders {
       database.appSettings,
     )..where((row) => row.singletonId.equals(1))).getSingle();
 
-    if (!setting.autoImportEnabled) return;
+    if (!setting.autoImportEnabled) {
+      _log.info('Scan skipped: autoImportEnabled is false');
+      return;
+    }
 
     // 2. Read tracking state; compute fromEpochMs from watermark or default.
     final tracking = await database.trackingStateOrDefault();
@@ -77,9 +84,13 @@ final class ScanTrackedSenders {
 
     // 3. Load tracked senders; bail if empty.
     final senders = await trackedSendersRepository.load();
-    if (senders.isEmpty) return;
+    if (senders.isEmpty) {
+      _log.info('Scan skipped: no tracked senders');
+      return;
+    }
 
     final senderAddresses = [for (final s in senders) s.address];
+    _log.info('Scan started: ${senders.length} tracked senders');
 
     // 4. Post ongoing notification.
     await notificationService.show(
@@ -115,6 +126,7 @@ final class ScanTrackedSenders {
       switch (progress) {
         case ImportInProgress():
           imported = progress.imported;
+          _log.debug('Import progress: $imported messages');
         case ImportCompleted():
           imported = progress.imported;
           terminal = progress;
@@ -134,6 +146,7 @@ final class ScanTrackedSenders {
 
     // 6–8. Handle terminal outcome.
     if (terminal is ImportCompleted || terminal is ImportCapReached) {
+      _log.info('Scan completed: $imported messages imported');
       // Success — advance watermark.
       final body = imported > 0 ? '$imported new' : 'No new messages';
       await notificationService.show(
@@ -152,6 +165,9 @@ final class ScanTrackedSenders {
       );
     } else if (terminal is ImportStatusError ||
         terminal is ImportBlockedByEpoch) {
+      _log.error(
+        'Scan failed: ${terminal is ImportStatusError ? 'import error' : 'epoch blocked'}',
+      );
       // Failure — do NOT advance watermark.
       await notificationService.show(
         const NotificationRequest(

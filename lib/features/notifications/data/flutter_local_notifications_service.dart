@@ -1,7 +1,11 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 
 import '../domain/notification_request.dart';
 import '../domain/notification_service.dart';
+
+final _log = Logger('notifications');
 
 class FlutterLocalNotificationsService implements NotificationService {
   FlutterLocalNotificationsService({required this.plugin});
@@ -22,36 +26,46 @@ class FlutterLocalNotificationsService implements NotificationService {
 
   @override
   Future<void> show(NotificationRequest request) async {
-    final androidPlugin = plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-    if (androidPlugin != null) {
-      final channel = AndroidNotificationChannel(
+    try {
+      final androidPlugin = plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      if (androidPlugin != null) {
+        final channel = AndroidNotificationChannel(
+          request.channelId,
+          request.channelName,
+          importance: Importance.low,
+        );
+        await androidPlugin.createNotificationChannel(channel);
+      }
+
+      final androidDetails = AndroidNotificationDetails(
         request.channelId,
         request.channelName,
         importance: Importance.low,
+        priority: Priority.low,
       );
-      await androidPlugin.createNotificationChannel(channel);
+      final details = NotificationDetails(android: androidDetails);
+      await plugin.show(
+        id: request.id.value,
+        title: request.title,
+        body: request.body,
+        notificationDetails: details,
+      );
+      _log.info('Notification shown: id=${request.id.value}');
+    } catch (e, s) {
+      _log.error('Notification show failed', e, s);
     }
-
-    final androidDetails = AndroidNotificationDetails(
-      request.channelId,
-      request.channelName,
-      importance: Importance.low,
-      priority: Priority.low,
-    );
-    final details = NotificationDetails(android: androidDetails);
-    await plugin.show(
-      id: request.id.value,
-      title: request.title,
-      body: request.body,
-      notificationDetails: details,
-    );
   }
 
   @override
   Future<void> cancel(NotificationId id) async {
-    await plugin.cancel(id: id.value);
+    try {
+      await plugin.cancel(id: id.value);
+      _log.info('Notification cancelled: id=${id.value}');
+    } catch (e, s) {
+      _log.error('Notification cancel failed', e, s);
+    }
   }
 }

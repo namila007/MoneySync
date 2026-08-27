@@ -1,6 +1,10 @@
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'background_composition_root.dart';
+
+final _log = Logger('sms.scan');
 
 /// Entry point for the headless WorkManager isolate that runs periodic
 /// SMS scans. Annotated with `@pragma('vm:entry-point')` so the Dart VM
@@ -14,7 +18,8 @@ void callbackDispatcher() {
       final scan = await root.build();
       await scan();
       return Future.value(true);
-    } on Exception {
+    } on Exception catch (e, s) {
+      _log.error('Isolate bootstrap or scan failed', e, s);
       return Future.value(false);
     }
   });
