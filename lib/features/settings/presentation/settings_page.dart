@@ -6,7 +6,6 @@ import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
-import 'package:money_sync/core/scheduling/auto_import_scheduler.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 
@@ -100,14 +99,16 @@ class SettingsPage extends ConsumerWidget {
                 onTap: () => context.push('/settings/history-import'),
               ),
               if (config.flavor == AppFlavor.privateFull)
-                SwitchListTile(
-                  secondary: const Icon(Icons.campaign_outlined),
+                ListTile(
+                  leading: const Icon(Icons.campaign_outlined),
                   title: const Text('Auto-import'),
-                  subtitle: const Text(
-                    'Periodically scan new messages from tracked senders',
+                  subtitle: Text(
+                    autoImportEnabled
+                        ? 'On \u00b7 Every ${_intervalLabel(configStateAsync.value?.autoImportIntervalMinutes ?? 15)}'
+                        : 'Off',
                   ),
-                  value: autoImportEnabled,
-                  onChanged: (value) => _toggleAutoImport(ref, value),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/settings/auto-import'),
                 ),
             ],
           ),
@@ -178,22 +179,15 @@ Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
   }
 }
 
-Future<void> _toggleAutoImport(WidgetRef ref, bool enabled) async {
-  final repo = await ref.read(configurationRepositoryProvider.future);
-  await repo.updateAutoImportEnabled(enabled);
-  ref.invalidate(_configurationStateProvider);
-  final scheduler = ref.read(autoImportSchedulerProvider);
-  if (enabled) {
-    await scheduler.enable();
-  } else {
-    await scheduler.disable();
-  }
-}
-
 Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
   final repo = await ref.read(configurationRepositoryProvider.future);
   await repo.updateAutoCreateEnabled(enabled);
   ref.invalidate(_configurationStateProvider);
+}
+
+String _intervalLabel(int minutes) {
+  if (minutes == 60) return '1 hour';
+  return '$minutes minutes';
 }
 
 class _ConfigurationSummary extends StatelessWidget {
