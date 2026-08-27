@@ -206,9 +206,9 @@ final class ImportSmsHistory {
           );
 
           switch (outcome) {
-            case ManualIngestStored():
+            case ManualIngestStored(:final autoCreated):
               imported++;
-              candidatesNeedingReview++;
+              if (!autoCreated) candidatesNeedingReview++;
             case ManualIngestAlreadyPresent():
               duplicates++;
             case ManualIngestFiltered():
