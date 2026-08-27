@@ -1,4 +1,6 @@
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
@@ -6,6 +8,8 @@ import 'package:money_sync/features/review_inbox/domain/review_transaction_use_c
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+
+final _log = Logger('mappings.auto_create');
 
 /// Outcome of an automatic-creation attempt.
 sealed class AutoCreateOutcome {
@@ -64,6 +68,7 @@ final class AutoCreateOrDefer {
   }) async {
     if (!autoCreateEnabled ||
         !capabilities.isEnabled(AppCapability.automaticSync)) {
+      _log.info('Deferred: auto_create_disabled');
       return const DeferredToReview('auto_create_disabled');
     }
 
@@ -81,11 +86,14 @@ final class AutoCreateOrDefer {
     MappingRule matchedRule;
     switch (resolution) {
       case MappingUnmatched():
+        _log.info('Deferred: mapping_unmatched');
         return const DeferredToReview('mapping_unmatched');
       case MappingAmbiguous():
+        _log.info('Deferred: mapping_ambiguous');
         return const DeferredToReview('mapping_ambiguous');
       case MappingResolved(:final rule):
         if (rule.syncMode != MappingSyncMode.automatic) {
+          _log.info('Deferred: rule_not_automatic');
           return const DeferredToReview('rule_not_automatic');
         }
         matchedRule = rule;
@@ -94,7 +102,9 @@ final class AutoCreateOrDefer {
     final context = await buildPreSendContext(candidate);
     final evaluation = eligibilityPolicy.evaluate(context);
     if (!evaluation.allowed) {
-      return DeferredToReview(evaluation.firstBlockReason ?? 'gate_blocked');
+      final reason = evaluation.firstBlockReason ?? 'gate_blocked';
+      _log.info('Deferred: $reason');
+      return DeferredToReview(reason);
     }
 
     final intent = WalletMutationIntent(
@@ -136,10 +146,13 @@ final class AutoCreateOrDefer {
         decisionTraceCode: DecisionTraceCode.initialReview,
         detailMessage: 'Auto-created from mapping rule: ${matchedRule.name}',
       );
+      _log.info('AutoCreated: rule=${matchedRule.name}');
       return AutoCreated(intent.id, matchedRule.name);
     } on UniqueLineageViolationException {
+      _log.info('Deferred: unique_lineage_violation');
       return const DeferredToReview('unique_lineage_violation');
-    } catch (_) {
+    } catch (e, s) {
+      _log.error('Write failed', e, s);
       return const DeferredToReview('write_failed');
     }
   }

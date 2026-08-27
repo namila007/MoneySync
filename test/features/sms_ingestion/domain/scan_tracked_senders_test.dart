@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/notifications/data/fake_notification_service.dart';
 import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
@@ -155,6 +156,32 @@ void main() {
       final state = await db.trackingStateOrDefault();
       expect(state.lastScanAtEpochMs, isNull);
       expect(state.lastScanOutcome, 'failed');
+    });
+  });
+
+  group('ScanTrackedSenders — logging', () {
+    test('logs error on import stream failure', () async {
+      await (db.update(db.appSettings)
+            ..where((row) => row.singletonId.equals(1)))
+          .write(const AppSettingsCompanion(autoImportEnabled: Value(true)));
+      trackedSendersRepo.setSenders(['SAMPATHTX']);
+      api.shouldThrow = true;
+
+      final captured = <LogRecord>[];
+      final sub = Logger.root.onRecord.listen(captured.add);
+      addTearDown(sub.cancel);
+
+      await scan();
+
+      expect(
+        captured.any(
+          (r) =>
+              r.level == Level.SEVERE &&
+              r.loggerName == 'sms.scan' &&
+              r.message == 'Scan failed: import error',
+        ),
+        isTrue,
+      );
     });
   });
 }

@@ -1,20 +1,38 @@
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../domain/notification_permission_gateway.dart';
 import '../domain/notification_permission_status.dart';
 
+final _log = Logger('notification_permission');
+
 class PermissionHandlerNotificationGateway
     implements NotificationPermissionGateway {
   @override
   Future<NotificationPermissionStatus> current() async {
-    final status = await ph.Permission.notification.status;
-    return _mapStatus(status);
+    try {
+      final status = await ph.Permission.notification.status;
+      final mapped = _mapStatus(status);
+      _log.info('Notification permission current: $mapped');
+      return mapped;
+    } catch (e, s) {
+      _log.error('Notification permission current failed', e, s);
+      return NotificationPermissionStatus.denied;
+    }
   }
 
   @override
   Future<NotificationPermissionStatus> request() async {
-    final status = await ph.Permission.notification.request();
-    return _mapStatus(status);
+    try {
+      final status = await ph.Permission.notification.request();
+      final mapped = _mapStatus(status);
+      _log.info('Notification permission request: $mapped');
+      return mapped;
+    } catch (e, s) {
+      _log.error('Notification permission request failed', e, s);
+      return NotificationPermissionStatus.denied;
+    }
   }
 
   @override

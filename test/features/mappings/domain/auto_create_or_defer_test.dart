@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/core/money/currency.dart';
 import 'package:money_sync/core/money/money.dart';
@@ -560,6 +561,46 @@ void main() {
         });
       },
     );
+  });
+
+  group('logging', () {
+    test('logs error when outbox write fails with generic exception', () async {
+      final writer = _SpyWriter(throwOnSubmit: Exception('db write failed'));
+      final rule = makeRule(id: 'r1', syncMode: MappingSyncMode.automatic);
+      final autoCreate = AutoCreateOrDefer(
+        eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+        outboxWriter: writer,
+        capabilities: _capsWithAutoSync,
+        autoCreateEnabled: true,
+        resolveRules: (_) async => [rule],
+        buildPreSendContext: (_) async =>
+            passingContext(resolution: MappingResolved(rule)),
+      );
+
+      final captured = <LogRecord>[];
+      final sub = Logger.root.onRecord.listen(captured.add);
+      addTearDown(sub.cancel);
+
+      final result = await autoCreate(
+        makeCandidate(),
+        senderNormalized: 'SAMPATH BANK',
+        smsEventId: 60,
+        candidatePayload: '{}',
+      );
+
+      expect(result, isA<DeferredToReview>());
+      expect((result as DeferredToReview).reason, 'write_failed');
+
+      expect(
+        captured.any(
+          (r) =>
+              r.level == Level.SEVERE &&
+              r.loggerName == 'mappings.auto_create' &&
+              r.message == 'Write failed',
+        ),
+        isTrue,
+      );
+    });
   });
 }
 
