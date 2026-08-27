@@ -25,7 +25,14 @@ for apk_path in "$@"; do
   permissions="$("${apk_analyzer}" manifest permissions "${apk_path}")"
   manifest="$("${apk_analyzer}" manifest print "${apk_path}")"
 
-  forbidden_permission_pattern='android\.permission\.(READ_SMS|RECEIVE_SMS|SEND_SMS|WRITE_SMS|RECEIVE_MMS|READ_CONTACTS|WRITE_CONTACTS|READ_CALL_LOG|WRITE_CALL_LOG|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION)'
+  apk_basename="$(basename "${apk_path}")"
+
+  # privateFull legitimately carries SMS permissions; skip SMS checks for it.
+  if [[ "${apk_basename}" == *privatefull* ]]; then
+    forbidden_permission_pattern='android\.permission\.(READ_CONTACTS|WRITE_CONTACTS|READ_CALL_LOG|WRITE_CALL_LOG|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION)'
+  else
+    forbidden_permission_pattern='android\.permission\.(READ_SMS|RECEIVE_SMS|SEND_SMS|WRITE_SMS|RECEIVE_MMS|READ_CONTACTS|WRITE_CONTACTS|READ_CALL_LOG|WRITE_CALL_LOG|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|ACCESS_BACKGROUND_LOCATION)'
+  fi
 
   if printf '%s\n' "${permissions}" | rg --quiet "${forbidden_permission_pattern}"; then
     echo "Forbidden Android permission found in ${apk_path}:" >&2
@@ -38,11 +45,14 @@ for apk_path in "$@"; do
     exit 1
   fi
 
-  forbidden_sms_component_pattern='android\.provider\.Telephony\.SMS_RECEIVED|android\.permission\.BROADCAST_SMS|application/vnd\.wap\.mms-message'
-  if printf '%s\n' "${manifest}" | rg --quiet "${forbidden_sms_component_pattern}"; then
-    echo "Forbidden SMS/MMS receiver declaration found in ${apk_path}:" >&2
-    printf '%s\n' "${manifest}" | rg "${forbidden_sms_component_pattern}" >&2
-    exit 1
+  # SMS/MMS receiver checks also skipped for privateFull (it owns the receiver).
+  if [[ "${apk_basename}" != *privatefull* ]]; then
+    forbidden_sms_component_pattern='android\.provider\.Telephony\.SMS_RECEIVED|android\.permission\.BROADCAST_SMS|application/vnd\.wap\.mms-message'
+    if printf '%s\n' "${manifest}" | rg --quiet "${forbidden_sms_component_pattern}"; then
+      echo "Forbidden SMS/MMS receiver declaration found in ${apk_path}:" >&2
+      printf '%s\n' "${manifest}" | rg "${forbidden_sms_component_pattern}" >&2
+      exit 1
+    fi
   fi
 
   echo "Permission audit passed: ${apk_path}"
