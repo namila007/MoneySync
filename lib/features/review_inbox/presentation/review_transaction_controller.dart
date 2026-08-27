@@ -255,7 +255,7 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
           'paymentType': state.paymentType,
           if (state.categoryId != null) 'categoryId': state.categoryId,
           if (state.counterParty.isNotEmpty) 'counterParty': state.counterParty,
-          if (noteWithMarker != null) 'note': noteWithMarker,
+          'note': ?noteWithMarker,
           if (labelIds.isNotEmpty) 'labelIds': labelIds,
         },
         // M5.22 WP-K: always `queued`. This used to write `succeeded` directly

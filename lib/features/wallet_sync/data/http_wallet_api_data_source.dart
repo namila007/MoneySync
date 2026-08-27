@@ -18,10 +18,9 @@ final _log = Logger('HttpWalletApi');
 /// See: https://rest.budgetbakers.com/wallet/reference
 final class HttpWalletApiDataSource implements WalletApiDataSource {
   HttpWalletApiDataSource({
-    required Future<WalletToken> Function() tokenGetter,
+    required this._tokenGetter,
     HttpClientAdapter? httpClientAdapter,
-  }) : _tokenGetter = tokenGetter,
-       _dio = _createDio() {
+  }) : _dio = _createDio() {
     if (httpClientAdapter != null) {
       _dio.httpClientAdapter = httpClientAdapter;
     }

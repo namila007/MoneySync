@@ -33,11 +33,10 @@ final _log = Logger('wallet.transmit');
 final class WalletMutationTransmitter {
   WalletMutationTransmitter({
     required AppDatabase database,
-    required WalletRepository repository,
+    required this._repository,
     RetryScheduler? retryScheduler,
   }) : _database = database,
        _dao = WalletMutationsDao(database: database),
-       _repository = repository,
        _retryScheduler = retryScheduler ?? RetryScheduler();
 
   final AppDatabase _database;
