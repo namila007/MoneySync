@@ -392,6 +392,174 @@ void main() {
         expect(writer.lastItemPayloadCiphertext, '{"amount":-250000}');
       });
     });
+
+    group(
+      'end-to-end: real sender + real eligibility produces AutoCreated',
+      () {
+        test('real sender string matches rule, eligible account from catalog '
+            '-> AutoCreated (not DeferredToReview)', () async {
+          final writer = _SpyWriter();
+          final rule = makeRule(
+            id: 'r1',
+            syncMode: MappingSyncMode.automatic,
+            minConfidenceBasisPoints: 9000,
+          );
+          // Simulate catalog lookup: account from the matched rule.
+          final catalogAccount = WalletAccount(
+            id: 'wallet-r1',
+            name: 'Sampath Vishwa',
+            currencyCode: 'LKR',
+            isArchived: false,
+            isBankSynced: false,
+            isWritable: true,
+          );
+          expect(catalogAccount.eligibility, WalletAccountEligibility.eligible);
+
+          final resolver = MappingRuleResolver(rules: [rule]);
+          final candidate = makeCandidate();
+          final realSender = 'SAMPATH BANK';
+          final resolution = resolver.resolve(
+            MappingResolutionInput(
+              senderNormalized: realSender,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              merchantNormalized: candidate.counterParty ?? '',
+              direction: candidate.direction,
+            ),
+          );
+          expect(resolution, isA<MappingResolved>());
+
+          // Compute eligibility the same way the fixed controllers do.
+          WalletAccount? targetAccount;
+          if (resolution case MappingResolved(:final rule)) {
+            if (rule.walletAccountId == catalogAccount.id) {
+              targetAccount = catalogAccount;
+            }
+          }
+
+          final autoCreate = AutoCreateOrDefer(
+            eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+            outboxWriter: writer,
+            capabilities: _capsWithAutoSync,
+            autoCreateEnabled: true,
+            resolveRules: (_) async => [rule],
+            buildPreSendContext: (_) async => PreSendContext(
+              candidateId: 'candidate-1',
+              amountMinor: candidate.originalAmount.minorUnits,
+              currencyCode: candidate.originalAmount.currency.code,
+              recordDateUtc: candidate.transactionAtUtc,
+              direction: candidate.direction,
+              paymentType: 'debit_card',
+              senderNormalized: realSender,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              privacyEpochMatches: true,
+              consentCurrent: true,
+              connectionConnected: true,
+              eligibleTargetAccount:
+                  targetAccount != null &&
+                  targetAccount.isWritable &&
+                  targetAccount.eligibility ==
+                      WalletAccountEligibility.eligible,
+              targetAccountEligibility:
+                  targetAccount?.eligibility ??
+                  WalletAccountEligibility.missingRequiredFields,
+              mappingResolution: resolution,
+              capabilityCanCreate: true,
+              hasActiveLineage: false,
+              hasOwnedRecordLink: false,
+            ),
+          );
+
+          final outcome = await autoCreate(
+            candidate,
+            senderNormalized: realSender,
+            smsEventId: 51,
+            candidatePayload: '{"test":true}',
+          );
+
+          expect(outcome, isA<AutoCreated>());
+          expect((outcome as AutoCreated).ruleName, 'Rule r1');
+          expect(writer.calls.length, 1);
+        });
+
+        test('ineligible account from catalog -> DeferredToReview '
+            '(gate 4 blocks)', () async {
+          final writer = _SpyWriter();
+          final rule = makeRule(id: 'r1', syncMode: MappingSyncMode.automatic);
+          // Account exists but is archived -> not eligible.
+          final catalogAccount = WalletAccount(
+            id: 'wallet-r1',
+            name: 'Old Account',
+            currencyCode: 'LKR',
+            isArchived: true,
+            isBankSynced: false,
+            isWritable: true,
+          );
+          expect(catalogAccount.eligibility, WalletAccountEligibility.archived);
+
+          final resolver = MappingRuleResolver(rules: [rule]);
+          final candidate = makeCandidate();
+          final realSender = 'SAMPATH BANK';
+          final resolution = resolver.resolve(
+            MappingResolutionInput(
+              senderNormalized: realSender,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              merchantNormalized: candidate.counterParty ?? '',
+              direction: candidate.direction,
+            ),
+          );
+
+          WalletAccount? targetAccount;
+          if (resolution case MappingResolved(:final rule)) {
+            if (rule.walletAccountId == catalogAccount.id) {
+              targetAccount = catalogAccount;
+            }
+          }
+
+          final autoCreate = AutoCreateOrDefer(
+            eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+            outboxWriter: writer,
+            capabilities: _capsWithAutoSync,
+            autoCreateEnabled: true,
+            resolveRules: (_) async => [rule],
+            buildPreSendContext: (_) async => PreSendContext(
+              candidateId: 'candidate-1',
+              amountMinor: candidate.originalAmount.minorUnits,
+              currencyCode: candidate.originalAmount.currency.code,
+              recordDateUtc: candidate.transactionAtUtc,
+              direction: candidate.direction,
+              paymentType: 'debit_card',
+              senderNormalized: realSender,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              privacyEpochMatches: true,
+              consentCurrent: true,
+              connectionConnected: true,
+              eligibleTargetAccount:
+                  targetAccount != null &&
+                  targetAccount.isWritable &&
+                  targetAccount.eligibility ==
+                      WalletAccountEligibility.eligible,
+              targetAccountEligibility:
+                  targetAccount?.eligibility ??
+                  WalletAccountEligibility.missingRequiredFields,
+              mappingResolution: resolution,
+              capabilityCanCreate: true,
+              hasActiveLineage: false,
+              hasOwnedRecordLink: false,
+            ),
+          );
+
+          final outcome = await autoCreate(
+            candidate,
+            senderNormalized: realSender,
+            smsEventId: 52,
+            candidatePayload: '{}',
+          );
+
+          expect(outcome, isA<DeferredToReview>());
+          expect(writer.calls, isEmpty);
+        });
+      },
+    );
   });
 }
 

@@ -78,7 +78,8 @@ class BackgroundCompositionRoot {
       identitySigner: signer,
       notificationService: notifications,
       trackedSendersRepository: DriftTrackedSendersRepository(database: db),
-      candidateHook: (candidate, eventId, candidatePayload) async {
+      candidateHook:
+          (candidate, eventId, candidatePayload, normalizedSender) async {
         try {
           final setting = await (db.select(
             db.appSettings,
@@ -125,12 +126,24 @@ class BackgroundCompositionRoot {
           final resolver = MappingRuleResolver(rules: rules);
           final resolution = resolver.resolve(
             MappingResolutionInput(
-              senderNormalized: candidate.sourceMessageKey,
+              senderNormalized: normalizedSender,
               confidenceBasisPoints: candidate.confidence.basisPoints,
               merchantNormalized: candidate.counterParty ?? '',
               direction: candidate.direction,
             ),
           );
+
+          WalletAccount? targetAccount;
+          if (resolution case MappingResolved(:final rule)) {
+            if (catalog != null) {
+              for (final a in catalog.accounts) {
+                if (a.id == rule.walletAccountId) {
+                  targetAccount = a;
+                  break;
+                }
+              }
+            }
+          }
 
           final autoCreate = AutoCreateOrDefer(
             eligibilityPolicy: const WalletCreateEligibilityPolicy(),
@@ -145,15 +158,20 @@ class BackgroundCompositionRoot {
               recordDateUtc: candidate.transactionAtUtc,
               direction: candidate.direction,
               paymentType: 'debit_card',
-              senderNormalized: candidate.sourceMessageKey,
+              senderNormalized: normalizedSender,
               confidenceBasisPoints: candidate.confidence.basisPoints,
               privacyEpochMatches: privacyEpochMatches,
               consentCurrent:
                   setting.disclosureAccepted && setting.onboardingCompleted,
               connectionConnected:
                   catalog != null && catalog.accounts.isNotEmpty,
-              eligibleTargetAccount: false,
+              eligibleTargetAccount:
+                  targetAccount != null &&
+                  targetAccount.isWritable &&
+                  targetAccount.eligibility ==
+                      WalletAccountEligibility.eligible,
               targetAccountEligibility:
+                  targetAccount?.eligibility ??
                   WalletAccountEligibility.missingRequiredFields,
               mappingResolution: resolution,
               capabilityCanCreate: capabilityCanCreate,
@@ -163,7 +181,7 @@ class BackgroundCompositionRoot {
           );
           final outcome = await autoCreate(
             candidate,
-            senderNormalized: candidate.sourceMessageKey,
+            senderNormalized: normalizedSender,
             smsEventId: eventId,
             candidatePayload: candidatePayload,
           );

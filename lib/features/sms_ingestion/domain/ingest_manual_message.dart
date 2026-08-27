@@ -83,6 +83,7 @@ final class IngestManualMessage {
     TransactionCandidate candidate,
     int eventId,
     String candidatePayload,
+    String normalizedSender,
   )?
   candidateHook;
 
@@ -178,6 +179,7 @@ final class IngestManualMessage {
               candidate,
               result.id,
               _candidatePayload(candidate),
+              accepted.normalizedSender,
             );
           } catch (_) {
             // Hook failure must never fail the ingest — candidate stays
