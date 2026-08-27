@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:drift/drift.dart';
-import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/database/app_database.dart'
+    hide TransactionCandidate;
 import 'package:money_sync/features/notifications/domain/notification_request.dart';
 import 'package:money_sync/features/notifications/domain/notification_service.dart';
 import 'package:money_sync/features/sms_ingestion/application/import_sms_history.dart';
@@ -9,6 +10,7 @@ import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/sms_tracking/domain/tracked_senders.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 
 const NotificationId _scanNotificationId = NotificationId(1001);
 const String _scanChannelId = 'background_sms_scan';
@@ -27,6 +29,7 @@ final class ScanTrackedSenders {
     required this.identitySigner,
     required this.notificationService,
     required this.trackedSendersRepository,
+    this.candidateHook,
   });
 
   final AppDatabase database;
@@ -35,6 +38,14 @@ final class ScanTrackedSenders {
   final SourceIdentitySigner identitySigner;
   final NotificationService notificationService;
   final TrackedSendersRepository trackedSendersRepository;
+
+  /// Optional M6.5 auto-create hook. Passed through to [ImportSmsHistory].
+  final Future<bool> Function(
+    TransactionCandidate candidate,
+    int eventId,
+    String candidatePayload,
+  )?
+  candidateHook;
 
   /// Default scan window for a never-scanned install: 7 days, matching
   /// `HistoryImportPreferences.windowDays`.
@@ -87,6 +98,7 @@ final class ScanTrackedSenders {
       smsHistoryApi: smsHistoryApi,
       registry: registry,
       identitySigner: identitySigner,
+      candidateHook: candidateHook,
     );
 
     var imported = 0;

@@ -1,16 +1,29 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/capabilities/app_capabilities.dart';
+import 'package:money_sync/core/database/app_database.dart'
+    hide TransactionCandidate;
 import 'package:money_sync/core/database/encrypted_database_opener.dart';
 import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
+import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
+import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
+import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
 import 'package:money_sync/features/notifications/data/flutter_local_notifications_service.dart';
 import 'package:money_sync/features/notifications/domain/notification_service.dart';
+import 'package:money_sync/features/review_inbox/data/drift_review_outbox_writer.dart';
+import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/sms_ingestion/data/native_source_identity_signer.dart';
 import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
 import 'package:money_sync/features/sms_ingestion/domain/scan_tracked_senders.dart';
 import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
 import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_repository.dart';
+import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
+import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:logging/logging.dart';
+
+final _log = Logger('sms.background');
 
 /// Builds an isolate-local [ScanTrackedSenders] instance for background
 /// execution. Each call opens its own encrypted database connection and
@@ -65,6 +78,101 @@ class BackgroundCompositionRoot {
       identitySigner: signer,
       notificationService: notifications,
       trackedSendersRepository: DriftTrackedSendersRepository(database: db),
+      candidateHook: (candidate, eventId, candidatePayload) async {
+        try {
+          final setting = await (db.select(
+            db.appSettings,
+          )..where((row) => row.singletonId.equals(1))).getSingle();
+          if (!setting.autoCreateEnabled) return false;
+
+          final store = DriftMappingRuleStore(database: db);
+          final rules = await store.list();
+          const caps = AppCapabilities.m6PrivateFull();
+
+          final cache = DriftWalletCatalogCache(database: db);
+          final catalog = await cache.read();
+
+          final writer = DriftReviewOutboxWriter(database: db);
+          final capabilityRows = await db.select(db.capabilityLedger).get();
+          final evidence = <WalletCapabilityEvidence>[
+            for (final row in capabilityRows)
+              if (_toCapability(row.capability) case final c?)
+                WalletCapabilityEvidence(
+                  capability: c,
+                  outcome: _toOutcome(row.status),
+                  observedAt:
+                      DateTime.tryParse(row.observedOn) ?? DateTime.now(),
+                  contractVersion: _contractVersion,
+                ),
+          ];
+          final capabilityCanCreate = WalletCapabilityLedger(evidence: evidence)
+              .canCreate(
+                now: DateTime.now().toUtc(),
+                compatibleContractVersion: _contractVersion,
+              );
+
+          final event = await db.getSmsEventById(eventId);
+          final privacyEpochMatches =
+              (event?.privacyEpoch ?? setting.privacyEpoch) ==
+              setting.privacyEpoch;
+
+          final candidateId = 'candidate-$eventId';
+          final hasActiveLineage = await writer.hasActiveLineage(candidateId);
+          final linkRows = await (db.select(
+            db.walletRecordLinks,
+          )..where((row) => row.candidateId.equals(candidateId))).get();
+
+          final resolver = MappingRuleResolver(rules: rules);
+          final resolution = resolver.resolve(
+            MappingResolutionInput(
+              senderNormalized: candidate.sourceMessageKey,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              merchantNormalized: candidate.counterParty ?? '',
+              direction: candidate.direction,
+            ),
+          );
+
+          final autoCreate = AutoCreateOrDefer(
+            eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+            outboxWriter: writer,
+            capabilities: caps,
+            autoCreateEnabled: true,
+            resolveRules: (_) async => rules,
+            buildPreSendContext: (_) async => PreSendContext(
+              candidateId: candidateId,
+              amountMinor: candidate.originalAmount.minorUnits,
+              currencyCode: candidate.originalAmount.currency.code,
+              recordDateUtc: candidate.transactionAtUtc,
+              direction: candidate.direction,
+              paymentType: 'debit_card',
+              senderNormalized: candidate.sourceMessageKey,
+              confidenceBasisPoints: candidate.confidence.basisPoints,
+              privacyEpochMatches: privacyEpochMatches,
+              consentCurrent:
+                  setting.disclosureAccepted && setting.onboardingCompleted,
+              connectionConnected:
+                  catalog != null && catalog.accounts.isNotEmpty,
+              eligibleTargetAccount: false,
+              targetAccountEligibility:
+                  WalletAccountEligibility.missingRequiredFields,
+              mappingResolution: resolution,
+              capabilityCanCreate: capabilityCanCreate,
+              hasActiveLineage: hasActiveLineage,
+              hasOwnedRecordLink: linkRows.isNotEmpty,
+            ),
+          );
+          final outcome = await autoCreate(
+            candidate,
+            senderNormalized: candidate.sourceMessageKey,
+            smsEventId: eventId,
+            candidatePayload: candidatePayload,
+          );
+          return outcome is AutoCreated;
+        } catch (e) {
+          _log.warning('Auto-create hook failed', e);
+          return false;
+        }
+      },
     );
   }
 
@@ -80,3 +188,14 @@ class BackgroundCompositionRoot {
     await db.customStatement('PRAGMA busy_timeout = 5000');
   }
 }
+
+const _contractVersion = 'v1.3.0';
+
+WalletRemoteCapability? _toCapability(String value) =>
+    WalletRemoteCapability.values.where((c) => c.name == value).firstOrNull;
+
+WalletCapabilityOutcome _toOutcome(String value) => switch (value) {
+  'pass' => WalletCapabilityOutcome.pass,
+  'fail' => WalletCapabilityOutcome.fail,
+  _ => WalletCapabilityOutcome.unknown,
+};

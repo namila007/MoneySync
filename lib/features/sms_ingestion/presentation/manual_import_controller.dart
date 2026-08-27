@@ -1,10 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
+import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
+import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
+import 'package:money_sync/features/review_inbox/data/drift_review_outbox_writer.dart';
+import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/sms_ingestion/data/share_intent_pigeon.g.dart';
 import 'package:money_sync/features/sms_ingestion/domain/ingest_manual_message.dart';
 import 'package:money_sync/features/sms_ingestion/domain/manual_input_validation.dart';
+import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
+import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
 
 import 'share_intent_controller.dart';
+
+final _log = Logger('manual.import');
 
 enum ManualImportStep { input, preview, result }
 
@@ -145,6 +157,102 @@ class ManualImportController extends Notifier<ManualImportState> {
       final ingest = IngestManualMessage(
         database: db,
         identitySigner: ref.read(sourceIdentitySignerProvider),
+        candidateHook: (candidate, eventId, candidatePayload) async {
+          try {
+            final hookSetting = await (db.select(
+              db.appSettings,
+            )..where((row) => row.singletonId.equals(1))).getSingle();
+            if (!hookSetting.autoCreateEnabled) return false;
+
+            final store = DriftMappingRuleStore(database: db);
+            final rules = await store.list();
+            final caps = ref.read(appCapabilitiesProvider);
+
+            final cache = DriftWalletCatalogCache(database: db);
+            final catalog = await cache.read();
+
+            final writer = DriftReviewOutboxWriter(database: db);
+            final capabilityRows = await db.select(db.capabilityLedger).get();
+            final evidence = <WalletCapabilityEvidence>[
+              for (final row in capabilityRows)
+                if (_toCapability(row.capability) case final c?)
+                  WalletCapabilityEvidence(
+                    capability: c,
+                    outcome: _toOutcome(row.status),
+                    observedAt:
+                        DateTime.tryParse(row.observedOn) ?? DateTime.now(),
+                    contractVersion: _contractVersion,
+                  ),
+            ];
+            final capabilityCanCreate =
+                WalletCapabilityLedger(evidence: evidence).canCreate(
+                  now: DateTime.now().toUtc(),
+                  compatibleContractVersion: _contractVersion,
+                );
+
+            final event = await db.getSmsEventById(eventId);
+            final privacyEpochMatches =
+                (event?.privacyEpoch ?? hookSetting.privacyEpoch) ==
+                hookSetting.privacyEpoch;
+
+            final candidateId = 'candidate-$eventId';
+            final hasActiveLineage = await writer.hasActiveLineage(candidateId);
+            final linkRows = await (db.select(
+              db.walletRecordLinks,
+            )..where((row) => row.candidateId.equals(candidateId))).get();
+
+            final resolver = MappingRuleResolver(rules: rules);
+            final resolution = resolver.resolve(
+              MappingResolutionInput(
+                senderNormalized: candidate.sourceMessageKey,
+                confidenceBasisPoints: candidate.confidence.basisPoints,
+                merchantNormalized: candidate.counterParty ?? '',
+                direction: candidate.direction,
+              ),
+            );
+
+            final autoCreate = AutoCreateOrDefer(
+              eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+              outboxWriter: writer,
+              capabilities: caps,
+              autoCreateEnabled: true,
+              resolveRules: (_) async => rules,
+              buildPreSendContext: (_) async => PreSendContext(
+                candidateId: candidateId,
+                amountMinor: candidate.originalAmount.minorUnits,
+                currencyCode: candidate.originalAmount.currency.code,
+                recordDateUtc: candidate.transactionAtUtc,
+                direction: candidate.direction,
+                paymentType: 'debit_card',
+                senderNormalized: candidate.sourceMessageKey,
+                confidenceBasisPoints: candidate.confidence.basisPoints,
+                privacyEpochMatches: privacyEpochMatches,
+                consentCurrent:
+                    hookSetting.disclosureAccepted &&
+                    hookSetting.onboardingCompleted,
+                connectionConnected:
+                    catalog != null && catalog.accounts.isNotEmpty,
+                eligibleTargetAccount: false,
+                targetAccountEligibility:
+                    WalletAccountEligibility.missingRequiredFields,
+                mappingResolution: resolution,
+                capabilityCanCreate: capabilityCanCreate,
+                hasActiveLineage: hasActiveLineage,
+                hasOwnedRecordLink: linkRows.isNotEmpty,
+              ),
+            );
+            final outcome = await autoCreate(
+              candidate,
+              senderNormalized: candidate.sourceMessageKey,
+              smsEventId: eventId,
+              candidatePayload: candidatePayload,
+            );
+            return outcome is AutoCreated;
+          } catch (e) {
+            _log.warning('Auto-create hook failed', e);
+            return false;
+          }
+        },
       );
       final outcome = await ingest(
         rawBody: body,
@@ -241,3 +349,14 @@ final manualImportProvider =
     NotifierProvider<ManualImportController, ManualImportState>(
       ManualImportController.new,
     );
+
+const _contractVersion = 'v1.3.0';
+
+WalletRemoteCapability? _toCapability(String value) =>
+    WalletRemoteCapability.values.where((c) => c.name == value).firstOrNull;
+
+WalletCapabilityOutcome _toOutcome(String value) => switch (value) {
+  'pass' => WalletCapabilityOutcome.pass,
+  'fail' => WalletCapabilityOutcome.fail,
+  _ => WalletCapabilityOutcome.unknown,
+};
