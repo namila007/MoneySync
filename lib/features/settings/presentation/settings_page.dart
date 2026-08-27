@@ -25,6 +25,8 @@ class SettingsPage extends ConsumerWidget {
         configStateAsync.value?.secureWindowEnabled ?? true;
     final autoImportEnabled =
         configStateAsync.value?.autoImportEnabled ?? false;
+    final autoCreateEnabled =
+        configStateAsync.value?.autoCreateEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -121,11 +123,14 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.walletConnection.path),
               ),
-              const _ReadOnlySettingTile(
-                title: 'Processing default',
-                value: 'Review',
-                explanation: 'Review is the current safe default.',
-                icon: Icons.rate_review_outlined,
+              SwitchListTile(
+                secondary: const Icon(Icons.rate_review_outlined),
+                title: const Text('Auto-create'),
+                subtitle: const Text(
+                  'Automatically queue transactions matched by automatic mapping rules',
+                ),
+                value: autoCreateEnabled,
+                onChanged: (value) => _toggleAutoCreate(ref, value),
               ),
             ],
           ),
@@ -185,6 +190,12 @@ Future<void> _toggleAutoImport(WidgetRef ref, bool enabled) async {
   }
 }
 
+Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
+  final repo = await ref.read(configurationRepositoryProvider.future);
+  await repo.updateAutoCreateEnabled(enabled);
+  ref.invalidate(_configurationStateProvider);
+}
+
 class _ConfigurationSummary extends StatelessWidget {
   const _ConfigurationSummary({required this.flavor});
 
@@ -237,31 +248,6 @@ class _ConfigurationSection extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _ReadOnlySettingTile extends StatelessWidget {
-  const _ReadOnlySettingTile({
-    required this.title,
-    required this.value,
-    required this.explanation,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String explanation;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      minVerticalPadding: 12,
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(explanation),
-      trailing: Text(value),
     );
   }
 }
