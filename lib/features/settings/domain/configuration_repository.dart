@@ -10,4 +10,5 @@ abstract interface class ConfigurationRepository {
   Future<void> updateSecureWindowEnabled(bool enabled);
   Future<void> updateAutoImportEnabled(bool enabled);
   Future<void> updateAutoCreateEnabled(bool enabled);
+  Future<void> updateAutoImportIntervalMinutes(int minutes);
 }
