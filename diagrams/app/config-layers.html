@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneySync — Capability & Config Layers</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--paper:#f5f5f5;--ink:#2d3142;--muted:#4f5d75;--accent:#eb6c36;--link:#2e5aa8;
+      --sans:'Geist',system-ui,sans-serif;--serif:'Instrument Serif',serif;--mono:'Geist Mono',ui-monospace,monospace}
+    body{font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
+    .frame{max-width:1200px;width:100%}
+    .eyebrow{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+    h1{font-family:var(--serif);font-size:clamp(1.5rem,2.4vw+.75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:1.5rem}
+    svg{width:100%;display:block}
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Layer Stack · Configuration</p>
+    <h1>Capability &amp; Config Gating</h1>
+
+    <svg viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="layers-title layers-desc">
+      <title id="layers-title">Capability and Configuration Gating Layers</title>
+      <desc id="layers-desc">Layer stack showing the two-layer gating model: compile-time AppConfig per flavor, runtime persisted settings, and the 13 capability flags.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Direction indicator -->
+      <text x="16" y="200" fill="var(--muted)" font-size="8" font-family="var(--mono)" text-anchor="middle" transform="rotate(-90 16 200)" letter-spacing=".12em">CONTROL ↑</text>
+
+      <!-- Layer 1: Compile-time (focal) -->
+      <rect x="40" y="28" width="920" height="72" rx="6" fill="rgba(235,108,54,.04)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="60" y="48" fill="var(--accent)" font-size="8" font-family="var(--mono)" font-weight="600" letter-spacing=".14em">COMPILE-TIME</text>
+      <text x="200" y="48" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)">AppConfig per entry point</text>
+      <text x="500" y="48" fill="var(--muted)" font-size="9" font-family="var(--mono)">privateFull → {smsPermission} · playManual → {}</text>
+
+      <text x="60" y="76" fill="var(--muted)" font-size="9" font-family="var(--sans)">Flavor · Capabilities set · Wallet origin · Log policy · Mutation port</text>
+      <text x="500" y="76" fill="var(--muted)" font-size="9" font-family="var(--mono)" font-style="italic">ProductionPolicy.capabilitiesFor(preference) → always m0</text>
+
+      <!-- Layer 2: Runtime -->
+      <rect x="40" y="112" width="920" height="64" rx="6" fill="rgba(45,49,66,.02)" stroke="rgba(45,49,66,.12)" stroke-width=".8"/>
+      <text x="60" y="132" fill="rgba(45,49,66,.50)" font-size="8" font-family="var(--mono)" font-weight="600" letter-spacing=".14em">RUNTIME (PERSISTED)</text>
+      <text x="220" y="132" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)">app_settings + schema_metadata</text>
+
+      <text x="60" y="156" fill="var(--muted)" font-size="9" font-family="var(--sans)">privacy_epoch · onboarding_completed · retention_days · history_sms_enabled · processing_mode</text>
+      <text x="60" y="168" fill="var(--muted)" font-size="8" font-family="var(--mono)">Emergency disablement only — preference never overrides AppCapabilities</text>
+
+      <!-- Layer 3: Capability Flags -->
+      <rect x="40" y="192" width="920" height="80" rx="6" fill="rgba(45,49,66,.02)" stroke="rgba(45,49,66,.10)" stroke-width=".8"/>
+      <text x="60" y="212" fill="rgba(45,49,66,.50)" font-size="8" font-family="var(--mono)" font-weight="600" letter-spacing=".14em">CAPABILITY FLAGS (13)</text>
+      <text x="220" y="212" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)">All default OFF</text>
+
+      <!-- Capability chips -->
+      <rect x="60" y="228" width="80" height="24" rx="4" fill="rgba(235,108,54,.08)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="100" y="244" fill="var(--accent)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">smsPermission</text>
+
+      <rect x="152" y="228" width="72" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="188" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">historySms</text>
+
+      <rect x="236" y="228" width="80" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="276" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">walletCreate</text>
+
+      <rect x="328" y="228" width="64" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="360" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">walletPatch</text>
+
+      <rect x="404" y="228" width="64" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="436" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">walletDel</text>
+
+      <rect x="480" y="228" width="60" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="510" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">receiveSms</text>
+
+      <rect x="552" y="228" width="56" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="580" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">liveSync</text>
+
+      <rect x="620" y="228" width="48" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="644" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">ml</text>
+
+      <rect x="680" y="228" width="56" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="708" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">transfers</text>
+
+      <rect x="748" y="228" width="60" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="778" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">automation</text>
+
+      <rect x="820" y="228" width="60" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="850" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">analytics</text>
+
+      <rect x="892" y="228" width="56" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="920" y="244" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">crashSdk</text>
+
+      <text x="60" y="264" fill="var(--muted)" font-size="8" font-family="var(--mono)" font-style="italic">walletCreate OFF — create path terminates at FakeWalletApiDataSource</text>
+
+      <!-- Layer 4: Production Policy -->
+      <rect x="40" y="288" width="920" height="64" rx="6" fill="rgba(45,49,66,.02)" stroke="rgba(45,49,66,.10)" stroke-width=".8"/>
+      <text x="60" y="308" fill="rgba(45,49,66,.50)" font-size="8" font-family="var(--mono)" font-weight="600" letter-spacing=".14em">PRODUCTION POLICY</text>
+      <text x="220" y="308" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)">What runs in production</text>
+
+      <text x="60" y="332" fill="var(--muted)" font-size="9" font-family="var(--sans)">HTTPS pinned · Catalog v1.3.0 · GET-only reader · FakeAPI data source · debug log denied</text>
+      <text x="60" y="344" fill="var(--muted)" font-size="8" font-family="var(--mono)">Mutation port: ProductionDisabledWalletMutationPort (always)</text>
+
+      <!-- Layer 5: Build Flavors -->
+      <rect x="40" y="368" width="920" height="24" rx="6" fill="rgba(45,49,66,.04)" stroke="rgba(45,49,66,.10)" stroke-width=".8"/>
+      <text x="60" y="384" fill="rgba(45,49,66,.50)" font-size="8" font-family="var(--mono)" font-weight="600" letter-spacing=".14em">BUILD FLAVORS</text>
+      <text x="200" y="384" fill="var(--muted)" font-size="9" font-family="var(--sans)">privateFull (SMS) · playManual (no permissions) — minSdk 24, Java 17, SQLCipher</text>
+
+      <!-- Legend -->
+      <line x1="30" y1="410" x2="970" y2="410" stroke="rgba(45,49,66,.10)" stroke-width=".8"/>
+      <text x="30" y="428" fill="var(--muted)" font-size="8" font-family="var(--mono)" letter-spacing=".14em">LEGEND</text>
+      <rect x="100" y="420" width="60" height="10" rx="4" fill="rgba(235,108,54,.08)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="168" y="428" fill="var(--muted)" font-size="8" font-family="var(--mono)">Enabled capability</text>
+      <rect x="280" y="420" width="60" height="10" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="348" y="428" fill="var(--muted)" font-size="8" font-family="var(--mono)">Disabled (default)</text>
+      <rect x="460" y="420" width="60" height="10" rx="6" fill="rgba(235,108,54,.04)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="528" y="428" fill="var(--muted)" font-size="8" font-family="var(--mono)">Focal layer</text>
+    </svg>
+  </div>
+</body>
+</html>
