@@ -29,6 +29,13 @@ final class AppCapabilities {
         AppCapability.walletCreate,
       });
 
+  const AppCapabilities.m6PrivateFull()
+    : this._(const <AppCapability>{
+        AppCapability.smsPermission,
+        AppCapability.walletCreate,
+        AppCapability.automaticSync,
+      });
+
   final Set<AppCapability> _enabled;
 
   bool isEnabled(AppCapability capability) => _enabled.contains(capability);

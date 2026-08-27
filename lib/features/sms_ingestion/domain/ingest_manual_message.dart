@@ -79,7 +79,12 @@ final class IngestManualMessage {
   /// (ManualIngestStored). Returns true when the candidate was auto-created
   /// (written to the outbox, no longer needs review). The hook is pure
   /// domain — no DB, no Riverpod — injected by the caller.
-  final Future<bool> Function(TransactionCandidate candidate)? candidateHook;
+  final Future<bool> Function(
+    TransactionCandidate candidate,
+    int eventId,
+    String candidatePayload,
+  )?
+  candidateHook;
 
   /// Keyed-HMAC boundary for canonical identity (M4.14 WP4). Required: a
   /// message must never be stored under a weak hash. Wired by the caller with
@@ -169,7 +174,11 @@ final class IngestManualMessage {
         final hook = candidateHook;
         if (hook != null && candidate != null) {
           try {
-            autoCreated = await hook(candidate);
+            autoCreated = await hook(
+              candidate,
+              result.id,
+              _candidatePayload(candidate),
+            );
           } catch (_) {
             // Hook failure must never fail the ingest — candidate stays
             // needsReview, which is the safe default.
