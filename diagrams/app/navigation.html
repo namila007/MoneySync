@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneySync — Navigation Tree</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--paper:#f5f5f5;--ink:#2d3142;--muted:#4f5d75;--accent:#eb6c36;--link:#2e5aa8;
+      --sans:'Geist',system-ui,sans-serif;--serif:'Instrument Serif',serif;--mono:'Geist Mono',ui-monospace,monospace}
+    body{font-family:var(--sans);background:var(--paper);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
+    .frame{max-width:1200px;width:100%}
+    .eyebrow{font-family:var(--mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+    h1{font-family:var(--serif);font-size:clamp(1.5rem,2.4vw+.75rem,2rem);font-weight:400;letter-spacing:-.02em;line-height:1.15;margin-bottom:1.5rem}
+    svg{width:100%;display:block}
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Tree · Navigation</p>
+    <h1>Route &amp; Screen Tree</h1>
+
+    <svg viewBox="0 0 1000 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="nav-title nav-desc">
+      <title id="nav-title">MoneySync Navigation Tree</title>
+      <desc id="nav-desc">Tree diagram showing the GoRouter route hierarchy: onboarding, lock, 4-tab shell, and settings sub-pages.</desc>
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker>
+      </defs>
+      <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+      <!-- Onboarding (root) -->
+      <rect x="400" y="24" width="120" height="36" rx="6" fill="var(--ink)" stroke="var(--ink)" stroke-width="1"/>
+      <text x="460" y="46" fill="#fff" font-size="11" font-weight="600" font-family="var(--sans)" text-anchor="middle">/onboarding</text>
+
+      <!-- Lock -->
+      <rect x="240" y="24" width="100" height="36" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="290" y="46" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)" text-anchor="middle">/lock</text>
+
+      <line x1="360" y1="42" x2="340" y2="42" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="342" y="34" width="16" height="10" rx="2" fill="var(--paper)"/>
+      <text x="350" y="42" fill="var(--muted)" font-size="7" font-family="var(--mono)" text-anchor="middle">→</text>
+
+      <!-- AppShell -->
+      <rect x="360" y="100" width="160" height="40" rx="6" fill="rgba(235,108,54,.06)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="440" y="124" fill="var(--accent)" font-size="11" font-weight="600" font-family="var(--sans)" text-anchor="middle">AppShell · /</text>
+
+      <line x1="440" y1="60" x2="440" y2="100" stroke="var(--accent)" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <rect x="424" y="74" width="32" height="10" rx="2" fill="var(--paper)"/>
+      <text x="440" y="82" fill="var(--accent)" font-size="7" font-family="var(--mono)" text-anchor="middle">NAV</text>
+
+      <!-- Bottom nav tabs -->
+      <line x1="440" y1="140" x2="120" y2="180" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="440" y1="140" x2="340" y2="180" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="440" y1="140" x2="540" y2="180" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="440" y1="140" x2="740" y2="180" stroke="var(--muted)" stroke-width="1"/>
+
+      <!-- Home -->
+      <rect x="60" y="184" width="120" height="32" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="120" y="204" fill="var(--ink)" font-size="10" font-weight="600" font-family="var(--sans)" text-anchor="middle">/ (Home)</text>
+
+      <!-- Inbox -->
+      <rect x="280" y="184" width="120" height="32" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="340" y="204" fill="var(--ink)" font-size="10" font-weight="600" font-family="var(--sans)" text-anchor="middle">/inbox</text>
+
+      <!-- Mappings -->
+      <rect x="480" y="184" width="120" height="32" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="540" y="204" fill="var(--ink)" font-size="10" font-weight="600" font-family="var(--sans)" text-anchor="middle">/mappings</text>
+
+      <!-- Activity -->
+      <rect x="680" y="184" width="120" height="32" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="740" y="204" fill="var(--ink)" font-size="10" font-weight="600" font-family="var(--sans)" text-anchor="middle">/activity</text>
+
+      <!-- Home children -->
+      <line x1="120" y1="216" x2="120" y2="248" stroke="var(--muted)" stroke-width="1"/>
+      <rect x="72" y="252" width="96" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="120" y="268" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">health tiles</text>
+
+      <line x1="120" y1="276" x2="120" y2="296" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="72" y="300" width="96" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="120" y="316" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">latest record</text>
+
+      <!-- Inbox children -->
+      <line x1="340" y1="216" x2="280" y2="248" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="340" y1="216" x2="400" y2="248" stroke="var(--muted)" stroke-width="1"/>
+
+      <rect x="228" y="252" width="104" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="280" y="268" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">/inbox/import</text>
+
+      <rect x="348" y="252" width="104" height="24" rx="4" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="400" y="268" fill="var(--ink)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">/inbox/detail/:id</text>
+
+      <line x1="400" y1="276" x2="400" y2="296" stroke="var(--ink)" stroke-width="1"/>
+      <rect x="340" y="300" width="120" height="24" rx="4" fill="rgba(235,108,54,.06)" stroke="var(--accent)" stroke-width="1"/>
+      <text x="400" y="316" fill="var(--accent)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">Review Panel</text>
+
+      <line x1="400" y1="324" x2="400" y2="340" stroke="var(--accent)" stroke-width="1"/>
+      <rect x="356" y="344" width="88" height="20" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="400" y="358" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">gates → write</text>
+
+      <!-- Mappings children -->
+      <line x1="540" y1="216" x2="500" y2="248" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="540" y1="216" x2="580" y2="248" stroke="var(--muted)" stroke-width="1"/>
+
+      <rect x="456" y="252" width="88" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="500" y="268" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">/mappings/new</text>
+
+      <rect x="536" y="252" width="88" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="580" y="268" fill="var(--muted)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">/:id/edit</text>
+
+      <!-- Settings -->
+      <rect x="860" y="100" width="112" height="36" rx="6" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="916" y="122" fill="var(--ink)" font-size="11" font-weight="600" font-family="var(--sans)" text-anchor="middle">/settings</text>
+
+      <path d="M 500 120 H 848 Q 856 120 856 128 V 100 H 860" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="668" y="106" width="56" height="10" rx="2" fill="var(--paper)"/>
+      <text x="696" y="114" fill="var(--muted)" font-size="7" font-family="var(--mono)" text-anchor="middle">action</text>
+
+      <!-- Settings children -->
+      <line x1="916" y1="136" x2="880" y2="164" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="916" y1="136" x2="920" y2="164" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="916" y1="136" x2="960" y2="164" stroke="var(--muted)" stroke-width="1"/>
+
+      <rect x="836" y="168" width="88" height="24" rx="4" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="880" y="184" fill="var(--ink)" font-size="9" font-weight="600" font-family="var(--sans)" text-anchor="middle">/wallet</text>
+
+      <rect x="896" y="168" width="48" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="920" y="184" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">security</text>
+
+      <rect x="936" y="168" width="48" height="24" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="960" y="184" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">data</text>
+
+      <!-- Wallet children -->
+      <line x1="880" y1="192" x2="860" y2="220" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="880" y1="192" x2="880" y2="220" stroke="var(--muted)" stroke-width="1"/>
+      <line x1="880" y1="192" x2="900" y2="220" stroke="var(--muted)" stroke-width="1"/>
+
+      <rect x="820" y="224" width="80" height="20" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="860" y="238" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">/retry</text>
+
+      <rect x="848" y="224" width="64" height="20" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="880" y="238" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">/waiting</text>
+
+      <rect x="872" y="224" width="56" height="20" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="900" y="238" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">/success</text>
+
+      <!-- Detail pages -->
+      <line x1="900" y1="244" x2="900" y2="268" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="856" y="272" width="88" height="20" rx="4" fill="#fff" stroke="var(--muted)" stroke-width="1"/>
+      <text x="900" y="286" fill="var(--muted)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">detail pages</text>
+
+      <!-- Legend -->
+      <line x1="30" y1="380" x2="970" y2="380" stroke="rgba(45,49,66,.10)" stroke-width=".8"/>
+      <text x="30" y="398" fill="var(--muted)" font-size="8" font-family="var(--mono)" letter-spacing=".14em">LEGEND</text>
+      <rect x="100" y="390" width="60" height="12" rx="4" fill="var(--ink)"/>
+      <text x="130" y="399" fill="#fff" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">Entry</text>
+      <rect x="176" y="390" width="60" height="12" rx="4" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+      <text x="206" y="399" fill="var(--ink)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">Route</text>
+      <rect x="252" y="390" width="60" height="12" rx="4" fill="rgba(235,108,54,.06)" stroke="var(--accent)" stroke-width="1.5"/>
+      <text x="282" y="399" fill="var(--accent)" font-size="8" font-weight="600" font-family="var(--sans)" text-anchor="middle">Shell</text>
+      <line x1="328" y1="396" x2="348" y2="396" stroke="var(--muted)" stroke-width="1"/>
+      <text x="356" y="398" fill="var(--muted)" font-size="8" font-family="var(--mono)">Direct</text>
+      <line x1="400" y1="396" x2="420" y2="396" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4,3"/>
+      <text x="428" y="398" fill="var(--muted)" font-size="8" font-family="var(--mono)">Guard / action</text>
+      <text x="560" y="398" fill="var(--muted)" font-size="8" font-family="var(--mono)">4 tabs: Home · Inbox · Mappings · Activity</text>
+    </svg>
+  </div>
+</body>
+</html>

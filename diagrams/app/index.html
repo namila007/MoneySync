@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneySync — Diagram Index</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --paper: #f5f5f5; --ink: #2d3142; --muted: #4f5d75;
+      --accent: #eb6c36; --link: #2e5aa8; --rule: rgba(45,49,66,0.12);
+      --sans: 'Geist', system-ui, sans-serif;
+      --serif: 'Instrument Serif', serif;
+      --mono: 'Geist Mono', ui-monospace, monospace;
+    }
+    body { font-family: var(--sans); background: var(--paper); color: var(--ink); min-height: 100vh; padding: 3rem 2rem; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .eyebrow { font-family: var(--mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.5rem; }
+    h1 { font-family: var(--serif); font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem); font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); margin-bottom: 0.5rem; }
+    .subtitle { font-size: 0.95rem; color: var(--muted); margin-bottom: 2rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; }
+    .card { background: #fff; border: 1px solid var(--rule); border-radius: 6px; padding: 1.25rem; text-decoration: none; color: var(--ink); transition: border-color 0.15s; display: flex; flex-direction: column; gap: 0.5rem; }
+    .card:hover { border-color: var(--accent); }
+    .card-tag { font-family: var(--mono); font-size: 0.6rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+    .card h2 { font-family: var(--serif); font-size: 1.15rem; font-weight: 400; letter-spacing: -0.01em; }
+    .card p { font-size: 0.85rem; color: var(--muted); line-height: 1.4; }
+    .card-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-er { background: var(--ink); }
+    .dot-arch { background: var(--accent); }
+    .dot-flow { background: var(--ink); }
+    .dot-state { background: var(--muted); }
+    .dot-layers { background: var(--muted); }
+    .dot-timeline { background: var(--accent); }
+    .source { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+    footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+    footer a { color: var(--muted); }
+    @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p class="eyebrow">Diagrams · Status Reference</p>
+    <h1>MoneySync Diagrams</h1>
+    <p class="subtitle">Visual reference for the MoneySync app status documentation. Each diagram summarizes one status file.</p>
+
+    <div class="grid">
+      <a href="er-diagram.html" class="card">
+        <span class="card-tag">ER Diagram</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-er"></span><h2>Data Model</h2></div>
+        <p>Core tables and cardinality relationships — schema v15, 21 tables, Drift/SQLCipher.</p>
+        <span class="source">source: database.md</span>
+      </a>
+
+      <a href="architecture.html" class="card">
+        <span class="card-tag">Architecture</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-arch"></span><h2>Clean Architecture</h2></div>
+        <p>Four-layer dependency rule — Presentation → Application → Domain ← Data.</p>
+        <span class="source">source: architecture.md</span>
+      </a>
+
+      <a href="navigation.html" class="card">
+        <span class="card-tag">Tree</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-flow"></span><h2>Navigation Tree</h2></div>
+        <p>GoRouter route hierarchy — 4-tab shell, settings sub-pages, review panel flow.</p>
+        <span class="source">source: views.md</span>
+      </a>
+
+      <a href="user-flows.html" class="card">
+        <span class="card-tag">Flowchart</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-flow"></span><h2>Review → Create Gates</h2></div>
+        <p>8-step pre-send eligibility gate chain from inbox review to atomic outbox write.</p>
+        <span class="source">source: user-flows.md</span>
+      </a>
+
+      <a href="outbox-state-machine.html" class="card">
+        <span class="card-tag">State Machine</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-state"></span><h2>Outbox Lifecycle</h2></div>
+        <p>Mutation states — queued → syncing → succeeded, with retry and recovery paths.</p>
+        <span class="source">source: user-flows.md</span>
+      </a>
+
+      <a href="config-layers.html" class="card">
+        <span class="card-tag">Layer Stack</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-layers"></span><h2>Capability Gating</h2></div>
+        <p>Two-layer gating — compile-time AppConfig, runtime settings, 13 capability flags.</p>
+        <span class="source">source: configurations.md</span>
+      </a>
+
+      <a href="milestone-timeline.html" class="card" style="grid-column: 1 / -1;">
+        <span class="card-tag">Timeline</span>
+        <div style="display:flex;align-items:center;gap:0.5rem"><span class="card-dot dot-timeline"></span><h2>M5 Milestone Progression</h2></div>
+        <p>M5.1 → M5.23 with schema versions, key deliverables, and the exit gate.</p>
+        <span class="source">source: current-app-status.md</span>
+      </a>
+    </div>
+
+    <footer>
+      Generated 2026-08-27 · MoneySync status diagrams · <a href="../current-app-status.md">current-app-status.md</a>
+    </footer>
+  </div>
+</body>
+</html>
