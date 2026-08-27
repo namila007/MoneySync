@@ -61,7 +61,7 @@ void main() {
     final database = await opener.open();
     addTearDown(database.close);
 
-    expect(database.schemaVersion, 15);
+    expect(database.schemaVersion, 16);
     expect(await database.smsEvents.count().getSingle(), 0);
     expect(await File(databasePath).exists(), isTrue);
   });
