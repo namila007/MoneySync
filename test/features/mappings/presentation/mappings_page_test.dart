@@ -6,6 +6,8 @@ import 'package:money_sync/features/mappings/domain/use_cases/save_mapping_rule.
 import 'package:money_sync/features/mappings/presentation/mapping_editor_page.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/mappings/presentation/mappings_page.dart';
+import 'package:money_sync/features/sms_tracking/domain/tracked_senders.dart';
+import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_controller.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
 void main() {
@@ -32,6 +34,7 @@ void main() {
           (ref) async => [rule('a'), rule('b', enabled: false)],
         ),
         walletCatalogProvider.overrideWith((ref) async => null),
+        trackedSendersProvider.overrideWith((ref) async => const []),
       ],
       child: MaterialApp(home: child),
     );
@@ -70,6 +73,11 @@ void main() {
             (ref) async => _FakeMappingRuleStore(),
           ),
           walletCatalogProvider.overrideWith((ref) async => null),
+          trackedSendersProvider.overrideWith(
+            (ref) async => [
+              TrackedSender.create('SAMPATH BANK', addedAtEpochMs: 0),
+            ],
+          ),
         ],
         child: const MaterialApp(home: MappingEditorPage()),
       ),
@@ -78,7 +86,8 @@ void main() {
 
     expect(find.text('New mapping'), findsOneWidget);
     expect(find.text('Rule name'), findsOneWidget);
-    expect(find.text('Sender (comma separated)'), findsOneWidget);
+    expect(find.text('Senders'), findsOneWidget);
+    expect(find.text('SAMPATH BANK'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Save mapping'),
       200,
@@ -97,6 +106,7 @@ void main() {
             (ref) async => _FakeMappingRuleStore(),
           ),
           walletCatalogProvider.overrideWith((ref) async => null),
+          trackedSendersProvider.overrideWith((ref) async => const []),
         ],
         child: const MaterialApp(home: MappingEditorPage()),
       ),
@@ -147,6 +157,11 @@ void main() {
           mappingRuleStoreProvider.overrideWith((ref) async => store),
           mappingRuleListProvider.overrideWith((ref) async => store.list()),
           walletCatalogProvider.overrideWith((ref) async => catalog),
+          trackedSendersProvider.overrideWith(
+            (ref) async => [
+              TrackedSender.create('SAMPATH BANK', addedAtEpochMs: 0),
+            ],
+          ),
         ],
         child: MaterialApp(navigatorKey: navKey, home: const MappingsPage()),
       ),
@@ -167,10 +182,10 @@ void main() {
       find.widgetWithText(TextFormField, 'Rule name'),
       'Test Rule',
     );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Sender (comma separated)'),
-      'SAMPATH BANK',
-    );
+
+    // Select tracked sender from picker.
+    await tester.tap(find.text('SAMPATH BANK'));
+    await tester.pumpAndSettle();
 
     // Select wallet account from dropdown.
     await tester.tap(find.text('Wallet account'));

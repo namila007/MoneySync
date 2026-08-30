@@ -7,6 +7,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
+import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_controller.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
@@ -27,8 +28,8 @@ class MappingEditorPage extends ConsumerStatefulWidget {
 class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _senderController = TextEditingController();
   final _instrumentController = TextEditingController();
+  List<String> _selectedSenders = const [];
   final _merchantController = TextEditingController();
   MappingSyncMode _syncMode = MappingSyncMode.review;
   String? _walletAccountId;
@@ -49,7 +50,6 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
   @override
   void dispose() {
     _nameController.dispose();
-    _senderController.dispose();
     _instrumentController.dispose();
     _merchantController.dispose();
     super.dispose();
@@ -69,7 +69,7 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
         return;
       }
       _nameController.text = rule.name;
-      _senderController.text = rule.senderMatcher.aliases.join(', ');
+      _selectedSenders = List<String>.of(rule.senderMatcher.aliases);
       _instrumentController.text = rule.instrumentSuffixHash ?? '';
       _merchantController.text = switch (rule.merchantMatcher) {
         ExactMerchantMatcher(merchant: final m) => m,
@@ -99,8 +99,7 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
   }
 
   MappingRule? _buildDraft() {
-    final aliases = _senderController.text
-        .split(',')
+    final aliases = _selectedSenders
         .map((a) => a.trim())
         .where((a) => a.isNotEmpty)
         .toList();
@@ -211,15 +210,10 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
                   (v == null || v.trim().isEmpty) ? 'Enter a rule name' : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _senderController,
-              decoration: const InputDecoration(
-                labelText: 'Sender (comma separated)',
-                helperText: 'Exact normalized sender aliases',
-              ),
-              validator: (v) => (v == null || v.trim().isEmpty)
-                  ? 'Enter at least one sender'
-                  : null,
+            _SenderPicker(
+              selectedSenders: _selectedSenders,
+              onChanged: (senders) =>
+                  setState(() => _selectedSenders = senders),
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -294,9 +288,8 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
       'rule-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}';
 }
 
-/// Wallet target picker. Bank-synced/archived accounts stay visible but
-/// disabled with an explanation (plan/04 mapping editor); foreign-currency
-/// accounts are excluded for M5 (same-currency only).
+/// Wallet target picker. Only shows eligible (writable, same-currency)
+/// accounts — a rule can only target an account it could actually write to.
 class _WalletAccountPicker extends ConsumerWidget {
   const _WalletAccountPicker({
     required this.selectedAccountId,
@@ -334,7 +327,11 @@ class _WalletAccountPicker extends ConsumerWidget {
               );
             }
             final lkrAccounts = catalog.accounts
-                .where((a) => a.currencyCode.toUpperCase() == 'LKR')
+                .where(
+                  (a) =>
+                      a.currencyCode.toUpperCase() == 'LKR' &&
+                      a.eligibility == WalletAccountEligibility.eligible,
+                )
                 .toList();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,38 +345,16 @@ class _WalletAccountPicker extends ConsumerWidget {
                     for (final account in lkrAccounts)
                       DropdownMenuItem(
                         value: account.id,
-                        enabled:
-                            account.eligibility ==
-                            WalletAccountEligibility.eligible,
-                        child: Text(
-                          account.isBankSynced
-                              ? '${account.name} (bank-synced)'
-                              : account.name,
-                        ),
+                        child: Text(account.name),
                       ),
                   ],
                   onChanged: (id) {
                     if (id == null) return;
-                    final account = lkrAccounts.firstWhere((a) => a.id == id);
-                    if (account.eligibility !=
-                        WalletAccountEligibility.eligible) {
-                      return;
-                    }
                     onAccountChanged(id, null);
                   },
                   validator: (v) =>
                       v == null ? 'Choose a Wallet account' : null,
                 ),
-                if (lkrAccounts.any(
-                  (a) => a.eligibility != WalletAccountEligibility.eligible,
-                ))
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      _disabledAccountsHint(lkrAccounts),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: paymentType,
@@ -413,25 +388,70 @@ class _WalletAccountPicker extends ConsumerWidget {
       ],
     );
   }
+}
 
-  static String _disabledAccountsHint(List<WalletAccount> accounts) {
-    final reasons = accounts
-        .where((a) => a.eligibility != WalletAccountEligibility.eligible)
-        .map(
-          (a) => switch (a.eligibility) {
-            WalletAccountEligibility.bankSynced =>
-              '${a.name} is bank-synced (not writable)',
-            WalletAccountEligibility.archived => '${a.name} is archived',
-            WalletAccountEligibility.unwritable =>
-              '${a.name} is not yet writable',
-            WalletAccountEligibility.missingRequiredFields =>
-              '${a.name} requires a currency or name from Wallet',
-            WalletAccountEligibility.foreignCurrencyReviewOnly =>
-              '${a.name} uses a different currency (review only)',
-            WalletAccountEligibility.eligible => '',
-          },
+class _SenderPicker extends ConsumerWidget {
+  const _SenderPicker({required this.selectedSenders, required this.onChanged});
+
+  final List<String> selectedSenders;
+  final ValueChanged<List<String>> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trackedAsync = ref.watch(trackedSendersProvider);
+
+    return trackedAsync.when(
+      loading: () => const LinearProgressIndicator(),
+      error: (_, _) => const Text('Could not load tracked senders.'),
+      data: (senders) {
+        if (senders.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('No tracked senders configured.'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Add senders in Settings → Tracked Senders first.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        final addresses = [for (final s in senders) s.address];
+        return Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  'Senders',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              for (final addr in addresses)
+                CheckboxListTile(
+                  value: selectedSenders.contains(addr),
+                  onChanged: (checked) {
+                    final next = checked == true
+                        ? [...selectedSenders, addr]
+                        : selectedSenders.where((a) => a != addr).toList();
+                    onChanged(next);
+                  },
+                  title: Text(addr),
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+            ],
+          ),
         );
-    return reasons.where((r) => r.isNotEmpty).join('. ');
+      },
+    );
   }
 }
 
