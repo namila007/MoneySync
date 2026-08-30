@@ -3,6 +3,7 @@ import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/core/database/app_database.dart'
     hide TransactionCandidate;
 import 'package:money_sync/core/database/encrypted_database_opener.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
@@ -188,8 +189,8 @@ class BackgroundCompositionRoot {
                 candidatePayload: candidatePayload,
               );
               return outcome is AutoCreated;
-            } catch (e) {
-              _log.warning('Auto-create hook failed', e);
+            } catch (e, s) {
+              _log.error('Auto-create hook failed', e, s);
               return false;
             }
           },
