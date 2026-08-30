@@ -40,6 +40,10 @@ void main() {
   late FakeAndroidPlugin fakeAndroid;
   late FlutterLocalNotificationsPlugin plugin;
 
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+  });
+
   setUp(() {
     fakeAndroid = FakeAndroidPlugin();
     plugin = FlutterLocalNotificationsPlugin();
@@ -142,5 +146,77 @@ void main() {
         isTrue,
       );
     });
+
+    test(
+      'show does not throw when service is never explicitly initialized',
+      () async {
+        final lazyFakeAndroid = FakeAndroidPlugin();
+        final lazyPlugin = FlutterLocalNotificationsPlugin();
+        FlutterLocalNotificationsPlatform.instance = lazyFakeAndroid;
+        final lazyService = FlutterLocalNotificationsService(
+          plugin: lazyPlugin,
+        );
+
+        const request = NotificationRequest(
+          id: NotificationId(20),
+          channelId: 'test_channel',
+          channelName: 'Test Channel',
+          title: 'Lazy init test',
+          body: 'Should trigger init',
+        );
+
+        await expectLater(lazyService.show(request), completes);
+        expect(lazyFakeAndroid.shown, hasLength(1));
+      },
+    );
+
+    test(
+      'cancel does not throw when service is never explicitly initialized',
+      () async {
+        final lazyFakeAndroid = FakeAndroidPlugin();
+        final lazyPlugin = FlutterLocalNotificationsPlugin();
+        FlutterLocalNotificationsPlatform.instance = lazyFakeAndroid;
+        final lazyService = FlutterLocalNotificationsService(
+          plugin: lazyPlugin,
+        );
+
+        await expectLater(
+          lazyService.cancel(const NotificationId(30)),
+          completes,
+        );
+        expect(lazyFakeAndroid.cancelled, contains(30));
+      },
+    );
+
+    test(
+      'multiple show calls do not throw when service is never initialized',
+      () async {
+        final lazyFakeAndroid = FakeAndroidPlugin();
+        final lazyPlugin = FlutterLocalNotificationsPlugin();
+        FlutterLocalNotificationsPlatform.instance = lazyFakeAndroid;
+        final lazyService = FlutterLocalNotificationsService(
+          plugin: lazyPlugin,
+        );
+
+        const request1 = NotificationRequest(
+          id: NotificationId(40),
+          channelId: 'test_channel',
+          channelName: 'Test Channel',
+          title: 'First',
+          body: 'First body',
+        );
+        const request2 = NotificationRequest(
+          id: NotificationId(41),
+          channelId: 'test_channel',
+          channelName: 'Test Channel',
+          title: 'Second',
+          body: 'Second body',
+        );
+
+        await expectLater(lazyService.show(request1), completes);
+        await expectLater(lazyService.show(request2), completes);
+        expect(lazyFakeAndroid.shown, hasLength(2));
+      },
+    );
   });
 }

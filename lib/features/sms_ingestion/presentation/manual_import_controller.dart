@@ -16,6 +16,7 @@ import 'package:money_sync/features/transaction_parser/domain/transaction_candid
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/domain/resolve_default_wallet_labels.dart';
 
 import 'share_intent_controller.dart';
 
@@ -266,23 +267,8 @@ class ManualImportController extends Notifier<ManualImportState> {
                     hasActiveLineage: hasActiveLineage,
                     hasOwnedRecordLink: linkRows.isNotEmpty,
                   ),
-                  ensureDefaultLabels: (selected) async {
-                    final ids = {...selected};
-                    for (final name in [
-                      'money_sync',
-                      if (const bool.fromEnvironment('E2E_LABEL')) 'test',
-                    ]) {
-                      final id = await walletRepository.ensureLabel(name);
-                      if (id == null) {
-                        Logger('auto_create').error(
-                          'Could not resolve or create label: SafeErrorCode: $name',
-                        );
-                        continue;
-                      }
-                      ids.add(id);
-                    }
-                    return ids.toList(growable: false);
-                  },
+                  ensureDefaultLabels: (selected) =>
+                      resolveDefaultWalletLabels(walletRepository, selected),
                   notificationService: ref.read(notificationServiceProvider),
                   resolveReviewCount: () async {
                     final candidates = await db

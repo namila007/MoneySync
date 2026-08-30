@@ -21,6 +21,7 @@ import 'package:money_sync/features/wallet_sync/application/wallet_mutation_tran
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/domain/resolve_default_wallet_labels.dart';
 
 final log = Logger('review');
 
@@ -472,25 +473,9 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
     _ => WalletPaymentType.debitCard,
   };
 
-  /// Adds the `money_sync` label (and `test`, under the E2E flag) to the
-  /// user's selected labels, creating either in Wallet if absent (M5.22
-  /// WP-L). A label that cannot be resolved is dropped, not fatal — a
-  /// missing label must never block recording a real transaction.
   Future<List<String>> _ensureDefaultLabels(List<String> selected) async {
     final repository = ref.read(walletRepositoryProvider);
-    final ids = {...selected};
-    for (final name in [
-      'money_sync',
-      if (const bool.fromEnvironment('E2E_LABEL')) 'test',
-    ]) {
-      final id = await repository.ensureLabel(name);
-      if (id == null) {
-        log.error('Could not resolve or create label: SafeErrorCode: $name');
-        continue;
-      }
-      ids.add(id);
-    }
-    return ids.toList(growable: false);
+    return resolveDefaultWalletLabels(repository, selected);
   }
 
   /// Builds the `note` field for the Wallet API: `[sw:<marker>] <userNote>`.

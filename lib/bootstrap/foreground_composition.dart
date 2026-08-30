@@ -49,6 +49,7 @@ import 'package:money_sync/features/wallet_sync/application/wallet_mutation_reco
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/domain/resolve_default_wallet_labels.dart';
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   (ref) async {
@@ -263,23 +264,8 @@ Future<void> runAppOpenCatchUpScan({
                 hasActiveLineage: hasActiveLineage,
                 hasOwnedRecordLink: linkRows.isNotEmpty,
               ),
-              ensureDefaultLabels: (selected) async {
-                final ids = {...selected};
-                for (final name in [
-                  'money_sync',
-                  if (const bool.fromEnvironment('E2E_LABEL')) 'test',
-                ]) {
-                  final id = await walletRepository.ensureLabel(name);
-                  if (id == null) {
-                    Logger('auto_create').error(
-                      'Could not resolve or create label: SafeErrorCode: $name',
-                    );
-                    continue;
-                  }
-                  ids.add(id);
-                }
-                return ids.toList(growable: false);
-              },
+              ensureDefaultLabels: (selected) =>
+                  resolveDefaultWalletLabels(walletRepository, selected),
               notificationService: notificationService,
               resolveReviewCount: () async {
                 final candidates = await database
