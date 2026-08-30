@@ -231,6 +231,20 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     final onboardingRepo = DriftOnboardingRepository(database: db);
 
     final channel = ref.read(nativeSecurityChannelProvider);
+
+    // Apply the persisted screenshot-protection preference as early as
+    // possible. Kotlin defaults to ON (fail-safe); this resolves to the
+    // user's saved choice once Dart can read it.
+    try {
+      final configRepo = DriftConfigurationRepository(database: db);
+      final config = await configRepo.load();
+      await channel.setSecureWindowProtection(
+        enabled: config.secureWindowEnabled,
+      );
+    } catch (e, s) {
+      log.error('setSecureWindowProtection failed at startup', e, s);
+    }
+
     final databasePath = await channel.getSensitiveDatabasePath();
     final clearService = ClearLocalDataService(
       database: db,
