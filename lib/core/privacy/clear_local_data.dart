@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/privacy/reset_tombstone.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 
@@ -125,7 +127,9 @@ final class ClearLocalDataService {
         await database.delete(database.activityEvents).go();
         await database.delete(database.decisionTraces).go();
       });
-    } on Exception {
+    } on Object catch (e, s) {
+      final logger = Logger('ClearLocalDataService');
+      logger.error('Failed to clear activity events and decision traces', e, s);
       return const ClearLocalDataResult(
         epochAdvanced: false,
         keysDeleted: false,

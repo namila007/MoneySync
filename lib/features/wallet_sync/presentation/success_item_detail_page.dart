@@ -180,7 +180,7 @@ class SuccessItemDetailPage extends ConsumerWidget {
     final formatted = majorUnits
         .toStringAsFixed(2)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return minorUnits < 0 ? '-$formatted' : formatted;
+    return formatted;
   }
 
   String _formatTime(int epochMs) {

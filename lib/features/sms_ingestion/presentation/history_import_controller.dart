@@ -12,6 +12,8 @@ import 'package:money_sync/features/sms_ingestion/application/import_sms_history
 import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
 import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart'
+    show CandidateRecordState;
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
@@ -233,6 +235,7 @@ class HistoryImportController extends Notifier<HistoryImportState> {
                 }
               }
 
+              final walletRepository = ref.read(walletRepositoryProvider);
               final autoCreate = AutoCreateOrDefer(
                 eligibilityPolicy: const WalletCreateEligibilityPolicy(),
                 outboxWriter: writer,
@@ -266,6 +269,32 @@ class HistoryImportController extends Notifier<HistoryImportState> {
                   hasActiveLineage: hasActiveLineage,
                   hasOwnedRecordLink: linkRows.isNotEmpty,
                 ),
+                ensureDefaultLabels: (selected) async {
+                  final ids = {...selected};
+                  for (final name in [
+                    'money_sync',
+                    if (const bool.fromEnvironment('E2E_LABEL')) 'test',
+                  ]) {
+                    final id = await walletRepository.ensureLabel(name);
+                    if (id == null) {
+                      _log.error(
+                        'Could not resolve or create label: SafeErrorCode: $name',
+                      );
+                      continue;
+                    }
+                    ids.add(id);
+                  }
+                  return ids.toList(growable: false);
+                },
+                notificationService: ref.read(notificationServiceProvider),
+                resolveReviewCount: () async {
+                  final candidates = await db
+                      .select(db.transactionCandidates)
+                      .get();
+                  return candidates
+                      .where((r) => r.state == CandidateRecordState.needsReview)
+                      .length;
+                },
               );
               final outcome = await autoCreate(
                 candidate,

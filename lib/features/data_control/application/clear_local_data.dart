@@ -1,4 +1,6 @@
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 
@@ -24,7 +26,9 @@ final class ClearLocalDataUseCase implements IClearLocalDataUseCase {
         success: result.activityCleared,
         epochAdvanced: result.activityCleared,
       );
-    } on Exception {
+    } on Object catch (e, s) {
+      final logger = Logger('ClearLocalDataUseCase');
+      logger.error('Activity clear failed', e, s);
       return const ClearActivityResult(
         success: false,
         errorMessage: 'Activity clear failed. Try again.',
@@ -42,7 +46,9 @@ final class ClearLocalDataUseCase implements IClearLocalDataUseCase {
         keysDeleted: result.keysDeleted,
         databaseRemoved: result.databaseRemoved,
       );
-    } on Exception {
+    } on Object catch (e, s) {
+      final logger = Logger('ClearLocalDataUseCase');
+      logger.error('Reset all local data failed', e, s);
       return const ResetAllDataResult(
         success: false,
         errorMessage: 'Reset failed. Restart the app and try again.',
