@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 
@@ -173,9 +175,8 @@ Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
     await const NativeSecurityChannel().setSecureWindowProtection(
       enabled: enabled,
     );
-  } catch (_) {
-    // Non-fatal: the preference is persisted; the native call is best-effort
-    // (e.g. unavailable before the engine fully wires the channel).
+  } catch (e, s) {
+    Logger('security').error('setSecureWindowProtection failed', e, s);
   }
 }
 
