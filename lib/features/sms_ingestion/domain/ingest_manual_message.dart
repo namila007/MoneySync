@@ -1,14 +1,18 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/core/database/app_database.dart'
     hide TransactionCandidate;
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/sms_ingestion/domain/financial_message_filter.dart';
 import 'package:money_sync/features/sms_ingestion/domain/manual_input_validation.dart';
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/transaction_parser/domain/interpret_message.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
+
+final _log = Logger('mappings.auto_create');
 
 enum IngestionSource { manualPaste, shareIntent, historySelection }
 
@@ -181,9 +185,11 @@ final class IngestManualMessage {
               _candidatePayload(candidate),
               accepted.normalizedSender,
             );
-          } catch (_) {
+          } catch (e, s) {
             // Hook failure must never fail the ingest — candidate stays
-            // needsReview, which is the safe default.
+            // needsReview, which is the safe default. Logged so a silent
+            // hook failure is never invisible (found during device testing).
+            _log.error('Auto-create hook threw before returning', e, s);
           }
         }
         return ManualIngestStored(

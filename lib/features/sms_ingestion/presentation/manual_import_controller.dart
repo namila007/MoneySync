@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/bootstrap/providers.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
 import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
@@ -270,8 +271,8 @@ class ManualImportController extends Notifier<ManualImportState> {
                   candidatePayload: candidatePayload,
                 );
                 return outcome is AutoCreated;
-              } catch (e) {
-                _log.warning('Auto-create hook failed', e);
+              } catch (e, s) {
+                _log.error('Auto-create hook failed', e, s);
                 return false;
               }
             },
