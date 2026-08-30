@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
+import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
-
-final configurationProvider = FutureProvider<ConfigurationState?>((ref) async {
-  try {
-    final repo = ref.watch(configurationRepositoryProvider).requireValue;
-    return await repo.load();
-  } catch (_) {
-    return null;
-  }
-});
+import 'package:money_sync/features/settings/presentation/configuration_providers.dart';
 
 class SecurityPrivacyPage extends ConsumerWidget {
   const SecurityPrivacyPage({super.key});
@@ -22,7 +17,7 @@ class SecurityPrivacyPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final configAsync = ref.watch(configurationProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Security & Privacy')),
+      appBar: AppBar(title: const Text('App Security')),
       body: configAsync.when(
         data: (config) {
           if (config == null) {
@@ -53,7 +48,7 @@ class SecurityPrivacyPage extends ConsumerWidget {
             children: [
               _AppLockSection(config: config),
               const Divider(),
-              _RetentionSection(config: config),
+              _ScreenshotProtectionSection(config: config),
               const Divider(),
               const _SecureStatusTile(),
             ],
@@ -165,39 +160,20 @@ class _AppLockSection extends ConsumerWidget {
   }
 }
 
-class _RetentionSection extends ConsumerWidget {
-  const _RetentionSection({required this.config});
+class _ScreenshotProtectionSection extends ConsumerWidget {
+  const _ScreenshotProtectionSection({required this.config});
   final ConfigurationState config;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          child: Text(
-            'Local copy retention',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-        ),
-        ListTile(
-          title: const Text('Raw app copy'),
-          subtitle: Text(
-            config.retention.rawCopyDays > 0
-                ? 'Keep for ${config.retention.rawCopyDays} days'
-                : 'Purge after processing',
-          ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _showRawCopyRetentionDialog(context, config, ref),
-        ),
-        ListTile(
-          title: const Text('Activity history'),
-          subtitle: Text('${config.retention.activityRetentionDays} days'),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => _showActivityRetentionDialog(context, config, ref),
-        ),
-      ],
+    return SwitchListTile(
+      secondary: const Icon(Icons.screenshot_monitor_outlined),
+      title: const Text('Screenshot protection'),
+      subtitle: const Text(
+        'Blocks screenshots and screen recording of the app.',
+      ),
+      value: config.secureWindowEnabled,
+      onChanged: (enabled) => _toggleSecureWindow(ref, enabled),
     );
   }
 }
@@ -219,112 +195,15 @@ class _SecureStatusTile extends StatelessWidget {
   }
 }
 
-void _showRawCopyRetentionDialog(
-  BuildContext context,
-  ConfigurationState config,
-  WidgetRef ref,
-) {
-  var selected = config.retention.rawCopyDays;
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('Raw app copy retention'),
-        content: RadioGroup<int>(
-          groupValue: selected,
-          onChanged: (v) {
-            if (v == null) return;
-            setState(() => selected = v);
-          },
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<int>(
-                title: Text('Purge after processing'),
-                value: 0,
-              ),
-              RadioListTile<int>(title: Text('7 days'), value: 7),
-              RadioListTile<int>(title: Text('14 days'), value: 14),
-              RadioListTile<int>(title: Text('30 days'), value: 30),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final repo = ref
-                  .read(configurationRepositoryProvider)
-                  .requireValue;
-              await repo.updateRetention(
-                RetentionPreferences(
-                  rawCopyDays: selected,
-                  activityRetentionDays: config.retention.activityRetentionDays,
-                ),
-              );
-              ref.invalidate(configurationProvider);
-              if (context.mounted) Navigator.of(context).pop();
-            },
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-void _showActivityRetentionDialog(
-  BuildContext context,
-  ConfigurationState config,
-  WidgetRef ref,
-) {
-  var selected = config.retention.activityRetentionDays;
-  showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: const Text('Activity retention'),
-        content: RadioGroup<int>(
-          groupValue: selected,
-          onChanged: (v) {
-            if (v == null) return;
-            setState(() => selected = v);
-          },
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              RadioListTile<int>(title: Text('90 days'), value: 90),
-              RadioListTile<int>(title: Text('180 days'), value: 180),
-              RadioListTile<int>(title: Text('365 days'), value: 365),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final repo = ref
-                  .read(configurationRepositoryProvider)
-                  .requireValue;
-              await repo.updateRetention(
-                RetentionPreferences(
-                  rawCopyDays: config.retention.rawCopyDays,
-                  activityRetentionDays: selected,
-                ),
-              );
-              ref.invalidate(configurationProvider);
-              if (context.mounted) Navigator.of(context).pop();
-            },
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
-    ),
-  );
+Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
+  final repo = ref.read(configurationRepositoryProvider).requireValue;
+  await repo.updateSecureWindowEnabled(enabled);
+  ref.invalidate(configurationProvider);
+  try {
+    await const NativeSecurityChannel().setSecureWindowProtection(
+      enabled: enabled,
+    );
+  } catch (e, s) {
+    Logger('security').error('setSecureWindowProtection failed', e, s);
+  }
 }

@@ -183,6 +183,11 @@ void main() {
 
       expect(find.text('Checking message reading status'), findsOneWidget);
       expect(tester.takeException(), isNull);
+
+      // Drain the SmsPermissionNotifier's 5s .timeout() Timer so it doesn't
+      // trip Flutter's "no pending timers" invariant at test teardown — the
+      // gateway never resolves by design, so nothing else lets it clear.
+      await tester.pump(const Duration(seconds: 6));
     });
   });
 
@@ -268,6 +273,11 @@ void main() {
 
           expect(find.text('Checking notification status'), findsOneWidget);
           expect(tester.takeException(), isNull);
+
+          // Drain the NotificationPermissionNotifier's 5s .timeout() Timer
+          // so it doesn't trip Flutter's "no pending timers" invariant at
+          // test teardown — the gateway never resolves by design.
+          await tester.pump(const Duration(seconds: 6));
         },
       );
     },

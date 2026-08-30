@@ -1,3 +1,4 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/providers.dart';
@@ -10,6 +11,8 @@ import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
+import 'package:money_sync/features/notifications/data/flutter_local_notifications_service.dart';
+import 'package:money_sync/features/notifications/domain/notification_service.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/onboarding/domain/onboarding_repository.dart';
 import 'package:money_sync/features/sms_ingestion/data/native_source_identity_signer.dart';
@@ -96,4 +99,9 @@ final walletRepositoryProvider = Provider<WalletRepository>((ref) {
     );
   }
   return WalletRepository(dataSource: FakeWalletApiDataSource());
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  final plugin = FlutterLocalNotificationsPlugin();
+  return FlutterLocalNotificationsService(plugin: plugin);
 });

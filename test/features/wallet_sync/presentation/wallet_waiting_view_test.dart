@@ -15,6 +15,11 @@ void main() {
   group('WaitingView', () {
     AppDatabase createDb() => AppDatabase.inMemoryForTesting();
 
+    Future<void> flushDrift(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
     Future<void> insertQueued(
       AppDatabase database, {
       String id = 'm1',
@@ -58,25 +63,27 @@ void main() {
           );
     }
 
-    Widget makeApp(AppDatabase database) => ProviderScope(
-      overrides: [
-        appDatabaseProvider.overrideWith((ref) async {
-          ref.onDispose(database.close);
-          return database;
-        }),
-      ],
-      child: MaterialApp.router(
-        routerConfig: GoRouter(
-          initialLocation: '/settings/wallet/waiting',
-          routes: [
-            GoRoute(
-              path: '/settings/wallet/waiting',
-              builder: (_, _) => const WaitingView(),
-            ),
-          ],
+    Widget makeApp(AppDatabase database) {
+      addTearDown(database.close);
+      return ProviderScope(
+        overrides: [
+          appDatabaseProvider.overrideWith((ref) async {
+            return database;
+          }),
+        ],
+        child: MaterialApp.router(
+          routerConfig: GoRouter(
+            initialLocation: '/settings/wallet/waiting',
+            routes: [
+              GoRoute(
+                path: '/settings/wallet/waiting',
+                builder: (_, _) => const WaitingView(),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
 
     testWidgets('shows empty state when no queued mutations', (tester) async {
       final database = createDb();
@@ -85,6 +92,7 @@ void main() {
 
       expect(find.text('No pending transactions.'), findsOneWidget);
       expect(find.byType(Checkbox), findsNothing);
+      await flushDrift(tester);
     });
 
     testWidgets('renders queued mutations in the list', (tester) async {
@@ -96,6 +104,7 @@ void main() {
 
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.byType(Checkbox), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('renders syncing mutations in the list', (tester) async {
@@ -106,8 +115,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('LKR'), findsOneWidget);
-      // Syncing state should be shown.
       expect(find.textContaining('syncing'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('checkbox toggles selection and shows Approve action', (
@@ -126,6 +135,7 @@ void main() {
 
       expect(find.textContaining('Approve (1)'), findsOneWidget);
       expect(find.text('Clear'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('checkbox toggle off hides Approve action', (tester) async {
@@ -135,15 +145,14 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Select.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve (1)'), findsOneWidget);
 
-      // Deselect.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve'), findsNothing);
+      await flushDrift(tester);
     });
 
     testWidgets('Clear button resets selection', (tester) async {
@@ -153,16 +162,15 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Select.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve (1)'), findsOneWidget);
 
-      // Clear.
       await tester.tap(find.text('Clear'));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Approve'), findsNothing);
+      await flushDrift(tester);
     });
 
     testWidgets('multiple mutations can be selected', (tester) async {
@@ -174,16 +182,15 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Three checkboxes should be present.
       expect(find.byType(Checkbox), findsNWidgets(3));
 
-      // Select two.
       await tester.tap(find.byType(Checkbox).at(0));
       await tester.pumpAndSettle();
       await tester.tap(find.byType(Checkbox).at(1));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Approve (2)'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows AppBar with "Waiting" title', (tester) async {
@@ -192,6 +199,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Waiting'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('formats amount correctly', (tester) async {
@@ -205,8 +213,8 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // 1234500 minor units = 12,345.00
       expect(find.textContaining('12,345.00'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('action bar is reachable (M5.22)', (tester) async {
@@ -216,16 +224,13 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Select to make the action bar visible.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
       final approveBtn = find.textContaining('Approve');
       expect(approveBtn, findsOneWidget);
-
-      // The approve button is in the AppBar actions, so it's always reachable.
-      // Verify it can be found (is in the widget tree).
       expect(approveBtn, findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows amount with default currency LKR', (tester) async {
@@ -236,6 +241,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('LKR'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows default kind when missing from payload', (tester) async {
@@ -245,8 +251,8 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Default kind is 'expense'.
       expect(find.textContaining('expense'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('handles malformed JSON payload gracefully', (tester) async {
@@ -256,9 +262,9 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Should not crash; defaults to 0 amount.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('0.00'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows created time in subtitle', (tester) async {
@@ -268,8 +274,8 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // The subtitle should contain the formatted time.
       expect(find.byType(ListTile), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('list items show chevron_right icon', (tester) async {
@@ -280,22 +286,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows loading state when mutations are loading', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
-            waitingMutationsProvider.overrideWithValue(
-              AsyncValue<List<WalletMutation>>.loading(),
+            waitingMutationsProvider.overrideWith(
+              (ref) => const Stream<List<WalletMutation>>.empty(),
             ),
           ],
           child: MaterialApp.router(
@@ -314,22 +321,23 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows error state when mutations fail to load', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
-            waitingMutationsProvider.overrideWithValue(
-              AsyncValue<List<WalletMutation>>.error(
+            waitingMutationsProvider.overrideWith(
+              (ref) => Stream<List<WalletMutation>>.error(
                 Exception('DB failure'),
                 StackTrace.empty,
               ),
@@ -348,22 +356,23 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(find.textContaining('Error:'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('approve selected mutations shows snackbar result', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertQueued(database, id: 'm1');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
             walletRepositoryProvider.overrideWithValue(
@@ -385,16 +394,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Select the mutation.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
 
-      // Tap Approve.
       await tester.tap(find.textContaining('Approve'));
       await tester.pumpAndSettle();
 
-      // Should show a snackbar with the result.
       expect(find.textContaining('succeeded'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('handles non-Map JSON payload gracefully', (tester) async {
@@ -404,12 +411,14 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Array JSON decoded but not a Map -> falls back to empty map.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('0.00'), findsOneWidget);
+      await flushDrift(tester);
     });
 
-    testWidgets('negative amount shows minus sign', (tester) async {
+    testWidgets('negative-stored amount never renders with a leading minus', (
+      tester,
+    ) async {
       final database = createDb();
       await insertQueued(
         database,
@@ -419,19 +428,21 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('-50.00'), findsOneWidget);
+      expect(find.textContaining('50.00'), findsOneWidget);
+      expect(find.textContaining('-50.00'), findsNothing);
       expect(find.textContaining('refund'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('trailing icon button navigates to detail', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertQueued(database, id: 'm-detail');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -456,23 +467,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap the trailing icon button.
       await tester.tap(find.byIcon(Icons.chevron_right));
       await tester.pumpAndSettle();
 
-      // Should navigate to the detail page.
       expect(find.text('Detail: m-detail'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('list tile tap navigates to detail', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertQueued(database, id: 'm-tap');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -497,25 +507,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Tap the ListTile itself.
       await tester.tap(find.byType(ListTile));
       await tester.pumpAndSettle();
 
       expect(find.text('Detail: m-tap'), findsOneWidget);
+      await flushDrift(tester);
     });
+
     testWidgets('approve with failing repository shows failure in snackbar', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertQueued(database, id: 'm-fail');
 
-      // Create a data source that throws a non-WalletApiDataSourceException,
-      // which will propagate through the repository to _approveSelected's catch.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
             walletRepositoryProvider.overrideWithValue(
@@ -543,15 +552,34 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Select and approve.
       await tester.tap(find.byType(Checkbox));
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Approve'));
       await tester.pumpAndSettle();
 
-      // Should show a snackbar with 0 succeeded, 1 failed.
       expect(find.textContaining('succeeded'), findsOneWidget);
       expect(find.textContaining('failed'), findsOneWidget);
+      await flushDrift(tester);
+    });
+
+    testWidgets('live stream shows new mutations without invalidation', (
+      tester,
+    ) async {
+      final database = createDb();
+
+      await tester.pumpWidget(makeApp(database));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No pending transactions.'), findsOneWidget);
+
+      await insertQueued(database, id: 'm-live');
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('No pending transactions.'), findsNothing);
+      expect(find.textContaining('LKR'), findsOneWidget);
+      await flushDrift(tester);
     });
   });
 }

@@ -9,20 +9,23 @@ import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 /// Mutations in retryScheduled state, for the retry view.
-final retryMutationsProvider = FutureProvider<List<WalletMutation>>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return (db.select(db.walletMutations)
-        ..where(
-          (m) => m.state.equals(
-            storedMutationState(WalletMutationState.retryScheduled),
-          ),
-        )
-        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
-        ..limit(200))
-      .get();
-});
+/// StreamProvider watching wallet_mutations directly, mirroring
+/// homeWalletHealthProvider's pattern — refreshes live without manual
+/// invalidation.
+final retryMutationsProvider = StreamProvider.autoDispose<List<WalletMutation>>(
+  (ref) async* {
+    final db = await ref.watch(appDatabaseProvider.future);
+    yield* (db.select(db.walletMutations)
+          ..where(
+            (m) => m.state.equals(
+              storedMutationState(WalletMutationState.retryScheduled),
+            ),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+          ..limit(200))
+        .watch();
+  },
+);
 
 class RetryView extends ConsumerStatefulWidget {
   const RetryView({super.key});
@@ -96,7 +99,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
       dao: WalletMutationsDao(database: db),
     );
     await actions.retryNow(mutationId);
-    ref.invalidate(retryMutationsProvider);
   }
 
   Future<void> _retrySelected() async {
@@ -110,7 +112,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
     }
     if (!mounted) return;
     setState(() => _selected.clear());
-    ref.invalidate(retryMutationsProvider);
   }
 
   Future<void> _retryAll() async {
@@ -124,7 +125,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
       await actions.retryNow(m.id);
     }
     if (!mounted) return;
-    ref.invalidate(retryMutationsProvider);
   }
 
   String _formatTime(int epochMs) {
