@@ -199,5 +199,38 @@ void main() {
       // back out negative — the M5.22 WP-M sign convention.
       expect(dataSource.lastCreatePayload!.amountMinor, -12050);
     });
+
+    testWidgets('displays labels as chips (M6.11)', (tester) async {
+      final db = createDb();
+      await db
+          .into(db.walletMutations)
+          .insert(
+            WalletMutationsCompanion.insert(
+              id: 'm-labels-1',
+              operationKind: WalletMutationOperation.create,
+              payload:
+                  '{"amountMinor":5000,"currencyCode":"LKR","kind":"expense",'
+                  '"direction":"debit","paymentType":"debit_card",'
+                  '"accountId":"acc-1","categoryId":"cat-1",'
+                  '"counterParty":"Test","labelIds":["label-1","label-2"]}',
+              state: WalletMutationState.queued,
+              lineageKey: 'lineage-m-labels-1',
+              fingerprint: 'fp-m-labels-1',
+              createdAtEpochMs: 1000000,
+              updatedAtEpochMs: 1000000,
+            ),
+          );
+
+      await tester.pumpWidget(wrap(db, 'm-labels-1'));
+      await tester.pumpAndSettle();
+
+      // Scroll to bring label section into view
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      // Labels row should be visible with chips (not comma-joined string)
+      expect(find.text('Labels'), findsOneWidget);
+      expect(find.byType(Chip), findsWidgets);
+    });
   });
 }
