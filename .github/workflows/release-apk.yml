@@ -1,0 +1,84 @@
+name: Release APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+        type: string
+      changelog:
+        description: "Release notes (leave empty to use CHANGELOG.md)"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Release APKs
+    uses: ./.github/workflows/_reusable/build-apks.yml
+    with:
+      build-mode: release
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Download Play APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-playmanual-release
+          path: release-assets/
+
+      - name: Download Private APK
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-privatefull-release
+          path: release-assets/
+
+      - name: Resolve release notes
+        id: notes
+        env:
+          INPUT_CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          if [[ -n "${INPUT_CHANGELOG}" ]]; then
+            echo "Using provided changelog input"
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            echo "${INPUT_CHANGELOG}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          elif [[ -f CHANGELOG.md ]]; then
+            echo "Using CHANGELOG.md"
+            echo "notes<<EOF" >> $GITHUB_OUTPUT
+            cat CHANGELOG.md >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "Using auto-generated notes"
+            echo "notes=Release ${{ inputs.tag }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE_FLAG=""
+          if [[ "${{ inputs.prerelease }}" == "true" ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          
+          gh release create "${{ inputs.tag }}" \
+            --title "Release ${{ inputs.tag }}" \
+            --notes "${{ steps.notes.outputs.notes }}" \
+            ${PRERELEASE_FLAG} \
+            release-assets/app-playmanual-release.apk \
+            release-assets/app-privatefull-release.apk
