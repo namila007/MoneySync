@@ -80,19 +80,22 @@ class _AppLockSection extends ConsumerWidget {
           value: config.appLock.enabled,
           onChanged: (value) async {
             if (value) {
-              final auth = ref.read(freshAuthPortProvider).asData?.value;
-              if (auth == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Device authentication is not available.'),
-                  ),
+              try {
+                final auth = await ref.read(freshAuthPortProvider.future);
+                final outcome = await auth.authenticate(
+                  purpose: 'Enable app lock',
                 );
-                return;
-              }
-              final outcome = await auth.authenticate(
-                purpose: 'Enable app lock',
-              );
-              if (outcome != DeviceAuthOutcome.authenticated) {
+                if (outcome != DeviceAuthOutcome.authenticated) {
+                  return;
+                }
+              } on Object {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Device authentication is not available.'),
+                    ),
+                  );
+                }
                 return;
               }
             } else {
@@ -118,7 +121,7 @@ class _AppLockSection extends ConsumerWidget {
               );
               if (confirmed != true) return;
             }
-            final repo = ref.read(configurationRepositoryProvider).requireValue;
+            final repo = await ref.read(configurationRepositoryProvider.future);
             await repo.updateAppLock(
               AppLockPreferences(
                 enabled: value,
@@ -142,9 +145,9 @@ class _AppLockSection extends ConsumerWidget {
             ],
             onChanged: (value) async {
               if (value == null) return;
-              final repo = ref
-                  .read(configurationRepositoryProvider)
-                  .requireValue;
+              final repo = await ref.read(
+                configurationRepositoryProvider.future,
+              );
               await repo.updateAppLock(
                 AppLockPreferences(
                   enabled: config.appLock.enabled,
@@ -196,7 +199,7 @@ class _SecureStatusTile extends StatelessWidget {
 }
 
 Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
-  final repo = ref.read(configurationRepositoryProvider).requireValue;
+  final repo = await ref.read(configurationRepositoryProvider.future);
   await repo.updateSecureWindowEnabled(enabled);
   ref.invalidate(configurationProvider);
   try {

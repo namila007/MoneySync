@@ -9,7 +9,8 @@ import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
-import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/database/app_database.dart'
+    hide TransactionCandidate;
 import 'package:money_sync/core/database/database_health.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
@@ -30,6 +31,8 @@ import 'package:money_sync/features/sms_ingestion/domain/scan_tracked_senders.da
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart'
+    show CandidateRecordState;
 import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
 import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
@@ -44,6 +47,7 @@ import 'package:money_sync/features/wallet_connection/data/production_wallet_con
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/application/wallet_mutation_recovery_service.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
@@ -148,6 +152,7 @@ Future<void> runAppOpenCatchUpScan({
   required RulePackRegistry registry,
   required SourceIdentitySigner identitySigner,
   required NotificationService notificationService,
+  required WalletRepository walletRepository,
 }) async {
   final scan = ScanTrackedSenders(
     database: database,
@@ -258,6 +263,32 @@ Future<void> runAppOpenCatchUpScan({
                 hasActiveLineage: hasActiveLineage,
                 hasOwnedRecordLink: linkRows.isNotEmpty,
               ),
+              ensureDefaultLabels: (selected) async {
+                final ids = {...selected};
+                for (final name in [
+                  'money_sync',
+                  if (const bool.fromEnvironment('E2E_LABEL')) 'test',
+                ]) {
+                  final id = await walletRepository.ensureLabel(name);
+                  if (id == null) {
+                    Logger('auto_create').error(
+                      'Could not resolve or create label: SafeErrorCode: $name',
+                    );
+                    continue;
+                  }
+                  ids.add(id);
+                }
+                return ids.toList(growable: false);
+              },
+              notificationService: notificationService,
+              resolveReviewCount: () async {
+                final candidates = await database
+                    .select(database.transactionCandidates)
+                    .get();
+                return candidates
+                    .where((r) => r.state == CandidateRecordState.needsReview)
+                    .length;
+              },
             );
             final outcome = await autoCreate(
               candidate,
@@ -470,9 +501,10 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     await runRawBodyRetentionSweep(db, log);
 
     // Auto-connect wallet at startup if a token was previously saved.
-    // Awaited so wallet_connection_status/activity are settled before the
-    // app reaches ready state, but internally best-effort — never throws.
-    await _connectWalletAtStartup(db, log);
+    // Fire-and-forget so the wallet catalog refresh never delays reaching
+    // the home page. Every outcome is still written to wallet_connection_status,
+    // logged, and recorded as an activity event.
+    unawaited(_connectWalletAtStartup(db, log));
 
     // M6.9 Items 1+2+5: re-arm the periodic auto-import job if enabled,
     // then fire-and-forget a one-shot app-open catch-up scan. SMS tracking
@@ -513,12 +545,13 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   }
 
   /// Check if a wallet token was previously saved and refresh the catalog
-  /// cache in the background. Non-blocking (awaited by the caller, but
-  /// never prevents startup) — every outcome is written to
-  /// `wallet_connection_status`, logged, and recorded as an activity event.
-  /// Only an authentication rejection (invalid token) removes the stored
-  /// key; a transport failure (offline/timeout/tls/service/...) must never
-  /// destroy a still-valid credential (M5.22 WP-H).
+  /// cache in the background. Fire-and-forget: the caller does not await
+  /// this, so a slow or failing wallet catalog refresh never delays reaching
+  /// the home page. Every outcome is still written to `wallet_connection_status`,
+  /// logged, and recorded as an activity event. Only an authentication
+  /// rejection (invalid token) removes the stored key; a transport failure
+  /// (offline/timeout/tls/service/...) must never destroy a still-valid
+  /// credential (M5.22 WP-H).
   Future<void> _connectWalletAtStartup(AppDatabase db, Logger log) async {
     try {
       final channel = ref.read(nativeSecurityChannelProvider);
@@ -577,11 +610,13 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       final registry = await ref.read(rulePackRegistryProvider.future);
       final signer = ref.read(sourceIdentitySignerProvider);
       final notificationService = ref.read(notificationServiceProvider);
+      final walletRepository = ref.read(walletRepositoryProvider);
       await runAppOpenCatchUpScan(
         database: db,
         registry: registry,
         identitySigner: signer,
         notificationService: notificationService,
+        walletRepository: walletRepository,
       );
     } on Exception catch (e, s) {
       log.error('App-open catch-up scan failed', e, s);
