@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
@@ -50,7 +51,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
   String _currencyCode = '';
   String? _accountId;
   String? _categoryId;
-  String _labelIds = '';
+  List<String> _labelNames = [];
 
   @override
   void initState() {
@@ -68,6 +69,9 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final catalogAsync = ref.watch(walletCatalogProvider);
+    final catalog = catalogAsync.asData?.value;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Waiting detail')),
       body: FutureBuilder<WalletMutation?>(
@@ -81,7 +85,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
             return const Center(child: Text('Mutation not found.'));
           }
 
-          _seedFromPayload(_decodePayload(mutation.payload));
+          _seedFromPayload(_decodePayload(mutation.payload), catalog);
           // Only a not-yet-transmitted mutation may be rejected: `syncing`,
           // `succeeded`, or any `unknown*` state may already exist in
           // Wallet, and discarding them locally would lose the link to a
@@ -214,8 +218,41 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
                       label: 'Created',
                       value: _formatTime(mutation.createdAtEpochMs),
                     ),
-                    if (_labelIds.isNotEmpty)
-                      _DetailRow(label: 'Labels', value: _labelIds),
+                    if (_labelNames.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 120,
+                              child: Text(
+                                'Labels',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: [
+                                  for (final name in _labelNames)
+                                    Chip(
+                                      label: Text(
+                                        name,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -298,7 +335,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
 
   /// Seeds the edit controls from the stored payload once — never clobbers
   /// an in-progress edit on rebuild.
-  void _seedFromPayload(Map<String, Object?> payload) {
+  void _seedFromPayload(Map<String, Object?> payload, WalletCatalog? catalog) {
     if (_seeded) return;
     _seeded = true;
     final amountMinor = (payload['amountMinor'] is int)
@@ -314,7 +351,11 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
     _counterpartyController.text = payload['counterParty'] as String? ?? '';
     _noteController.text = _stripNoteMarker(payload['note'] as String?);
     if (payload['labelIds'] is List<dynamic>) {
-      _labelIds = (payload['labelIds'] as List<dynamic>).join(', ');
+      final labelIds = (payload['labelIds'] as List<dynamic>)
+          .map((e) => e.toString())
+          .toList();
+      _rawLabelIds = labelIds;
+      _labelNames = _resolveLabelNames(catalog, labelIds);
     }
   }
 
@@ -524,6 +565,21 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
     'nonTransaction' => TransactionKind.nonTransaction,
     _ => TransactionKind.expense,
   };
+
+  static List<String> _resolveLabelNames(
+    WalletCatalog? catalog,
+    List<String>? labelIds,
+  ) {
+    if (labelIds == null || labelIds.isEmpty || catalog == null) return [];
+    return [
+      for (final id in labelIds)
+        catalog.labels
+                .where((l) => l.id == id)
+                .map((l) => l.name)
+                .firstOrNull ??
+            id,
+    ];
+  }
 }
 
 class _DetailRow extends StatelessWidget {
