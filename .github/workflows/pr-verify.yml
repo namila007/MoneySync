@@ -1,0 +1,21 @@
+name: PR Verify
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and Analyze
+    uses: ./.github/workflows/_reusable/test-and-analyze.yml
+
+  build:
+    name: Build APKs
+    needs: test
+    uses: ./.github/workflows/_reusable/build-apks.yml
+    with:
+      build-mode: debug

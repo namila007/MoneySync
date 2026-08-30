@@ -1,0 +1,17 @@
+name: Full Verify
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: Source Hygiene
+    uses: ./.github/workflows/_reusable/source-hygiene.yml
