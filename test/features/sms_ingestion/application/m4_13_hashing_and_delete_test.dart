@@ -185,7 +185,7 @@ void main() {
     test('content_sha256 column exists and is nullable', () async {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 15);
+      expect(db.schemaVersion, 17);
 
       await db
           .into(db.smsEvents)

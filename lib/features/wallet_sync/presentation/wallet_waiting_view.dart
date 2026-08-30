@@ -13,28 +13,25 @@ import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
-import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
-    show succeededMutationsProvider;
 
 /// Mutations in queued/syncing state, for the waiting view.
-/// WP5: FutureProvider with explicit invalidation in the submit handler.
-/// The home dashboard's Waiting tile uses the reactive homeWalletHealthProvider
-/// (StreamProvider watching wallet_mutations) for immediate count updates.
-final waitingMutationsProvider = FutureProvider<List<WalletMutation>>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return (db.select(db.walletMutations)
-        ..where(
-          (m) => m.state.isIn([
-            storedMutationState(WalletMutationState.queued),
-            storedMutationState(WalletMutationState.syncing),
-          ]),
-        )
-        ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
-        ..limit(200))
-      .get();
-});
+/// StreamProvider watching wallet_mutations directly, mirroring
+/// homeWalletHealthProvider's pattern — refreshes live without manual
+/// invalidation.
+final waitingMutationsProvider =
+    StreamProvider.autoDispose<List<WalletMutation>>((ref) async* {
+      final db = await ref.watch(appDatabaseProvider.future);
+      yield* (db.select(db.walletMutations)
+            ..where(
+              (m) => m.state.isIn([
+                storedMutationState(WalletMutationState.queued),
+                storedMutationState(WalletMutationState.syncing),
+              ]),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
+            ..limit(200))
+          .watch();
+    });
 
 final _log = Logger('WalletWaitingView');
 
@@ -104,7 +101,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
                   '$currencyCode ${_formatAmount(amountMinor)} · $kind',
                 ),
                 subtitle: Text(
-                  '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
+                  [
+                    '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
+                    if (payload['labelIds'] is List<dynamic> &&
+                        (payload['labelIds'] as List<dynamic>).isNotEmpty)
+                      'labels: ${(payload['labelIds'] as List<dynamic>).join(', ')}',
+                  ].where((s) => s.isNotEmpty).join(' · '),
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.chevron_right),
@@ -191,11 +193,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
       _selected.clear();
     });
 
-    ref.invalidate(waitingMutationsProvider);
-    // M5.22 WP-C: any approve that succeeded moved a mutation into
-    // `succeeded`, so the Success list is stale as well.
-    if (succeeded > 0) ref.invalidate(succeededMutationsProvider);
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -222,7 +219,7 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     final formatted = majorUnits
         .toStringAsFixed(2)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return minorUnits < 0 ? '-$formatted' : formatted;
+    return formatted;
   }
 
   String _formatTime(int epochMs) {

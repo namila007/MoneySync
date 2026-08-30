@@ -387,7 +387,7 @@ void main() {
       final db = await migrateFrom(1, seedV1Schema);
       addTearDown(db.close);
 
-      expect(db.schemaVersion, 15);
+      expect(db.schemaVersion, 17);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(1));
       final event = events.single;
@@ -428,7 +428,7 @@ void main() {
         (db) => seedV6Schema(db, includeContentSha256: false),
       );
       addTearDown(db.close);
-      expect(db.schemaVersion, 15);
+      expect(db.schemaVersion, 17);
       expect(await db.select(db.trackedSenders).get(), isNotEmpty);
       final events = await db.select(db.smsEvents).get();
       expect(events, hasLength(4));

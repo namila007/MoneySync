@@ -47,6 +47,9 @@ final class ConfigurationState {
     this.processingMode = ProcessingMode.review,
     this.configurationRevision = 0,
     this.secureWindowEnabled = true,
+    this.autoImportEnabled = false,
+    this.autoCreateEnabled = false,
+    this.autoImportIntervalMinutes = 15,
   });
   final AppThemeMode themeMode;
   final AppLockPreferences appLock;
@@ -55,4 +58,7 @@ final class ConfigurationState {
   final ProcessingMode processingMode;
   final int configurationRevision;
   final bool secureWindowEnabled;
+  final bool autoImportEnabled;
+  final bool autoCreateEnabled;
+  final int autoImportIntervalMinutes;
 }

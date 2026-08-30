@@ -1,12 +1,14 @@
 import 'dart:async';
 
-import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/database/app_database.dart'
+    hide TransactionCandidate;
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
 import 'package:money_sync/features/sms_ingestion/domain/ingest_manual_message.dart';
 import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/transaction_parser/domain/interpret_message.dart';
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:logging/logging.dart';
 
 final class ImportSmsHistory {
@@ -15,6 +17,7 @@ final class ImportSmsHistory {
     required this.smsHistoryApi,
     required this.registry,
     required this.identitySigner,
+    this.candidateHook,
   });
 
   final AppDatabase database;
@@ -26,6 +29,15 @@ final class ImportSmsHistory {
 
   /// Keyed-HMAC boundary for canonical identity (M4.14 WP4).
   final SourceIdentitySigner identitySigner;
+
+  /// Optional M6.5 auto-create hook. Passed through to [IngestManualMessage].
+  final Future<bool> Function(
+    TransactionCandidate candidate,
+    int eventId,
+    String candidatePayload,
+    String normalizedSender,
+  )?
+  candidateHook;
 
   static const pageSize = 25;
   static const hardCap = 500;
@@ -188,6 +200,7 @@ final class ImportSmsHistory {
           database: database,
           interpret: _interpret,
           identitySigner: identitySigner,
+          candidateHook: candidateHook,
         );
         for (final msg in messages) {
           if (_cancelRequested) break;
@@ -206,9 +219,9 @@ final class ImportSmsHistory {
           );
 
           switch (outcome) {
-            case ManualIngestStored():
+            case ManualIngestStored(:final autoCreated):
               imported++;
-              candidatesNeedingReview++;
+              if (!autoCreated) candidatesNeedingReview++;
             case ManualIngestAlreadyPresent():
               duplicates++;
             case ManualIngestFiltered():

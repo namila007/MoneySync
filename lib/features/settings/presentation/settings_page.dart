@@ -5,11 +5,7 @@ import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
-import 'package:money_sync/core/capabilities/app_capabilities.dart';
-import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
-import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
-import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
 /// The Settings root. The former Configuration hub was flattened into this
 /// page (M4.15 WP5): SMS & tracking controls moved up, duplicated sections
@@ -20,11 +16,11 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final capabilities = ref.watch(appCapabilitiesProvider);
-    final smsStatusAsync = ref.watch(smsPermissionStatusProvider);
-    final secureWindowAsync = ref.watch(_configurationStateProvider);
-    final secureWindowEnabled =
-        secureWindowAsync.value?.secureWindowEnabled ?? true;
+    final configStateAsync = ref.watch(_configurationStateProvider);
+    final autoImportEnabled =
+        configStateAsync.value?.autoImportEnabled ?? false;
+    final autoCreateEnabled =
+        configStateAsync.value?.autoCreateEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,10 +39,17 @@ class SettingsPage extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.lock_outline),
-                title: const Text('App lock & biometric'),
+                title: const Text('App Security'),
                 subtitle: const Text('Device protection configuration'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.securityPrivacy.path),
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Permissions'),
+                subtitle: const Text('Message reading, notifications'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/permissions'),
               ),
               ListTile(
                 leading: const Icon(Icons.assignment_outlined),
@@ -55,51 +58,11 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.onboardingReview.path),
               ),
-              SwitchListTile(
-                secondary: const Icon(Icons.screenshot_monitor_outlined),
-                title: const Text('Screenshot protection'),
-                subtitle: const Text(
-                  'Blocks screenshots and screen recording of the app.',
-                ),
-                value: secureWindowEnabled,
-                onChanged: (enabled) => _toggleSecureWindow(ref, enabled),
-              ),
             ],
           ),
           _ConfigurationSection(
             title: 'SMS & Tracking',
             children: [
-              smsStatusAsync.when(
-                loading: () => const ListTile(
-                  leading: Icon(Icons.sms_outlined),
-                  title: Text('Message reading'),
-                  subtitle: Text('Checking\u2026'),
-                ),
-                error: (e, _) => ListTile(
-                  leading: const Icon(Icons.sms_outlined),
-                  title: const Text('Message reading'),
-                  subtitle: Text('Status unavailable'),
-                ),
-                data: (status) {
-                  final (label, symbol) = switch (status) {
-                    SmsPermissionStatus.granted => ('\u25cf  On', '\u25cf'),
-                    _ => ('\u25cb  Off', '\u25cb'),
-                  };
-                  return ListTile(
-                    leading: ExcludeSemantics(child: Text(symbol)),
-                    title: const Text('Message reading'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(label),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chevron_right, size: 16),
-                      ],
-                    ),
-                    onTap: () => context.push('/settings/message-reading'),
-                  );
-                },
-              ),
               ListTile(
                 leading: const Icon(Icons.history),
                 title: const Text('History window'),
@@ -121,12 +84,18 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Text('100'),
                 onTap: () => context.push('/settings/history-import'),
               ),
-              const _ReadOnlySettingTile(
-                title: 'Incoming tracking',
-                value: 'Not yet — M6',
-                explanation: 'Automatic live tracking arrives with M6.',
-                icon: Icons.campaign_outlined,
-              ),
+              if (config.flavor == AppFlavor.privateFull)
+                ListTile(
+                  leading: const Icon(Icons.campaign_outlined),
+                  title: const Text('Auto-import'),
+                  subtitle: Text(
+                    autoImportEnabled
+                        ? 'On \u00b7 Every ${_intervalLabel(configStateAsync.value?.autoImportIntervalMinutes ?? 15)}'
+                        : 'Off',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/settings/auto-import'),
+                ),
             ],
           ),
           _ConfigurationSection(
@@ -141,11 +110,14 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.walletConnection.path),
               ),
-              const _ReadOnlySettingTile(
-                title: 'Processing default',
-                value: 'Review',
-                explanation: 'Review is the current safe default.',
-                icon: Icons.rate_review_outlined,
+              SwitchListTile(
+                secondary: const Icon(Icons.rate_review_outlined),
+                title: const Text('Auto-create'),
+                subtitle: const Text(
+                  'Automatically queue transactions matched by automatic mapping rules',
+                ),
+                value: autoCreateEnabled,
+                onChanged: (value) => _toggleAutoCreate(ref, value),
               ),
             ],
           ),
@@ -159,12 +131,6 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.dataControl.path),
               ),
-              for (final capability in AppCapability.values)
-                _CapabilityTile(
-                  capability: capability,
-                  enabled: capabilities.isEnabled(capability),
-                  explanation: capabilities.explanationFor(capability),
-                ),
             ],
           ),
         ],
@@ -179,18 +145,15 @@ final _configurationStateProvider = FutureProvider<ConfigurationState>((ref) {
       .then((repo) => repo.load());
 });
 
-Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
+Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
   final repo = await ref.read(configurationRepositoryProvider.future);
-  await repo.updateSecureWindowEnabled(enabled);
+  await repo.updateAutoCreateEnabled(enabled);
   ref.invalidate(_configurationStateProvider);
-  try {
-    await const NativeSecurityChannel().setSecureWindowProtection(
-      enabled: enabled,
-    );
-  } catch (_) {
-    // Non-fatal: the preference is persisted; the native call is best-effort
-    // (e.g. unavailable before the engine fully wires the channel).
-  }
+}
+
+String _intervalLabel(int minutes) {
+  if (minutes == 60) return '1 hour';
+  return '$minutes minutes';
 }
 
 class _ConfigurationSummary extends StatelessWidget {
@@ -247,69 +210,4 @@ class _ConfigurationSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ReadOnlySettingTile extends StatelessWidget {
-  const _ReadOnlySettingTile({
-    required this.title,
-    required this.value,
-    required this.explanation,
-    required this.icon,
-  });
-
-  final String title;
-  final String value;
-  final String explanation;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      minVerticalPadding: 12,
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(explanation),
-      trailing: Text(value),
-    );
-  }
-}
-
-class _CapabilityTile extends StatelessWidget {
-  const _CapabilityTile({
-    required this.capability,
-    required this.enabled,
-    required this.explanation,
-  });
-
-  final AppCapability capability;
-  final bool enabled;
-  final String explanation;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      enabled: false,
-      minVerticalPadding: 12,
-      leading: Icon(enabled ? Icons.check_circle_outline : Icons.lock_outline),
-      title: Text(_labelFor(capability)),
-      subtitle: Text(explanation),
-      trailing: Text(enabled ? 'Enabled' : 'Disabled'),
-    );
-  }
-
-  String _labelFor(AppCapability capability) => switch (capability) {
-    AppCapability.smsPermission => 'SMS permission',
-    AppCapability.walletCreate => 'Wallet creation',
-    AppCapability.walletPatch => 'Wallet updates',
-    AppCapability.walletDelete => 'Wallet deletion',
-    AppCapability.historySms => 'SMS history',
-    AppCapability.liveSms => 'Live SMS',
-    AppCapability.mlKitEntities => 'ML entities',
-    AppCapability.localLearning => 'Local learning',
-    AppCapability.internalTransfer => 'Internal transfers',
-    AppCapability.outsideTransfer => 'Outside transfers',
-    AppCapability.automaticSync => 'Automatic sync',
-    AppCapability.settingsExport => 'Settings export',
-    AppCapability.modelTransfer => 'Model transfer',
-  };
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -7,7 +9,8 @@ import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
-import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/core/database/app_database.dart'
+    hide TransactionCandidate;
 import 'package:money_sync/core/database/database_health.dart';
 import 'package:money_sync/core/logging/activity_writer_generation.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
@@ -15,6 +18,7 @@ import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/retention_policy.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
+import 'package:money_sync/core/scheduling/auto_import_scheduler.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart'
     as data_control;
@@ -22,7 +26,20 @@ import 'package:money_sync/features/data_control/presentation/data_control_contr
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
+import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
+import 'package:money_sync/features/sms_ingestion/domain/scan_tracked_senders.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
+import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
+import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart'
+    show CandidateRecordState;
+import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
+import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
+import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
+import 'package:money_sync/features/notifications/domain/notification_service.dart';
+import 'package:money_sync/features/review_inbox/data/drift_review_outbox_writer.dart';
+import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
+import 'package:money_sync/features/sms_ingestion/domain/source_identity.dart';
 import 'package:money_sync/features/wallet_connection/application/wallet_connection_actions.dart';
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secret_store.dart';
@@ -30,6 +47,9 @@ import 'package:money_sync/features/wallet_connection/data/production_wallet_con
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/application/wallet_mutation_recovery_service.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
+import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/domain/resolve_default_wallet_labels.dart';
 
 final configurationRepositoryProvider = FutureProvider<ConfigurationRepository>(
   (ref) async {
@@ -98,6 +118,179 @@ WalletStartupOutcome walletStartupOutcomeFor(
     removeKey: false,
   ),
 };
+
+const _contractVersion = 'v1.3.0';
+
+WalletRemoteCapability? _toCapability(String value) =>
+    WalletRemoteCapability.values.where((c) => c.name == value).firstOrNull;
+
+WalletCapabilityOutcome _toOutcome(String value) => switch (value) {
+  'pass' => WalletCapabilityOutcome.pass,
+  'fail' => WalletCapabilityOutcome.fail,
+  _ => WalletCapabilityOutcome.unknown,
+};
+
+/// Re-arms the periodic WorkManager auto-import job if the user has
+/// auto-import enabled. Idempotent — `WorkmanagerAutoImportScheduler`
+/// uses `ExistingPeriodicWorkPolicy.update`, so re-calling on an
+/// already-registered job is safe and cheap.
+Future<void> reArmAutoImportScheduler({
+  required AutoImportScheduler scheduler,
+  required bool autoImportEnabled,
+  required int autoImportIntervalMinutes,
+}) async {
+  if (!autoImportEnabled) return;
+  await scheduler.enable(
+    frequency: Duration(minutes: autoImportIntervalMinutes),
+  );
+}
+
+/// One-shot app-open catch-up sync: runs a single `ScanTrackedSenders`
+/// pass gated by `autoImportEnabled` (ScanTrackedSenders internally
+/// no-ops if disabled) and using the persisted watermark for scan bounds.
+Future<void> runAppOpenCatchUpScan({
+  required AppDatabase database,
+  required RulePackRegistry registry,
+  required SourceIdentitySigner identitySigner,
+  required NotificationService notificationService,
+  required WalletRepository walletRepository,
+}) async {
+  final scan = ScanTrackedSenders(
+    database: database,
+    smsHistoryApi: SmsHistoryHostApi(),
+    registry: registry,
+    identitySigner: identitySigner,
+    notificationService: notificationService,
+    trackedSendersRepository: DriftTrackedSendersRepository(database: database),
+    candidateHook:
+        (candidate, eventId, candidatePayload, normalizedSender) async {
+          try {
+            final setting = await (database.select(
+              database.appSettings,
+            )..where((row) => row.singletonId.equals(1))).getSingle();
+            if (!setting.autoCreateEnabled) return false;
+
+            final store = DriftMappingRuleStore(database: database);
+            final rules = await store.list();
+            final caps = AppCapabilities.m6PrivateFull();
+
+            final cache = DriftWalletCatalogCache(database: database);
+            final catalog = await cache.read();
+
+            final writer = DriftReviewOutboxWriter(database: database);
+            final capabilityRows = await database
+                .select(database.capabilityLedger)
+                .get();
+            final evidence = <WalletCapabilityEvidence>[
+              for (final row in capabilityRows)
+                if (_toCapability(row.capability) case final c?)
+                  WalletCapabilityEvidence(
+                    capability: c,
+                    outcome: _toOutcome(row.status),
+                    observedAt:
+                        DateTime.tryParse(row.observedOn) ?? DateTime.now(),
+                    contractVersion: _contractVersion,
+                  ),
+            ];
+            final capabilityCanCreate =
+                WalletCapabilityLedger(evidence: evidence).canCreate(
+                  now: DateTime.now().toUtc(),
+                  compatibleContractVersion: _contractVersion,
+                );
+
+            final event = await database.getSmsEventById(eventId);
+            final privacyEpochMatches =
+                (event?.privacyEpoch ?? setting.privacyEpoch) ==
+                setting.privacyEpoch;
+
+            final candidateId = 'candidate-$eventId';
+            final hasActiveLineage = await writer.hasActiveLineage(candidateId);
+            final linkRows = await (database.select(
+              database.walletRecordLinks,
+            )..where((row) => row.candidateId.equals(candidateId))).get();
+
+            final resolver = MappingRuleResolver(rules: rules);
+            final resolution = resolver.resolve(
+              MappingResolutionInput(
+                senderNormalized: normalizedSender,
+                confidenceBasisPoints: candidate.confidence.basisPoints,
+                merchantNormalized: candidate.counterParty ?? '',
+                direction: candidate.direction,
+              ),
+            );
+
+            WalletAccount? targetAccount;
+            if (resolution case MappingResolved(:final rule)) {
+              if (catalog != null) {
+                for (final a in catalog.accounts) {
+                  if (a.id == rule.walletAccountId) {
+                    targetAccount = a;
+                    break;
+                  }
+                }
+              }
+            }
+
+            final autoCreate = AutoCreateOrDefer(
+              eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+              outboxWriter: writer,
+              capabilities: caps,
+              autoCreateEnabled: true,
+              resolveRules: (_) async => rules,
+              buildPreSendContext: (_) async => PreSendContext(
+                candidateId: candidateId,
+                amountMinor: candidate.originalAmount.minorUnits,
+                currencyCode: candidate.originalAmount.currency.code,
+                recordDateUtc: candidate.transactionAtUtc,
+                direction: candidate.direction,
+                paymentType: 'debit_card',
+                senderNormalized: normalizedSender,
+                confidenceBasisPoints: candidate.confidence.basisPoints,
+                privacyEpochMatches: privacyEpochMatches,
+                consentCurrent:
+                    setting.disclosureAccepted && setting.onboardingCompleted,
+                connectionConnected:
+                    catalog != null && catalog.accounts.isNotEmpty,
+                eligibleTargetAccount:
+                    targetAccount != null &&
+                    targetAccount.isWritable &&
+                    targetAccount.eligibility ==
+                        WalletAccountEligibility.eligible,
+                targetAccountEligibility:
+                    targetAccount?.eligibility ??
+                    WalletAccountEligibility.missingRequiredFields,
+                mappingResolution: resolution,
+                capabilityCanCreate: capabilityCanCreate,
+                hasActiveLineage: hasActiveLineage,
+                hasOwnedRecordLink: linkRows.isNotEmpty,
+              ),
+              ensureDefaultLabels: (selected) =>
+                  resolveDefaultWalletLabels(walletRepository, selected),
+              notificationService: notificationService,
+              resolveReviewCount: () async {
+                final candidates = await database
+                    .select(database.transactionCandidates)
+                    .get();
+                return candidates
+                    .where((r) => r.state == CandidateRecordState.needsReview)
+                    .length;
+              },
+            );
+            final outcome = await autoCreate(
+              candidate,
+              senderNormalized: normalizedSender,
+              smsEventId: eventId,
+              candidatePayload: candidatePayload,
+            );
+            return outcome is AutoCreated;
+          } catch (e, s) {
+            Logger('sms.scan').error('Auto-create hook failed', e, s);
+            return false;
+          }
+        },
+  );
+  await scan();
+}
 
 Future<int> _loadPrivacyEpoch(AppDatabase db) async {
   try {
@@ -231,6 +424,20 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     final onboardingRepo = DriftOnboardingRepository(database: db);
 
     final channel = ref.read(nativeSecurityChannelProvider);
+
+    // Apply the persisted screenshot-protection preference as early as
+    // possible. Kotlin defaults to ON (fail-safe); this resolves to the
+    // user's saved choice once Dart can read it.
+    try {
+      final configRepo = DriftConfigurationRepository(database: db);
+      final config = await configRepo.load();
+      await channel.setSecureWindowProtection(
+        enabled: config.secureWindowEnabled,
+      );
+    } catch (e, s) {
+      log.error('setSecureWindowProtection failed at startup', e, s);
+    }
+
     final databasePath = await channel.getSensitiveDatabasePath();
     final clearService = ClearLocalDataService(
       database: db,
@@ -280,9 +487,38 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     await runRawBodyRetentionSweep(db, log);
 
     // Auto-connect wallet at startup if a token was previously saved.
-    // Awaited so wallet_connection_status/activity are settled before the
-    // app reaches ready state, but internally best-effort — never throws.
-    await _connectWalletAtStartup(db, log);
+    // Fire-and-forget so the wallet catalog refresh never delays reaching
+    // the home page. Every outcome is still written to wallet_connection_status,
+    // logged, and recorded as an activity event.
+    unawaited(_connectWalletAtStartup(db, log));
+
+    // M6.9 Items 1+2+5: re-arm the periodic auto-import job if enabled,
+    // then fire-and-forget a one-shot app-open catch-up scan. SMS tracking
+    // is privateFull-only (playManual carries no READ_SMS, no scan task, no
+    // auto-import toggle) — gate structurally here too, not just via the
+    // Settings UI, so a stray/legacy autoImportEnabled=true can never make
+    // playManual touch this path.
+    if (widget.config.flavor == AppFlavor.privateFull) {
+      try {
+        final configRepo = DriftConfigurationRepository(database: db);
+        final config = await configRepo.load();
+        final scheduler = ref.read(autoImportSchedulerProvider);
+        await reArmAutoImportScheduler(
+          scheduler: scheduler,
+          autoImportEnabled: config.autoImportEnabled,
+          autoImportIntervalMinutes: config.autoImportIntervalMinutes,
+        );
+        log.info(
+          'Auto-import scheduler re-armed '
+          '(enabled=${config.autoImportEnabled}, '
+          'interval=${config.autoImportIntervalMinutes}m)',
+        );
+
+        unawaited(_runCatchUpScan(db, config.autoImportEnabled, log));
+      } on Exception catch (e, s) {
+        log.error('Auto-import startup re-arm failed', e, s);
+      }
+    }
 
     log.info('Health check and onboarding repo ready');
     await startupNotifier.initialize(
@@ -295,12 +531,13 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
   }
 
   /// Check if a wallet token was previously saved and refresh the catalog
-  /// cache in the background. Non-blocking (awaited by the caller, but
-  /// never prevents startup) — every outcome is written to
-  /// `wallet_connection_status`, logged, and recorded as an activity event.
-  /// Only an authentication rejection (invalid token) removes the stored
-  /// key; a transport failure (offline/timeout/tls/service/...) must never
-  /// destroy a still-valid credential (M5.22 WP-H).
+  /// cache in the background. Fire-and-forget: the caller does not await
+  /// this, so a slow or failing wallet catalog refresh never delays reaching
+  /// the home page. Every outcome is still written to `wallet_connection_status`,
+  /// logged, and recorded as an activity event. Only an authentication
+  /// rejection (invalid token) removes the stored key; a transport failure
+  /// (offline/timeout/tls/service/...) must never destroy a still-valid
+  /// credential (M5.22 WP-H).
   Future<void> _connectWalletAtStartup(AppDatabase db, Logger log) async {
     try {
       final channel = ref.read(nativeSecurityChannelProvider);
@@ -343,6 +580,32 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
       );
     } on Exception catch (e) {
       log.warning('Startup wallet connect skipped: $e');
+    }
+  }
+
+  Future<void> _runCatchUpScan(
+    AppDatabase db,
+    bool autoImportEnabled,
+    Logger log,
+  ) async {
+    if (!autoImportEnabled) {
+      log.debug('App-open catch-up scan skipped: autoImportEnabled is false');
+      return;
+    }
+    try {
+      final registry = await ref.read(rulePackRegistryProvider.future);
+      final signer = ref.read(sourceIdentitySignerProvider);
+      final notificationService = ref.read(notificationServiceProvider);
+      final walletRepository = ref.read(walletRepositoryProvider);
+      await runAppOpenCatchUpScan(
+        database: db,
+        registry: registry,
+        identitySigner: signer,
+        notificationService: notificationService,
+        walletRepository: walletRepository,
+      );
+    } on Exception catch (e, s) {
+      log.error('App-open catch-up scan failed', e, s);
     }
   }
 

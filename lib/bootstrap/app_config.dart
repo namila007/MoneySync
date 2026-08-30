@@ -18,7 +18,7 @@ final class AppConfig {
   const AppConfig.privateFull()
     : this._(
         flavor: AppFlavor.privateFull,
-        capabilities: const AppCapabilities.m4PrivateFull(),
+        capabilities: const AppCapabilities.m6PrivateFull(),
         productionPolicy: const ProductionPolicy.m0(),
       );
 
@@ -26,6 +26,15 @@ final class AppConfig {
     : this._(
         flavor: AppFlavor.playManual,
         capabilities: const AppCapabilities.m0(),
+        productionPolicy: const ProductionPolicy.m0(),
+      );
+
+  const AppConfig.withFlavor(AppFlavor flavor)
+    : this._(
+        flavor: flavor,
+        capabilities: flavor == AppFlavor.privateFull
+            ? const AppCapabilities.m6PrivateFull()
+            : const AppCapabilities.m0(),
         productionPolicy: const ProductionPolicy.m0(),
       );
 

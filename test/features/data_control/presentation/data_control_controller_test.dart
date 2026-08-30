@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
@@ -213,6 +214,40 @@ void main() {
       final state = container.read(dataControlControllerProvider);
       expect(state, isA<DataControlFailure>());
     });
+
+    test(
+      'clearActivity catches Error subtypes and logs them via .error()',
+      () async {
+        final captured = <LogRecord>[];
+        final logger = Logger('DataControlController');
+        logger.onRecord.listen(captured.add);
+
+        final container = _containerWith(_ThrowingErrorClearLocalDataUseCase());
+
+        await container
+            .read(dataControlControllerProvider.notifier)
+            .clearActivity();
+
+        final state = container.read(dataControlControllerProvider);
+        expect(state, isA<DataControlFailure>());
+
+        expect(
+          captured.any(
+            (r) =>
+                r.level == Level.SEVERE &&
+                r.message.contains('Activity clear failed in controller'),
+          ),
+          isTrue,
+          reason:
+              'Error should be logged via .error() at SEVERE level with message',
+        );
+        expect(
+          captured.any((r) => r.error is StateError),
+          isTrue,
+          reason: 'StateError should be captured in log record',
+        );
+      },
+    );
   });
 }
 
@@ -225,5 +260,17 @@ class _ThrowingClearLocalDataUseCase implements IClearLocalDataUseCase {
   @override
   Future<ResetAllDataResult> resetAllLocalData() async {
     throw Exception('Unexpected error');
+  }
+}
+
+class _ThrowingErrorClearLocalDataUseCase implements IClearLocalDataUseCase {
+  @override
+  Future<ClearActivityResult> clearActivity() async {
+    throw StateError('Database transaction failed unexpectedly');
+  }
+
+  @override
+  Future<ResetAllDataResult> resetAllLocalData() async {
+    throw StateError('Reset transaction failed unexpectedly');
   }
 }

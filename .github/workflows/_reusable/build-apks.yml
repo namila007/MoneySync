@@ -1,0 +1,78 @@
+name: Build APKs
+
+on:
+  workflow_call:
+    inputs:
+      build-mode:
+        description: "Build mode: debug or release"
+        required: false
+        default: "debug"
+        type: string
+    outputs:
+      play-apk-name:
+        description: "Play flavor APK artifact name"
+        value: apk-playmanual-${{ inputs.build-mode }}
+      private-apk-name:
+        description: "Private flavor APK artifact name"
+        value: apk-privatefull-${{ inputs.build-mode }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/moneysync-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Build Play flavor
+        run: flutter build apk --${{ inputs.build-mode }} --flavor playManual -t lib/main_play_manual.dart
+
+      - name: Build private flavor
+        run: flutter build apk --${{ inputs.build-mode }} --flavor privateFull -t lib/main_private_full.dart
+
+      - name: Audit merged APK permissions
+        run: |
+          bash tool/verify_android_permissions.sh \
+            build/app/outputs/flutter-apk/app-playmanual-${{ inputs.build-mode }}.apk \
+            build/app/outputs/flutter-apk/app-privatefull-${{ inputs.build-mode }}.apk
+
+      - name: Upload Play APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-playmanual-${{ inputs.build-mode }}
+          path: build/app/outputs/flutter-apk/app-playmanual-${{ inputs.build-mode }}.apk
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload Private APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-privatefull-${{ inputs.build-mode }}
+          path: build/app/outputs/flutter-apk/app-privatefull-${{ inputs.build-mode }}.apk
+          retention-days: 7
+          compression-level: 0

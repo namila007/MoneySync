@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/settings_app_bar_action.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/startup_state.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/activity_log/presentation/activity_page.dart';
@@ -22,8 +24,11 @@ import 'package:money_sync/features/sms_ingestion/presentation/history_scan_page
 import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_page.dart';
+import 'package:money_sync/features/settings/presentation/notification_permission_page.dart';
+import 'package:money_sync/features/settings/presentation/permissions_page.dart';
 import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
+import 'package:money_sync/features/settings/presentation/auto_import_settings_page.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_access_page.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_connection_page.dart';
 import 'package:money_sync/features/wallet_sync/presentation/wallet_retry_view.dart';
@@ -160,6 +165,18 @@ GoRouter createAppRouter() {
             path: 'tracked-senders',
             builder: (context, state) => const TrackedSendersPage(),
           ),
+          GoRoute(
+            path: 'auto-import',
+            builder: (context, state) => const AutoImportSettingsPage(),
+          ),
+          GoRoute(
+            path: 'permissions',
+            builder: (context, state) => const PermissionsPage(),
+          ),
+          GoRoute(
+            path: 'notification-permission',
+            builder: (context, state) => const NotificationPermissionPage(),
+          ),
         ],
       ),
       GoRoute(
@@ -208,12 +225,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         await const NativeSecurityChannel().setSecureWindowProtection(
           enabled: config.secureWindowEnabled,
         );
-      } catch (_) {}
+      } catch (e, s) {
+        Logger('security').error('setSecureWindowProtection failed', e, s);
+      }
     });
   });
 
   return router;
 });
+
+/// Called by the settings page when the user toggles app lock so the
+/// router redirect picks up the change without requiring a cold restart.
+void updateAppLockRequired(bool required) {
+  _lockRequiredNotifier.value = required;
+}
 
 String? _routeGuard(
   String matchedLocation,

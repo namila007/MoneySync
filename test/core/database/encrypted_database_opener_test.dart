@@ -61,7 +61,7 @@ void main() {
     final database = await opener.open();
     addTearDown(database.close);
 
-    expect(database.schemaVersion, 15);
+    expect(database.schemaVersion, 17);
     expect(await database.smsEvents.count().getSingle(), 0);
     expect(await File(databasePath).exists(), isTrue);
   });
@@ -140,6 +140,24 @@ void main() {
     await expectLater(
       opener.open(),
       throwsA(isA<DatabaseKeyUnavailableException>()),
+    );
+  });
+
+  test('sets busy_timeout pragma after key setup', () async {
+    final key = Uint8List.fromList(List<int>.generate(32, (i) => i));
+    final opener = ProductionEncryptedDatabaseOpener(
+      channel: const NativeSecurityChannel(),
+      keyProvider: _FixedKeyProvider(key),
+    );
+
+    final database = await opener.open();
+    addTearDown(database.close);
+
+    final result = await database.customSelect('PRAGMA busy_timeout;').get();
+    expect(
+      result,
+      isNotEmpty,
+      reason: 'busy_timeout pragma must be queryable after database open',
     );
   });
 }

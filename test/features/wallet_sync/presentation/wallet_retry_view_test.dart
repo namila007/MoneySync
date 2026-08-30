@@ -29,12 +29,12 @@ void main() {
     }
 
     testWidgets('shows empty state when no retry mutations', (tester) async {
+      final db = createDb();
+      addTearDown(db.close);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              final db = createDb();
-              ref.onDispose(db.close);
               return db;
             }),
           ],
@@ -54,17 +54,21 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No failed transactions to retry.'), findsOneWidget);
+
+      // Flush Drift stream cleanup timers.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
     });
 
     testWidgets('renders retry mutations in the list', (tester) async {
       final db = createDb();
+      addTearDown(db.close);
       await insertRetry(db);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(db.close);
               return db;
             }),
           ],
@@ -84,15 +88,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CheckboxListTile), findsOneWidget);
+
+      // Flush Drift stream cleanup timers.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
     });
 
     testWidgets('Retry All button is always visible', (tester) async {
+      final db = createDb();
+      addTearDown(db.close);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              final db = createDb();
-              ref.onDispose(db.close);
               return db;
             }),
           ],
@@ -112,6 +120,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Retry All'), findsOneWidget);
+
+      // Flush Drift stream cleanup timers.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+    });
+
+    testWidgets('live stream shows new retry mutations without invalidation', (
+      tester,
+    ) async {
+      final db = createDb();
+      addTearDown(db.close);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appDatabaseProvider.overrideWith((ref) async {
+              return db;
+            }),
+          ],
+          child: MaterialApp.router(
+            routerConfig: GoRouter(
+              initialLocation: '/settings/wallet/retry',
+              routes: [
+                GoRoute(
+                  path: '/settings/wallet/retry',
+                  builder: (_, _) => const RetryView(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initially empty.
+      expect(find.text('No failed transactions to retry.'), findsOneWidget);
+
+      // Insert a retry mutation directly (simulates a failed create).
+      await insertRetry(db, id: 'm-live');
+
+      // Let the stream propagate.
+      await tester.pump();
+      await tester.pump();
+
+      // The new mutation should appear automatically.
+      expect(find.text('No failed transactions to retry.'), findsNothing);
+      expect(find.byType(CheckboxListTile), findsOneWidget);
+
+      // Flush Drift stream cleanup timers.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
     });
   });
 }
