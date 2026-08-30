@@ -8,6 +8,7 @@ import 'package:money_sync/features/activity_log/domain/activity_event.dart';
 import 'package:money_sync/features/mappings/domain/auto_create_or_defer.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule_resolver.dart';
+import 'package:money_sync/features/notifications/data/fake_notification_service.dart';
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
 import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibility_policy.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
@@ -84,6 +85,9 @@ void main() {
                 makeRule(id: 'r1', syncMode: MappingSyncMode.automatic),
               ),
             ),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final result = await autoCreate(
@@ -114,6 +118,9 @@ void main() {
               makeRule(id: 'r1', syncMode: MappingSyncMode.automatic),
             ),
           ),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -138,6 +145,9 @@ void main() {
           resolveRules: (_) async => [],
           buildPreSendContext: (_) async =>
               passingContext(resolution: const MappingUnmatched()),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -164,6 +174,9 @@ void main() {
           resolveRules: (_) async => [r1, r2],
           buildPreSendContext: (_) async =>
               passingContext(resolution: MappingAmbiguous([r1, r2])),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -189,6 +202,9 @@ void main() {
           resolveRules: (_) async => [rule],
           buildPreSendContext: (_) async =>
               passingContext(resolution: MappingResolved(rule)),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -222,6 +238,9 @@ void main() {
               resolution: MappingResolved(rule),
               confidenceBasisPoints: 7000,
             ),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final result = await autoCreate(
@@ -264,6 +283,9 @@ void main() {
             hasActiveLineage: false,
             hasOwnedRecordLink: false,
           ),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -296,6 +318,9 @@ void main() {
             resolveRules: (_) async => [rule],
             buildPreSendContext: (_) async =>
                 passingContext(resolution: MappingResolved(rule)),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final result = await autoCreate(
@@ -331,6 +356,9 @@ void main() {
               resolution: MappingResolved(rule),
               confidenceBasisPoints: 9500,
             ),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final result = await autoCreate(
@@ -367,6 +395,9 @@ void main() {
           resolveRules: (_) async => [rule],
           buildPreSendContext: (_) async =>
               passingContext(resolution: MappingResolved(rule)),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result1 = await autoCreate(
@@ -468,6 +499,9 @@ void main() {
               hasActiveLineage: false,
               hasOwnedRecordLink: false,
             ),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final outcome = await autoCreate(
@@ -547,6 +581,9 @@ void main() {
               hasActiveLineage: false,
               hasOwnedRecordLink: false,
             ),
+            ensureDefaultLabels: (_) async => [],
+            notificationService: FakeNotificationService(),
+            resolveReviewCount: () async => 0,
           );
 
           final outcome = await autoCreate(
@@ -594,6 +631,9 @@ void main() {
             hasActiveLineage: false,
             hasOwnedRecordLink: false,
           ),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -639,6 +679,9 @@ void main() {
             hasActiveLineage: false,
             hasOwnedRecordLink: false,
           ),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -684,6 +727,9 @@ void main() {
             hasActiveLineage: false,
             hasOwnedRecordLink: false,
           ),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -716,6 +762,9 @@ void main() {
           resolveRules: (_) async => [rule],
           buildPreSendContext: (_) async =>
               passingContext(resolution: MappingResolved(rule)),
+          ensureDefaultLabels: (_) async => [],
+          notificationService: FakeNotificationService(),
+          resolveReviewCount: () async => 0,
         );
 
         final result = await autoCreate(
@@ -744,6 +793,9 @@ void main() {
         resolveRules: (_) async => [rule],
         buildPreSendContext: (_) async =>
             passingContext(resolution: MappingResolved(rule)),
+        ensureDefaultLabels: (_) async => [],
+        notificationService: FakeNotificationService(),
+        resolveReviewCount: () async => 0,
       );
 
       final captured = <LogRecord>[];

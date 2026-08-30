@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 
@@ -85,7 +87,9 @@ class DataControlController extends Notifier<DataControlState> {
               result.errorMessage ?? 'Activity clear did not complete.',
         );
       }
-    } catch (e) {
+    } on Object catch (e, s) {
+      final logger = Logger('DataControlController');
+      logger.error('Activity clear failed in controller', e, s);
       state = DataControlFailure(
         scope: DataClearScope.clearActivity,
         errorMessage: 'Activity clear failed. Try again.',
@@ -114,7 +118,9 @@ class DataControlController extends Notifier<DataControlState> {
           errorMessage: result.errorMessage ?? 'Reset did not complete.',
         );
       }
-    } catch (e) {
+    } on Object catch (e, s) {
+      final logger = Logger('DataControlController');
+      logger.error('Reset failed in controller', e, s);
       state = DataControlFailure(
         scope: DataClearScope.resetAllLocalData,
         errorMessage: 'Reset failed. Restart the app and try again.',

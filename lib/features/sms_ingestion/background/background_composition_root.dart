@@ -19,8 +19,12 @@ import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart
 import 'package:money_sync/features/sms_ingestion/domain/scan_tracked_senders.dart';
 import 'package:money_sync/features/sms_tracking/data/drift_tracked_senders_repository.dart';
 import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_repository.dart';
+import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart'
+    show CandidateRecordState;
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
+import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source.dart';
+import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
 import 'package:logging/logging.dart';
 
@@ -148,6 +152,9 @@ class BackgroundCompositionRoot {
                 }
               }
 
+              final walletRepository = WalletRepository(
+                dataSource: FakeWalletApiDataSource(),
+              );
               final autoCreate = AutoCreateOrDefer(
                 eligibilityPolicy: const WalletCreateEligibilityPolicy(),
                 outboxWriter: writer,
@@ -181,6 +188,32 @@ class BackgroundCompositionRoot {
                   hasActiveLineage: hasActiveLineage,
                   hasOwnedRecordLink: linkRows.isNotEmpty,
                 ),
+                ensureDefaultLabels: (selected) async {
+                  final ids = {...selected};
+                  for (final name in [
+                    'money_sync',
+                    if (const bool.fromEnvironment('E2E_LABEL')) 'test',
+                  ]) {
+                    final id = await walletRepository.ensureLabel(name);
+                    if (id == null) {
+                      _log.error(
+                        'Could not resolve or create label: SafeErrorCode: $name',
+                      );
+                      continue;
+                    }
+                    ids.add(id);
+                  }
+                  return ids.toList(growable: false);
+                },
+                notificationService: notifications,
+                resolveReviewCount: () async {
+                  final candidates = await db
+                      .select(db.transactionCandidates)
+                      .get();
+                  return candidates
+                      .where((r) => r.state == CandidateRecordState.needsReview)
+                      .length;
+                },
               );
               final outcome = await autoCreate(
                 candidate,
