@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
@@ -130,6 +131,7 @@ class _AppLockSection extends ConsumerWidget {
                     config.appLock.inactivityTimeoutSeconds,
               ),
             );
+            updateAppLockRequired(value);
             ref.invalidate(configurationProvider);
           },
         ),
