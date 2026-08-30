@@ -1,0 +1,44 @@
+name: Source Hygiene
+
+on:
+  workflow_call:
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/moneysync-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Cache build_runner output
+        uses: actions/cache@v4
+        with:
+          path: .dart_tool/build
+          key: build-runner-${{ runner.os }}-${{ hashFiles('**/pubspec.lock', '**/*.dart') }}
+          restore-keys: |
+            build-runner-${{ runner.os }}-
+
+      - name: Verify generated code
+        run: |
+          dart run build_runner build
+          git diff --exit-code
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Verify source hygiene
+        run: bash tool/verify_source_hygiene.sh
