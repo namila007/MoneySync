@@ -120,11 +120,11 @@ void main() {
       expect(find.text('PERMISSIONS-DESTINATION'), findsOneWidget);
     });
 
-    testWidgets('App lock still opens the security page', (tester) async {
+    testWidgets('App Security still opens the security page', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('App lock & biometric'));
+      await tester.tap(find.text('App Security'));
       await tester.pumpAndSettle();
 
       expect(find.text('APP-LOCK-DESTINATION'), findsOneWidget);

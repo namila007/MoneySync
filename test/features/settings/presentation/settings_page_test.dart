@@ -97,35 +97,6 @@ void main() {
       },
     );
 
-    testWidgets(
-      'screenshot protection switch reflects and persists the state',
-      (tester) async {
-        final repo = _FakeConfigRepo(secureWindowEnabled: false);
-        await tester.pumpWidget(_app(configRepo: repo));
-        await tester.pumpAndSettle();
-
-        final scrollable = find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text('Screenshot protection'),
-          250,
-          scrollable: scrollable,
-        );
-
-        final toggle = tester.widget<SwitchListTile>(
-          find.byType(SwitchListTile),
-        );
-        expect(toggle.value, isFalse);
-
-        await tester.tap(find.byType(SwitchListTile));
-        await tester.pumpAndSettle();
-
-        expect(repo.secureWindowUpdates, [true]);
-      },
-    );
-
     testWidgets('auto-import toggle is visible only on privateFull', (
       tester,
     ) async {
@@ -194,26 +165,17 @@ void main() {
 }
 
 final class _FakeConfigRepo implements ConfigurationRepository {
-  _FakeConfigRepo({
-    this.secureWindowEnabled = true,
-    this.autoImportEnabled = false,
-  });
+  _FakeConfigRepo({this.autoImportEnabled = false});
 
-  final bool secureWindowEnabled;
   bool autoImportEnabled;
-  final List<bool> secureWindowUpdates = [];
   final List<bool> autoImportUpdates = [];
 
   @override
-  Future<ConfigurationState> load() async => ConfigurationState(
-    secureWindowEnabled: secureWindowEnabled,
-    autoImportEnabled: autoImportEnabled,
-  );
+  Future<ConfigurationState> load() async =>
+      ConfigurationState(autoImportEnabled: autoImportEnabled);
 
   @override
-  Future<void> updateSecureWindowEnabled(bool enabled) async {
-    secureWindowUpdates.add(enabled);
-  }
+  Future<void> updateSecureWindowEnabled(bool enabled) async {}
 
   @override
   Future<void> updateAutoImportEnabled(bool enabled) async {

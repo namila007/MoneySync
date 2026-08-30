@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:logging/logging.dart';
 import 'package:money_sync/app/router.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
-import 'package:money_sync/core/capabilities/app_capabilities.dart';
-import 'package:money_sync/core/logging/log_levels.dart';
-import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 
 /// The Settings root. The former Configuration hub was flattened into this
@@ -20,10 +16,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final capabilities = ref.watch(appCapabilitiesProvider);
     final configStateAsync = ref.watch(_configurationStateProvider);
-    final secureWindowEnabled =
-        configStateAsync.value?.secureWindowEnabled ?? true;
     final autoImportEnabled =
         configStateAsync.value?.autoImportEnabled ?? false;
     final autoCreateEnabled =
@@ -46,7 +39,7 @@ class SettingsPage extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.lock_outline),
-                title: const Text('App lock & biometric'),
+                title: const Text('App Security'),
                 subtitle: const Text('Device protection configuration'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.securityPrivacy.path),
@@ -64,15 +57,6 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: const Text('Re-view the introduction flow'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.onboardingReview.path),
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.screenshot_monitor_outlined),
-                title: const Text('Screenshot protection'),
-                subtitle: const Text(
-                  'Blocks screenshots and screen recording of the app.',
-                ),
-                value: secureWindowEnabled,
-                onChanged: (enabled) => _toggleSecureWindow(ref, enabled),
               ),
             ],
           ),
@@ -147,12 +131,6 @@ class SettingsPage extends ConsumerWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(AppRoute.dataControl.path),
               ),
-              for (final capability in AppCapability.values)
-                _CapabilityTile(
-                  capability: capability,
-                  enabled: capabilities.isEnabled(capability),
-                  explanation: capabilities.explanationFor(capability),
-                ),
             ],
           ),
         ],
@@ -166,19 +144,6 @@ final _configurationStateProvider = FutureProvider<ConfigurationState>((ref) {
       .watch(configurationRepositoryProvider.future)
       .then((repo) => repo.load());
 });
-
-Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
-  final repo = await ref.read(configurationRepositoryProvider.future);
-  await repo.updateSecureWindowEnabled(enabled);
-  ref.invalidate(_configurationStateProvider);
-  try {
-    await const NativeSecurityChannel().setSecureWindowProtection(
-      enabled: enabled,
-    );
-  } catch (e, s) {
-    Logger('security').error('setSecureWindowProtection failed', e, s);
-  }
-}
 
 Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
   final repo = await ref.read(configurationRepositoryProvider.future);
@@ -245,44 +210,4 @@ class _ConfigurationSection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CapabilityTile extends StatelessWidget {
-  const _CapabilityTile({
-    required this.capability,
-    required this.enabled,
-    required this.explanation,
-  });
-
-  final AppCapability capability;
-  final bool enabled;
-  final String explanation;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      enabled: false,
-      minVerticalPadding: 12,
-      leading: Icon(enabled ? Icons.check_circle_outline : Icons.lock_outline),
-      title: Text(_labelFor(capability)),
-      subtitle: Text(explanation),
-      trailing: Text(enabled ? 'Enabled' : 'Disabled'),
-    );
-  }
-
-  String _labelFor(AppCapability capability) => switch (capability) {
-    AppCapability.smsPermission => 'SMS permission',
-    AppCapability.walletCreate => 'Wallet creation',
-    AppCapability.walletPatch => 'Wallet updates',
-    AppCapability.walletDelete => 'Wallet deletion',
-    AppCapability.historySms => 'SMS history',
-    AppCapability.liveSms => 'Live SMS',
-    AppCapability.mlKitEntities => 'ML entities',
-    AppCapability.localLearning => 'Local learning',
-    AppCapability.internalTransfer => 'Internal transfers',
-    AppCapability.outsideTransfer => 'Outside transfers',
-    AppCapability.automaticSync => 'Automatic sync',
-    AppCapability.settingsExport => 'Settings export',
-    AppCapability.modelTransfer => 'Model transfer',
-  };
 }

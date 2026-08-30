@@ -33,7 +33,9 @@ class PermissionsPage extends ConsumerWidget {
                 error: (e, _) => ListTile(
                   leading: const Icon(Icons.sms_outlined),
                   title: const Text('Message reading'),
-                  subtitle: const Text('Status unavailable'),
+                  subtitle: const Text('Status unavailable — tap to retry'),
+                  onTap: () =>
+                      ref.read(smsPermissionStatusProvider.notifier).refresh(),
                 ),
                 data: (status) {
                   final (label, symbol) = switch (status) {
@@ -64,7 +66,10 @@ class PermissionsPage extends ConsumerWidget {
                 error: (e, _) => ListTile(
                   leading: const Icon(Icons.notifications_outlined),
                   title: const Text('Notifications'),
-                  subtitle: const Text('Status unavailable'),
+                  subtitle: const Text('Status unavailable — tap to retry'),
+                  onTap: () => ref
+                      .read(notificationPermissionStatusProvider.notifier)
+                      .refresh(),
                 ),
                 data: (status) {
                   final (label, symbol) = switch (status) {
