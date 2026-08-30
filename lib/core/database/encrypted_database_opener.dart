@@ -40,6 +40,7 @@ final class ProductionEncryptedDatabaseOpener {
       File(path),
       setup: (database) {
         database.execute("PRAGMA key = \"x'$keyHex'\";");
+        database.execute('PRAGMA busy_timeout = 5000;');
         final version = database.select("PRAGMA cipher_version;");
         if (version.isEmpty) {
           throw const CipherVersionException();

@@ -50,6 +50,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
   String _currencyCode = '';
   String? _accountId;
   String? _categoryId;
+  String _labelIds = '';
 
   @override
   void initState() {
@@ -213,6 +214,8 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
                       label: 'Created',
                       value: _formatTime(mutation.createdAtEpochMs),
                     ),
+                    if (_labelIds.isNotEmpty)
+                      _DetailRow(label: 'Labels', value: _labelIds),
                   ],
                 ),
               ),
@@ -310,6 +313,9 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
     _categoryId = payload['categoryId'] as String?;
     _counterpartyController.text = payload['counterParty'] as String? ?? '';
     _noteController.text = _stripNoteMarker(payload['note'] as String?);
+    if (payload['labelIds'] is List<dynamic>) {
+      _labelIds = (payload['labelIds'] as List<dynamic>).join(', ');
+    }
   }
 
   static Map<String, Object?> _decodePayload(String json) {

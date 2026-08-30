@@ -142,6 +142,24 @@ void main() {
       throwsA(isA<DatabaseKeyUnavailableException>()),
     );
   });
+
+  test('sets busy_timeout pragma after key setup', () async {
+    final key = Uint8List.fromList(List<int>.generate(32, (i) => i));
+    final opener = ProductionEncryptedDatabaseOpener(
+      channel: const NativeSecurityChannel(),
+      keyProvider: _FixedKeyProvider(key),
+    );
+
+    final database = await opener.open();
+    addTearDown(database.close);
+
+    final result = await database.customSelect('PRAGMA busy_timeout;').get();
+    expect(
+      result,
+      isNotEmpty,
+      reason: 'busy_timeout pragma must be queryable after database open',
+    );
+  });
 }
 
 final class _UnavailableKeyProvider implements DatabaseKeyProvider {

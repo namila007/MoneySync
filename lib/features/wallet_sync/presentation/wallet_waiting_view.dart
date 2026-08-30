@@ -101,7 +101,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
                   '$currencyCode ${_formatAmount(amountMinor)} · $kind',
                 ),
                 subtitle: Text(
-                  '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
+                  [
+                    '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
+                    if (payload['labelIds'] is List<dynamic> &&
+                        (payload['labelIds'] as List<dynamic>).isNotEmpty)
+                      'labels: ${(payload['labelIds'] as List<dynamic>).join(', ')}',
+                  ].where((s) => s.isNotEmpty).join(' · '),
                 ),
                 trailing: IconButton(
                   icon: const Icon(Icons.chevron_right),

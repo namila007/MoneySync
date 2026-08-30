@@ -26,6 +26,7 @@ import 'package:money_sync/features/wallet_connection/domain/wallet_connection_m
 import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
+import 'package:money_sync/features/wallet_sync/domain/resolve_default_wallet_labels.dart';
 import 'package:logging/logging.dart';
 
 final _log = Logger('sms.background');
@@ -188,23 +189,8 @@ class BackgroundCompositionRoot {
                   hasActiveLineage: hasActiveLineage,
                   hasOwnedRecordLink: linkRows.isNotEmpty,
                 ),
-                ensureDefaultLabels: (selected) async {
-                  final ids = {...selected};
-                  for (final name in [
-                    'money_sync',
-                    if (const bool.fromEnvironment('E2E_LABEL')) 'test',
-                  ]) {
-                    final id = await walletRepository.ensureLabel(name);
-                    if (id == null) {
-                      _log.error(
-                        'Could not resolve or create label: SafeErrorCode: $name',
-                      );
-                      continue;
-                    }
-                    ids.add(id);
-                  }
-                  return ids.toList(growable: false);
-                },
+                ensureDefaultLabels: (selected) =>
+                    resolveDefaultWalletLabels(walletRepository, selected),
                 notificationService: notifications,
                 resolveReviewCount: () async {
                   final candidates = await db
