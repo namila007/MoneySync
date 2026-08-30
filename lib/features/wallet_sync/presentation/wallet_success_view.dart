@@ -11,20 +11,22 @@ import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 /// Mutations in succeeded state, for the success view.
-final succeededMutationsProvider = FutureProvider<List<WalletMutation>>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return (db.select(db.walletMutations)
-        ..where(
-          (m) => m.state.equals(
-            storedMutationState(WalletMutationState.succeeded),
-          ),
-        )
-        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
-        ..limit(200))
-      .get();
-});
+/// StreamProvider watching wallet_mutations directly, mirroring
+/// homeWalletHealthProvider's pattern — refreshes live without manual
+/// invalidation.
+final succeededMutationsProvider =
+    StreamProvider.autoDispose<List<WalletMutation>>((ref) async* {
+      final db = await ref.watch(appDatabaseProvider.future);
+      yield* (db.select(db.walletMutations)
+            ..where(
+              (m) => m.state.equals(
+                storedMutationState(WalletMutationState.succeeded),
+              ),
+            )
+            ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+            ..limit(200))
+          .watch();
+    });
 
 final _log = Logger('WalletSuccessView');
 
@@ -90,7 +92,7 @@ class SuccessView extends ConsumerWidget {
     final formatted = majorUnits
         .toStringAsFixed(2)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return minorUnits < 0 ? '-$formatted' : formatted;
+    return formatted;
   }
 
   String _formatTime(int epochMs) {

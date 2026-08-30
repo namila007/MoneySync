@@ -9,7 +9,7 @@ import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
-import 'package:money_sync/features/settings/presentation/settings_page.dart';
+import 'package:money_sync/features/settings/presentation/security_privacy_page.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_gateway.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
@@ -59,7 +59,7 @@ void main() {
             ),
             configurationRepositoryProvider.overrideWith((ref) async => repo),
           ],
-          child: const MaterialApp(home: SettingsPage()),
+          child: const MaterialApp(home: SecurityPrivacyPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -75,7 +75,12 @@ void main() {
         scrollable: scrollable,
       );
 
-      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      final toggle = tester.widget<SwitchListTile>(
+        find.ancestor(
+          of: find.text('Screenshot protection'),
+          matching: find.byType(SwitchListTile),
+        ),
+      );
       expect(toggle.value, isFalse);
     });
   });
@@ -118,7 +123,7 @@ void main() {
             ),
             configurationRepositoryProvider.overrideWith((ref) async => repo),
           ],
-          child: const MaterialApp(home: SettingsPage()),
+          child: const MaterialApp(home: SecurityPrivacyPage()),
         ),
       );
       await tester.pumpAndSettle();
@@ -134,7 +139,12 @@ void main() {
       );
 
       // Toggle the switch — this triggers the native channel call.
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(
+        find.ancestor(
+          of: find.text('Screenshot protection'),
+          matching: find.byType(SwitchListTile),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // The repo was updated.

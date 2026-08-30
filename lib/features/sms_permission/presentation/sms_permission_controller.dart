@@ -1,9 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/sms_permission/domain/request_sms_permission.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_gateway.dart';
 import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
+
+final _log = Logger('sms_permission');
 
 final smsPermissionGatewayProvider = Provider<SmsPermissionGateway>((ref) {
   throw StateError('smsPermissionGatewayProvider must be overridden.');
@@ -31,7 +35,9 @@ class SmsPermissionNotifier extends Notifier<AsyncValue<SmsPermissionStatus>> {
     // override throws StateError, which `on Exception` would not catch.
     try {
       final gateway = ref.read(smsPermissionGatewayProvider);
-      final status = await gateway.current();
+      final status = await gateway.current().timeout(
+        const Duration(seconds: 5),
+      );
       if (_lastObserved == SmsPermissionStatus.granted &&
           status != SmsPermissionStatus.granted &&
           _lastObserved != null) {
@@ -41,6 +47,9 @@ class SmsPermissionNotifier extends Notifier<AsyncValue<SmsPermissionStatus>> {
       }
       _lastObserved = status;
       state = AsyncValue.data(status);
+    } on TimeoutException catch (e, s) {
+      _log.error('SMS permission status check timed out after 5s', e, s);
+      state = AsyncValue.error(e, s);
     } on Object catch (e, s) {
       state = AsyncValue.error(e, s);
     }

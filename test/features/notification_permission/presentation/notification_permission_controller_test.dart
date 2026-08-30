@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/features/notification_permission/domain/notification_permission_gateway.dart';
@@ -126,6 +129,36 @@ void main() {
       expect(state.isLoading, isFalse);
       expect(state.hasError, isTrue);
     });
+
+    test(
+      'a gateway whose current() never completes times out to error',
+      () async {
+        fakeAsync((async) {
+          final container = makeContainer(_NeverCompletingGateway());
+          final notifier = container.read(
+            notificationPermissionStatusProvider.notifier,
+          );
+
+          unawaited(notifier.refresh());
+
+          async.elapse(const Duration(seconds: 3));
+          expect(
+            container.read(notificationPermissionStatusProvider).isLoading,
+            isTrue,
+          );
+
+          async.elapse(const Duration(seconds: 3));
+
+          final state = container.read(notificationPermissionStatusProvider);
+          expect(
+            state.isLoading,
+            isFalse,
+            reason: 'should not still be loading',
+          );
+          expect(state.hasError, isTrue, reason: 'should be in error state');
+        });
+      },
+    );
   });
 
   group('RequestNotificationPermission', () {
@@ -201,6 +234,19 @@ final class _MutableGateway implements NotificationPermissionGateway {
     requestCalled = true;
     return NotificationPermissionStatus.granted;
   }
+
+  @override
+  Future<void> openAppSettings() async {}
+}
+
+final class _NeverCompletingGateway implements NotificationPermissionGateway {
+  @override
+  Future<NotificationPermissionStatus> current() =>
+      Completer<NotificationPermissionStatus>().future;
+
+  @override
+  Future<NotificationPermissionStatus> request() =>
+      Completer<NotificationPermissionStatus>().future;
 
   @override
   Future<void> openAppSettings() async {}

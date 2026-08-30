@@ -21,10 +21,6 @@ import 'package:money_sync/features/wallet_sync/application/wallet_mutation_tran
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_capability_ledger.dart';
-import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
-    show succeededMutationsProvider;
-import 'package:money_sync/features/wallet_sync/presentation/wallet_waiting_view.dart'
-    show waitingMutationsProvider;
 
 final log = Logger('review');
 
@@ -325,9 +321,6 @@ class ReviewTransactionController extends Notifier<ReviewTransactionViewState> {
 
       // Invalidate activity log so the new event appears immediately.
       ref.invalidate(filteredActivityLogProvider);
-      // Invalidate waiting/success views so the new mutation appears.
-      ref.invalidate(waitingMutationsProvider);
-      ref.invalidate(succeededMutationsProvider);
     } catch (e, s) {
       log.error('Review submit failed for message $_smsEventId', e, s);
       state = state.copyWith(

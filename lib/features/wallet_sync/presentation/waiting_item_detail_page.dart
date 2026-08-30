@@ -17,10 +17,6 @@ import 'package:money_sync/features/review_inbox/presentation/inbox_controller.d
     show inboxEventsProvider;
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_panel.dart'
     show TargetAccountPicker, CategoryPicker;
-import 'package:money_sync/features/wallet_sync/presentation/wallet_waiting_view.dart'
-    show waitingMutationsProvider;
-import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
-    show succeededMutationsProvider;
 
 /// Detail page for a single queued mutation (WP5; edit + reject added M5.22
 /// WP-J). Shows the stored payload snapshot, editable before it is sent, with
@@ -393,12 +389,6 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
 
       if (result is WalletMutationRemoteSuccess) {
         if (mounted) {
-          ref.invalidate(waitingMutationsProvider);
-          // M5.22 WP-C: the mutation just entered `succeeded`, so the Success
-          // list is now stale too. Both are one-shot FutureProviders; missing
-          // this one left the Success view showing pre-approve data until the
-          // app restarted.
-          ref.invalidate(succeededMutationsProvider);
           ref.invalidate(filteredActivityLogProvider);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Record created successfully.')),
@@ -409,11 +399,9 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
         // The transmitter already resolved the state to the one the outcome
         // actually warrants (retryScheduled / unknownDelivery /
         // permanentFailure), so only the message is left to render.
-        ref.invalidate(waitingMutationsProvider);
         setState(() => _error = _approveMessage(result));
       }
     } catch (e) {
-      ref.invalidate(waitingMutationsProvider);
       setState(() => _error = 'Approve failed: $e');
     } finally {
       if (mounted) setState(() => _approving = false);
@@ -459,7 +447,6 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
       );
 
       if (mounted) {
-        ref.invalidate(waitingMutationsProvider);
         ref.invalidate(inboxEventsProvider);
         ref.invalidate(filteredActivityLogProvider);
         ScaffoldMessenger.of(context).showSnackBar(

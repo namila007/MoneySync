@@ -34,16 +34,21 @@ void main() {
           );
     }
 
+    Future<void> flushDrift(WidgetTester tester) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
     testWidgets('shows empty state when no succeeded mutations', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -63,17 +68,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('No succeeded transactions.'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('renders succeeded mutations in the list', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(database);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -92,15 +98,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Should show the formatted amount and kind.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('expense'), findsOneWidget);
-      // Should show the state name.
       expect(find.textContaining('succeeded'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('formats amount with commas for large values', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(
         database,
         payload:
@@ -111,7 +117,6 @@ void main() {
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -130,13 +135,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 123456700 minor units = 1,234,567.00
       expect(find.textContaining('1,234,567.00'), findsOneWidget);
       expect(find.textContaining('income'), findsOneWidget);
+      await flushDrift(tester);
     });
 
-    testWidgets('handles negative amounts', (tester) async {
+    testWidgets('negative-stored amount never renders with a leading minus', (
+      tester,
+    ) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(
         database,
         payload: '{"amountMinor":-5000,"currencyCode":"LKR","kind":"refund"}',
@@ -146,7 +154,6 @@ void main() {
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -165,19 +172,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('-50.00'), findsOneWidget);
+      expect(find.textContaining('50.00'), findsOneWidget);
+      expect(find.textContaining('-50.00'), findsNothing);
       expect(find.textContaining('refund'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('handles malformed payload gracefully', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(database, payload: 'not-json');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -196,22 +205,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Should not crash; defaults to 0 amount and LKR currency.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('0.00'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('handles payload with missing fields gracefully', (
       tester,
     ) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(database, payload: '{}');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -230,20 +239,20 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Missing amountMinor defaults to 0, missing currencyCode defaults to LKR.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('0.00'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('shows AppBar with "Succeeded" title', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(database);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -263,10 +272,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Succeeded'), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('renders multiple succeeded mutations', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(
         database,
         id: 'm1',
@@ -283,7 +294,6 @@ void main() {
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -302,23 +312,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Both mutations should appear.
       expect(find.textContaining('expense'), findsOneWidget);
       expect(find.textContaining('income'), findsOneWidget);
-      // Two list items.
       expect(find.byType(ListTile), findsNWidgets(2));
+      await flushDrift(tester);
     });
 
     testWidgets('formats time correctly', (tester) async {
       final database = createDb();
-      // 2000000 ms = 1970-01-23T18:13:20 UTC
+      addTearDown(database.close);
       await insertSucceeded(database, updatedAtMs: 2000000);
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -337,20 +345,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Should show the date/time in the subtitle.
-      // The format is dd/mm/yyyy HH:mm in local time.
       expect(find.byType(ListTile), findsOneWidget);
+      await flushDrift(tester);
     });
 
     testWidgets('handles non-Map JSON payload gracefully', (tester) async {
       final database = createDb();
+      addTearDown(database.close);
       await insertSucceeded(database, payload: '[1,2,3]');
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             appDatabaseProvider.overrideWith((ref) async {
-              ref.onDispose(database.close);
               return database;
             }),
           ],
@@ -369,9 +376,50 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Array JSON decoded but not a Map -> falls back to empty map.
       expect(find.textContaining('LKR'), findsOneWidget);
       expect(find.textContaining('0.00'), findsOneWidget);
+      await flushDrift(tester);
     });
+
+    testWidgets(
+      'live stream shows new succeeded mutations without invalidation',
+      (tester) async {
+        final database = createDb();
+        addTearDown(database.close);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              appDatabaseProvider.overrideWith((ref) async {
+                return database;
+              }),
+            ],
+            child: MaterialApp.router(
+              routerConfig: GoRouter(
+                initialLocation: '/settings/wallet/succeeded',
+                routes: [
+                  GoRoute(
+                    path: '/settings/wallet/succeeded',
+                    builder: (_, _) => const SuccessView(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('No succeeded transactions.'), findsOneWidget);
+
+        await insertSucceeded(database, id: 'm-live');
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('No succeeded transactions.'), findsNothing);
+        expect(find.textContaining('LKR'), findsOneWidget);
+        await flushDrift(tester);
+      },
+    );
   });
 }

@@ -20,6 +20,11 @@ class SmsPermissionTile extends ConsumerWidget {
         leading: const Icon(Icons.error_outline),
         title: const Text('Message reading'),
         subtitle: Text(e.toString()),
+        trailing: TextButton(
+          onPressed: () =>
+              ref.read(smsPermissionStatusProvider.notifier).refresh(),
+          child: const Text('Retry'),
+        ),
       ),
       data: (status) => _StatusTile(status: status),
     );
