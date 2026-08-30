@@ -231,4 +231,90 @@ void main() {
       expect(resolution, isA<MappingUnmatched>());
     });
   });
+
+  group('M6.8 regression: disabled rule and merchant matcher edge cases', () {
+    test('disabled rule never matches even with perfect sender + merchant', () {
+      final resolver = MappingRuleResolver(
+        rules: [
+          rule(
+            id: 'disabled',
+            enabled: false,
+            sender: 'SAMPATH BANK',
+            merchantMatcher: const ExactMerchantMatcher('CAFE'),
+          ),
+        ],
+      );
+      final resolution = resolver.resolve(
+        const MappingResolutionInput(
+          senderNormalized: 'SAMPATH BANK',
+          confidenceBasisPoints: 9500,
+          merchantNormalized: 'CAFE',
+        ),
+      );
+      expect(resolution, isA<MappingUnmatched>());
+    });
+
+    test('merchant matcher excludes candidate with no counterparty', () {
+      final resolver = MappingRuleResolver(
+        rules: [
+          rule(
+            id: 'merchant-rule',
+            merchantMatcher: const ContainsMerchantMatcher('CAFE'),
+          ),
+        ],
+      );
+      // Empty merchantNormalized simulates a candidate with no counterparty.
+      final resolution = resolver.resolve(
+        const MappingResolutionInput(
+          senderNormalized: 'SAMPATH BANK',
+          confidenceBasisPoints: 9500,
+          merchantNormalized: '',
+        ),
+      );
+      expect(resolution, isA<MappingUnmatched>());
+    });
+
+    test('ExactMerchantMatcher matches when counterparty is present', () {
+      final resolver = MappingRuleResolver(
+        rules: [
+          rule(
+            id: 'exact',
+            merchantMatcher: const ExactMerchantMatcher('STARBUCKS'),
+          ),
+        ],
+      );
+      final resolution = resolver.resolve(
+        const MappingResolutionInput(
+          senderNormalized: 'SAMPATH BANK',
+          confidenceBasisPoints: 9500,
+          merchantNormalized: 'STARBUCKS',
+        ),
+      );
+      expect(resolution, isA<MappingResolved>());
+      expect((resolution as MappingResolved).rule.id, 'exact');
+    });
+
+    test(
+      'ContainsMerchantMatcher matches when counterparty contains fragment',
+      () {
+        final resolver = MappingRuleResolver(
+          rules: [
+            rule(
+              id: 'contains',
+              merchantMatcher: const ContainsMerchantMatcher('CAFE'),
+            ),
+          ],
+        );
+        final resolution = resolver.resolve(
+          const MappingResolutionInput(
+            senderNormalized: 'SAMPATH BANK',
+            confidenceBasisPoints: 9500,
+            merchantNormalized: 'BLUE CAFE COLombo',
+          ),
+        );
+        expect(resolution, isA<MappingResolved>());
+        expect((resolution as MappingResolved).rule.id, 'contains');
+      },
+    );
+  });
 }

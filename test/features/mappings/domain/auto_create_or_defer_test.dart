@@ -561,6 +561,175 @@ void main() {
         });
       },
     );
+
+    group('field-completeness matrix (M6.8 item 4): each required-field gap '
+        'individually produces DeferredToReview', () {
+      MappingSyncMode mode() => MappingSyncMode.automatic;
+
+      test('zero amount minor units -> DeferredToReview', () async {
+        final writer = _SpyWriter();
+        final rule = makeRule(id: 'r1', syncMode: mode());
+        final autoCreate = AutoCreateOrDefer(
+          eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+          outboxWriter: writer,
+          capabilities: _capsWithAutoSync,
+          autoCreateEnabled: true,
+          resolveRules: (_) async => [rule],
+          buildPreSendContext: (_) async => PreSendContext(
+            candidateId: 'candidate-1',
+            amountMinor: 0,
+            currencyCode: 'LKR',
+            recordDateUtc: DateTime.now().toUtc(),
+            direction: TransactionDirection.debit,
+            paymentType: 'debit_card',
+            senderNormalized: 'SAMPATH BANK',
+            confidenceBasisPoints: 9500,
+            privacyEpochMatches: true,
+            consentCurrent: true,
+            connectionConnected: true,
+            eligibleTargetAccount: true,
+            targetAccountEligibility: WalletAccountEligibility.eligible,
+            mappingResolution: MappingResolved(rule),
+            capabilityCanCreate: true,
+            hasActiveLineage: false,
+            hasOwnedRecordLink: false,
+          ),
+        );
+
+        final result = await autoCreate(
+          makeCandidate(),
+          senderNormalized: 'SAMPATH BANK',
+          smsEventId: 70,
+          candidatePayload: '{}',
+        );
+
+        expect(result, isA<DeferredToReview>());
+        expect(
+          (result as DeferredToReview).reason,
+          contains('Amount must be non-zero'),
+        );
+        expect(writer.calls, isEmpty);
+      });
+
+      test('non-LKR currency -> DeferredToReview', () async {
+        final writer = _SpyWriter();
+        final rule = makeRule(id: 'r1', syncMode: mode());
+        final autoCreate = AutoCreateOrDefer(
+          eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+          outboxWriter: writer,
+          capabilities: _capsWithAutoSync,
+          autoCreateEnabled: true,
+          resolveRules: (_) async => [rule],
+          buildPreSendContext: (_) async => PreSendContext(
+            candidateId: 'candidate-1',
+            amountMinor: -150000,
+            currencyCode: 'USD',
+            recordDateUtc: DateTime.now().toUtc(),
+            direction: TransactionDirection.debit,
+            paymentType: 'debit_card',
+            senderNormalized: 'SAMPATH BANK',
+            confidenceBasisPoints: 9500,
+            privacyEpochMatches: true,
+            consentCurrent: true,
+            connectionConnected: true,
+            eligibleTargetAccount: true,
+            targetAccountEligibility: WalletAccountEligibility.eligible,
+            mappingResolution: MappingResolved(rule),
+            capabilityCanCreate: true,
+            hasActiveLineage: false,
+            hasOwnedRecordLink: false,
+          ),
+        );
+
+        final result = await autoCreate(
+          makeCandidate(),
+          senderNormalized: 'SAMPATH BANK',
+          smsEventId: 71,
+          candidatePayload: '{}',
+        );
+
+        expect(result, isA<DeferredToReview>());
+        expect(
+          (result as DeferredToReview).reason,
+          contains('Foreign-currency create is review-only'),
+        );
+        expect(writer.calls, isEmpty);
+      });
+
+      test('ineligible target account -> DeferredToReview', () async {
+        final writer = _SpyWriter();
+        final rule = makeRule(id: 'r1', syncMode: mode());
+        final autoCreate = AutoCreateOrDefer(
+          eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+          outboxWriter: writer,
+          capabilities: _capsWithAutoSync,
+          autoCreateEnabled: true,
+          resolveRules: (_) async => [rule],
+          buildPreSendContext: (_) async => PreSendContext(
+            candidateId: 'candidate-1',
+            amountMinor: -150000,
+            currencyCode: 'LKR',
+            recordDateUtc: DateTime.now().toUtc(),
+            direction: TransactionDirection.debit,
+            paymentType: 'debit_card',
+            senderNormalized: 'SAMPATH BANK',
+            confidenceBasisPoints: 9500,
+            privacyEpochMatches: true,
+            consentCurrent: true,
+            connectionConnected: true,
+            eligibleTargetAccount: false,
+            targetAccountEligibility: WalletAccountEligibility.archived,
+            mappingResolution: MappingResolved(rule),
+            capabilityCanCreate: true,
+            hasActiveLineage: false,
+            hasOwnedRecordLink: false,
+          ),
+        );
+
+        final result = await autoCreate(
+          makeCandidate(),
+          senderNormalized: 'SAMPATH BANK',
+          smsEventId: 72,
+          candidatePayload: '{}',
+        );
+
+        expect(result, isA<DeferredToReview>());
+        expect(
+          (result as DeferredToReview).reason,
+          contains('Target account is not'),
+        );
+        expect(writer.calls, isEmpty);
+      });
+
+      test('fully-valid automatic candidate -> AutoCreated', () async {
+        final writer = _SpyWriter();
+        final rule = makeRule(
+          id: 'r1',
+          syncMode: mode(),
+          minConfidenceBasisPoints: 9000,
+        );
+        final autoCreate = AutoCreateOrDefer(
+          eligibilityPolicy: const WalletCreateEligibilityPolicy(),
+          outboxWriter: writer,
+          capabilities: _capsWithAutoSync,
+          autoCreateEnabled: true,
+          resolveRules: (_) async => [rule],
+          buildPreSendContext: (_) async =>
+              passingContext(resolution: MappingResolved(rule)),
+        );
+
+        final result = await autoCreate(
+          makeCandidate(),
+          senderNormalized: 'SAMPATH BANK',
+          smsEventId: 73,
+          candidatePayload: '{"valid":true}',
+        );
+
+        expect(result, isA<AutoCreated>());
+        expect(writer.calls.length, 1);
+        expect(writer.calls.first, 73);
+      });
+    });
   });
 
   group('logging', () {
