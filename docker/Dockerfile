@@ -4,8 +4,8 @@ LABEL org.opencontainers.image.source="https://github.com/namila007/moneysync"
 LABEL org.opencontainers.image.description="MoneySync CI image with Flutter, Android SDK, and NDK"
 
 ARG FLUTTER_VERSION=3.44.6
-ARG NDK_VERSION=30.0.15729638
-ARG ANDROID_SDK_VERSION=37
+ARG NDK_VERSION=29.0.14206865
+ARG ANDROID_SDK_VERSION=36
 
 ENV ANDROID_HOME=/opt/android-sdk
 ENV FLUTTER_HOME=/opt/flutter

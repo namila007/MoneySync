@@ -6,13 +6,13 @@ plugins {
 
 android {
     namespace = "me.namila.money_sync"
-    compileSdk = 37
-    ndkVersion = "30.0.15729638"
+    compileSdk = 36
+    ndkVersion = "29.0.14206865"
 
     subprojects {
         afterEvaluate {
             extensions.findByName("android")?.let { ext ->
-                (ext as com.android.build.gradle.BaseExtension).ndkVersion = "30.0.15729638"
+                (ext as com.android.build.gradle.BaseExtension).ndkVersion = "29.0.14206865"
             }
         }
     }
