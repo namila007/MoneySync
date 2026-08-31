@@ -23,7 +23,7 @@ permissions:
 jobs:
   build:
     name: Build Release APKs
-    uses: ./.github/workflows/_reusable/build-apks.yml
+    uses: ./.github/workflows/reusable-build-apks.yml
     with:
       build-mode: release
 

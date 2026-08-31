@@ -14,4 +14,4 @@ permissions:
 jobs:
   hygiene:
     name: Source Hygiene
-    uses: ./.github/workflows/_reusable/source-hygiene.yml
+    uses: ./.github/workflows/reusable-source-hygiene.yml
