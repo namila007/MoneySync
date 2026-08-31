@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/sms_ingestion/presentation/history_import_controller.dart';
 
 class HistoryImportPage extends ConsumerStatefulWidget {
@@ -71,20 +73,17 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.s3),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.s4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Date range',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
+                  Text('Date range', style: AppTypography.h6),
+                  const SizedBox(height: AppSpacing.s3),
                   Wrap(
-                    spacing: 8,
+                    spacing: AppSpacing.s2,
                     children: [3, 7, 14].map((days) {
                       final selected =
                           state.preset == days && state.customDays == null;
@@ -95,7 +94,7 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
                       );
                     }).toList(),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.s2),
                   Row(
                     children: [
                       SizedBox(
@@ -118,18 +117,15 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.s3),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.s4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Maximum',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
+                  Text('Maximum', style: AppTypography.h6),
+                  const SizedBox(height: AppSpacing.s2),
                   Row(
                     children: [
                       Expanded(
@@ -146,7 +142,7 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
                         width: 60,
                         child: Text(
                           '${state.messageCap}',
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: AppTypography.h6,
                         ),
                       ),
                     ],
@@ -156,18 +152,18 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
             ),
           ),
           if (state.isScanning) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: AppSpacing.s6),
             Center(
               child: Column(
                 children: [
                   const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   Text('Stored: ${state.imported}'),
                   if (state.filtered > 0)
                     Text('Not recognised: ${state.filtered}'),
                   if (state.duplicates > 0)
                     Text('Already imported: ${state.duplicates}'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.s3),
                   TextButton(
                     onPressed: () => controller.cancelImport(),
                     child: const Text('Cancel'),
@@ -176,7 +172,7 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
               ),
             ),
           ] else ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.s3),
             Center(
               child: Column(
                 children: [
@@ -184,9 +180,9 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
                     'Only messages from tracked senders are read. '
                     'Your inbox is never changed.',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
+                    style: AppTypography.bodySmall,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   if (hasTracked)
                     FilledButton.icon(
                       onPressed: () => controller.startImport(),
@@ -254,7 +250,7 @@ class _ResultViewState extends State<_ResultView> {
       appBar: AppBar(title: Text(title)),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppSpacing.s8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -265,9 +261,9 @@ class _ResultViewState extends State<_ResultView> {
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(height: 16),
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.s4),
+              Text(title, style: AppTypography.h3),
+              const SizedBox(height: AppSpacing.s2),
               Text(
                 t == TerminalResult.noTrackedSenders
                     ? 'Nothing was read. Choose at least one sender to track.'
@@ -278,7 +274,7 @@ class _ResultViewState extends State<_ResultView> {
               ),
               if (t != TerminalResult.noTrackedSenders &&
                   state.filtered > 0) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.s2),
                 TextButton(
                   onPressed: () => setState(
                     () => _showSkipExplanation = !_showSkipExplanation,
@@ -287,7 +283,9 @@ class _ResultViewState extends State<_ResultView> {
                 ),
                 if (_showSkipExplanation)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s2,
+                    ),
                     child: Text(
                       'One-time passwords, promotions, and messages that do '
                       'not look like a bank transaction are never stored, so '
@@ -295,11 +293,11 @@ class _ResultViewState extends State<_ResultView> {
                       'message here, check that its sender is tracked and '
                       'that it contains an amount.',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: AppTypography.bodySmall,
                     ),
                   ),
               ],
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.s8),
               if (t == TerminalResult.noTrackedSenders)
                 FilledButton(
                   onPressed: () {

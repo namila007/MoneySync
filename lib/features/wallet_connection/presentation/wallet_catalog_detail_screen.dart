@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
@@ -162,22 +165,23 @@ class _EligibilityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = MoneySyncTheme.of(context);
     final (label, color) = switch (eligibility) {
-      WalletAccountEligibility.eligible => ('Eligible', Colors.green),
-      WalletAccountEligibility.archived => ('Archived', Colors.grey),
-      WalletAccountEligibility.bankSynced => ('Bank-synced', Colors.blue),
-      WalletAccountEligibility.unwritable => ('Not writable', Colors.orange),
+      WalletAccountEligibility.eligible => ('Eligible', theme.success),
+      WalletAccountEligibility.archived => ('Archived', AppColors.neutral500),
+      WalletAccountEligibility.bankSynced => ('Bank-synced', theme.info),
+      WalletAccountEligibility.unwritable => ('Not writable', theme.warning),
       WalletAccountEligibility.missingRequiredFields => (
         'Incomplete',
-        Colors.orange,
+        theme.warning,
       ),
       WalletAccountEligibility.foreignCurrencyReviewOnly => (
         'Review only',
-        Colors.orange,
+        theme.warning,
       ),
     };
     return Chip(
-      label: Text(label, style: const TextStyle(fontSize: 11)),
+      label: Text(label, style: AppTypography.micro),
       backgroundColor: color.withValues(alpha: 0.1),
       side: BorderSide(color: color.withValues(alpha: 0.3)),
       padding: EdgeInsets.zero,

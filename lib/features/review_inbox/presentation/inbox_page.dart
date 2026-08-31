@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_controller.dart';
@@ -147,7 +148,7 @@ class _FilterBar extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             InkWell(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.zero,
               onTap: () async {
                 final picked = await showDateRangePicker(
                   context: context,
@@ -448,7 +449,7 @@ class StatusChip extends StatelessWidget {
     };
     return Chip(
       label: Text(label),
-      labelStyle: const TextStyle(fontSize: 11),
+      labelStyle: AppTypography.micro,
       visualDensity: VisualDensity.compact,
     );
   }

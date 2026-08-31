@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/sms_ingestion/data/sms_history_pigeon.g.dart';
 import 'package:money_sync/features/sms_tracking/presentation/tracked_senders_controller.dart';
 
@@ -74,7 +76,7 @@ class _TrackedSendersPageState extends ConsumerState<TrackedSendersPage> {
           Center(
             child: Text(
               '${tracked.length} selected',
-              style: Theme.of(context).textTheme.bodyMedium,
+              style: AppTypography.bodySmall,
             ),
           ),
           IconButton(
@@ -85,14 +87,14 @@ class _TrackedSendersPageState extends ConsumerState<TrackedSendersPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.s4),
         children: [
           Text(
             'Only messages from senders you choose are ever read. '
             'Nothing else is loaded from your SMS inbox.',
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: AppTypography.bodySmall,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.s3),
           TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
@@ -102,26 +104,26 @@ class _TrackedSendersPageState extends ConsumerState<TrackedSendersPage> {
             ),
             onChanged: (value) => setState(() => _query = value),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.s3),
           if (_loadingSenders)
             const LinearProgressIndicator()
           else if (candidates.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.s4),
                 child: Text(
                   'No senders tracked yet. Pick at least one to import messages.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: AppTypography.bodySmall,
                 ),
               ),
             )
           else if (filtered.isEmpty)
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.s4),
                 child: Text(
                   'No senders match \u201c$_query\u201d.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: AppTypography.bodySmall,
                 ),
               ),
             )

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/sms_ingestion/presentation/manual_import_controller.dart';
 
 const _kMaxBodyLength = 2000;
@@ -63,7 +64,7 @@ class _ManualImportPageState extends ConsumerState<ManualImportPage> {
                       Expanded(
                         child: Text(
                           'Shared messages always go to review.',
-                          style: TextStyle(fontSize: 13),
+                          style: AppTypography.bodySmall,
                         ),
                       ),
                     ],
@@ -185,7 +186,7 @@ class _PreviewView extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'Shared messages are permanently review-only.',
-                          style: TextStyle(fontSize: 13),
+                          style: AppTypography.bodySmall,
                         ),
                       ),
                     ],
