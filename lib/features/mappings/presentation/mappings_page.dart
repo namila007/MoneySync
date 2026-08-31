@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
+
+final log = Logger('mappings.list');
 
 class MappingsPage extends ConsumerWidget {
   const MappingsPage({super.key});
@@ -39,7 +43,10 @@ class MappingsPage extends ConsumerWidget {
             itemCount: rules.length,
             itemBuilder: (context, index) {
               final rule = rules[index];
-              return _MappingRuleTile(rule: rule);
+              return _MappingRuleTile(
+                rule: rule,
+                onDelete: () => ref.invalidate(mappingRuleListProvider),
+              );
             },
           );
         },
@@ -48,13 +55,14 @@ class MappingsPage extends ConsumerWidget {
   }
 }
 
-class _MappingRuleTile extends StatelessWidget {
-  const _MappingRuleTile({required this.rule});
+class _MappingRuleTile extends ConsumerWidget {
+  const _MappingRuleTile({required this.rule, required this.onDelete});
 
   final MappingRule rule;
+  final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final subtitleParts = <String>[
       if (rule.senderMatcher.aliases.isNotEmpty)
         rule.senderMatcher.aliases.join(', '),
@@ -63,21 +71,73 @@ class _MappingRuleTile extends StatelessWidget {
       rule.syncMode.name,
     ];
 
-    return Card(
-      child: ListTile(
-        onTap: () => context.push('/mappings/${rule.id}/edit'),
-        title: Text(rule.name),
-        subtitle: Text(subtitleParts.join(' · ')),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (!rule.enabled) const _DisabledChip(),
-            IconButton(
-              tooltip: 'Edit mapping',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => context.push('/mappings/${rule.id}/edit'),
+    return Dismissible(
+      key: ValueKey(rule.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Theme.of(context).colorScheme.error,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 16),
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
+      ),
+      confirmDismiss: (_) async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete mapping rule?'),
+            content: Text(
+              'The rule "${rule.name}" will be permanently deleted.',
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        return confirmed ?? false;
+      },
+      onDismissed: (_) async {
+        try {
+          final useCase = await ref.read(deleteMappingRuleProvider.future);
+          await useCase(ruleId: rule.id);
+          log.info('Deleted mapping rule ${rule.id}');
+          onDelete();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Mapping rule "${rule.name}" deleted.')),
+            );
+          }
+        } catch (e, s) {
+          log.error('Failed to delete mapping rule ${rule.id}', e, s);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not delete mapping rule.')),
+            );
+          }
+        }
+      },
+      child: Card(
+        child: ListTile(
+          onTap: () => context.push('/mappings/${rule.id}/edit'),
+          title: Text(rule.name),
+          subtitle: Text(subtitleParts.join(' · ')),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!rule.enabled) const _DisabledChip(),
+              IconButton(
+                tooltip: 'Edit mapping',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => context.push('/mappings/${rule.id}/edit'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -158,6 +158,11 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
           recordState: WalletRecordState.cleared,
           counterParty: payload['counterParty'] as String?,
           categoryId: payload['categoryId'] as String?,
+          labelIds:
+              (payload['labelIds'] as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toList() ??
+              const [],
         );
 
         final result = await repository

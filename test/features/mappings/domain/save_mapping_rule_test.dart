@@ -93,6 +93,13 @@ final class _FakeMappingRuleStore implements MappingRuleStore {
     _existing = rule;
     return rule;
   }
+
+  @override
+  Future<void> delete(String ruleId) async {
+    if (_existing?.id == ruleId) {
+      _existing = null;
+    }
+  }
 }
 
 final class _SaveRecord {

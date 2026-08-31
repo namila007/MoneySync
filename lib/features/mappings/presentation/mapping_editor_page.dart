@@ -168,6 +168,50 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
     }
   }
 
+  Future<void> _delete() async {
+    if (widget.ruleId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete mapping rule?'),
+        content: Text(
+          'The rule "${_nameController.text}" will be permanently deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    setState(() => _saving = true);
+    try {
+      final useCase = await ref.read(deleteMappingRuleProvider.future);
+      await useCase(ruleId: widget.ruleId!);
+      log.info('Deleted mapping rule ${widget.ruleId}');
+      if (!mounted) return;
+      ref.invalidate(mappingRuleListProvider);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Mapping deleted.')));
+      Navigator.of(context).pop();
+    } catch (e, s) {
+      log.error('Failed to delete mapping rule ${widget.ruleId}', e, s);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete mapping.')),
+      );
+    }
+  }
+
   // ponytail: best-effort activity logging, never blocks UI on failure.
   void _logActivity(ActivityEventCode code, {String? message}) {
     try {
@@ -197,7 +241,17 @@ class _MappingEditorPageState extends ConsumerState<MappingEditorPage> {
     final isNew = widget.ruleId == null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(isNew ? 'New mapping' : 'Edit mapping')),
+      appBar: AppBar(
+        title: Text(isNew ? 'New mapping' : 'Edit mapping'),
+        actions: [
+          if (!isNew)
+            IconButton(
+              tooltip: 'Delete mapping',
+              icon: const Icon(Icons.delete_outlined),
+              onPressed: _saving ? null : _delete,
+            ),
+        ],
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
