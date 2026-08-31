@@ -679,6 +679,18 @@ class AppDatabase extends _$AppDatabase {
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
+
+      // Retrofit: remove duplicate app_settings rows, keeping only the most
+      // recent (highest rowid). This corrects a schema corruption where the
+      // Drift-declared primaryKey on app_settings was never physically applied
+      // to the SQLite table, allowing duplicates to accumulate from repeated
+      // INSERT OR IGNORE operations.
+      await customStatement(
+        'DELETE FROM app_settings WHERE rowid NOT IN '
+        '(SELECT MAX(rowid) FROM app_settings WHERE singleton_id = 1) '
+        'AND singleton_id = 1',
+      );
+
       await customStatement(
         'INSERT OR IGNORE INTO app_settings (singleton_id, privacy_epoch) '
         'VALUES (1, 0)',
@@ -708,6 +720,10 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_record_link_remote_id '
         'ON wallet_record_links (remote_id) WHERE remote_id IS NOT NULL',
+      );
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_app_settings_singleton '
+        'ON app_settings (singleton_id)',
       );
     },
     onUpgrade: (m, from, to) async {

@@ -220,6 +220,9 @@ final class _FakeMappingRuleStore implements MappingRuleStore {
     required MappingRule rule,
     String? supersededRuleId,
   }) async => rule;
+
+  @override
+  Future<void> delete(String ruleId) async {}
 }
 
 /// Mutable fake: [list] returns whatever has been saved so far, proving
@@ -241,5 +244,10 @@ final class _StatefulFakeMappingRuleStore implements MappingRuleStore {
   }) async {
     _rules.add(rule);
     return rule;
+  }
+
+  @override
+  Future<void> delete(String ruleId) async {
+    _rules.removeWhere((r) => r.id == ruleId);
   }
 }

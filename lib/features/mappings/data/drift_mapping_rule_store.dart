@@ -71,6 +71,13 @@ final class DriftMappingRuleStore implements MappingRuleStore {
     });
   }
 
+  @override
+  Future<void> delete(String ruleId) async {
+    await (_database.delete(
+      _database.mappingRules,
+    )..where((t) => t.id.equals(ruleId))).go();
+  }
+
   MappingRule _toDomain(MappingRuleRow row) {
     final sender = SenderMatcher(
       (jsonDecode(row.senderMatcher) as List<dynamic>).cast<String>(),

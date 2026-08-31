@@ -18,6 +18,7 @@ import 'package:money_sync/features/review_inbox/presentation/inbox_controller.d
     show inboxEventsProvider;
 import 'package:money_sync/features/review_inbox/presentation/review_transaction_panel.dart'
     show TargetAccountPicker, CategoryPicker;
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 
 /// Detail page for a single queued mutation (WP5; edit + reject added M5.22
 /// WP-J). Shows the stored payload snapshot, editable before it is sent, with
@@ -52,6 +53,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
   String? _accountId;
   String? _categoryId;
   List<String> _labelNames = [];
+  List<String> _rawLabelIds = [];
 
   @override
   void initState() {
@@ -420,6 +422,7 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
         recordState: WalletRecordState.cleared,
         counterParty: counterParty.isEmpty ? null : counterParty,
         categoryId: _categoryId,
+        labelIds: _rawLabelIds,
         note: note.isEmpty ? null : note,
       );
 

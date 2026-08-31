@@ -4,6 +4,7 @@ import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/mappings/data/drift_mapping_rule_store.dart';
 import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
+import 'package:money_sync/features/mappings/domain/use_cases/delete_mapping_rule.dart';
 import 'package:money_sync/features/mappings/domain/use_cases/save_mapping_rule.dart';
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
@@ -30,6 +31,13 @@ final mappingRuleListProvider = FutureProvider<List<MappingRule>>((ref) async {
 final saveMappingRuleProvider = FutureProvider<SaveMappingRule>((ref) async {
   final store = await ref.watch(mappingRuleStoreProvider.future);
   return SaveMappingRule(store: store);
+});
+
+final deleteMappingRuleProvider = FutureProvider<DeleteMappingRule>((
+  ref,
+) async {
+  final store = await ref.watch(mappingRuleStoreProvider.future);
+  return DeleteMappingRule(store: store);
 });
 
 /// Wallet account/category cache for target selection. Null until the Wallet
