@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
@@ -112,7 +113,7 @@ class DataControlPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+        icon: Icon(Icons.warning_amber_rounded, color: MoneySyncTheme.of(context).warning),
         title: const Text('Reset all local data?'),
         content: const Text(
           'This deletes the database, security keys, wallet token, '

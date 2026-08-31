@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/app/router.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
@@ -193,7 +194,7 @@ class _SecureStatusTile extends StatelessWidget {
         'Prevents screenshots and recording on financial routes. '
         'Always enabled. Cannot be turned off.',
       ),
-      trailing: const Icon(Icons.check_circle, color: Colors.green),
+      trailing: Icon(Icons.check_circle, color: MoneySyncTheme.of(context).success),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_catalog_detail_screen.dart';
@@ -472,7 +473,7 @@ class _StatusHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isStale ? Colors.amber : Colors.green;
+    final color = isStale ? MoneySyncTheme.of(context).warning : MoneySyncTheme.of(context).success;
     final label = isStale ? 'Connected (offline)' : 'Connected';
     final diff = DateTime.now().difference(refreshedAt);
 
