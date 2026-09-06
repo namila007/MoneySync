@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:money_sync/app/router.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 
-/// The Settings root. The former Configuration hub was flattened into this
-/// page (M4.15 WP5): SMS & tracking controls moved up, duplicated sections
-/// were dropped, and the hub page and route no longer exist.
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -17,125 +17,137 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final configStateAsync = ref.watch(_configurationStateProvider);
+    final screenshotProtected =
+        configStateAsync.value?.secureWindowEnabled ?? true;
     final autoImportEnabled =
         configStateAsync.value?.autoImportEnabled ?? false;
-    final autoCreateEnabled =
-        configStateAsync.value?.autoCreateEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        // Settings is a top-level route (no auto back arrow); it is only
-        // reachable from inside the app, so the back arrow is always valid.
         leading: BackButton(onPressed: () => context.go('/')),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          _ConfigurationSummary(flavor: config.flavor),
-          const SizedBox(height: 16),
-          _ConfigurationSection(
-            title: 'Security & Privacy',
+          // System Environment
+          _SystemEnvironmentCard(flavor: config.flavor),
+          const SizedBox(height: AppSpacing.s6),
+
+          // SECURITY & PRIVACY
+          Text('SECURITY & PRIVACY', style: AppTypography.h6),
+          const SizedBox(height: 8),
+          _SettingsCard(
             children: [
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: const Text('App Security'),
-                subtitle: const Text('Device protection configuration'),
-                trailing: const Icon(Icons.chevron_right),
+              _SettingsTile(
+                icon: Icons.shield_outlined,
+                title: 'App lock',
+                subtitle: 'Secure with biometrics/PIN',
                 onTap: () => context.push(AppRoute.securityPrivacy.path),
               ),
-              ListTile(
-                leading: const Icon(Icons.notifications_outlined),
-                title: const Text('Permissions'),
-                subtitle: const Text('Message reading, notifications'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push('/settings/permissions'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.assignment_outlined),
-                title: const Text('Show onboarding'),
-                subtitle: const Text('Re-view the introduction flow'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(AppRoute.onboardingReview.path),
+              _SettingsTile(
+                icon: Icons.smartphone_outlined,
+                title: 'Screenshot protection',
+                subtitle: 'Prevent screenshots of sensitive data',
+                trailing: Switch(
+                  value: screenshotProtected,
+                  onChanged: (value) => _toggleScreenshot(ref, value),
+                  activeThumbColor: AppColors.accent,
+                ),
               ),
             ],
           ),
-          _ConfigurationSection(
-            title: 'SMS & Tracking',
+          const SizedBox(height: AppSpacing.s6),
+
+          // SMS & TRACKING
+          Text('SMS & TRACKING', style: AppTypography.h6),
+          const SizedBox(height: 8),
+          _SettingsCard(
             children: [
-              ListTile(
-                leading: const Icon(Icons.history),
-                title: const Text('History window'),
-                subtitle: const Text('How far back to scan messages'),
-                trailing: const Text('7 days'),
+              _SettingsTile(
+                icon: Icons.chat_bubble_outline,
+                title: 'Message reading',
+                subtitle: 'Configure SMS permissions',
+                onTap: () => context.push('/settings/permissions'),
+              ),
+              _SettingsTile(
+                icon: Icons.download_outlined,
+                title: 'History Import',
+                subtitle: 'Import range settings',
                 onTap: () => context.push('/settings/history-import'),
               ),
-              ListTile(
-                leading: const Icon(Icons.alternate_email),
-                title: const Text('Tracked senders'),
-                subtitle: const Text('Senders included in imports'),
-                trailing: const Icon(Icons.chevron_right, size: 16),
+              _SettingsTile(
+                icon: Icons.people_outline,
+                title: 'Tracked senders',
+                subtitle: 'Manage bank IDs',
                 onTap: () => context.push('/settings/tracked-senders'),
               ),
-              ListTile(
-                leading: const Icon(Icons.tune),
-                title: const Text('Scan maximum'),
-                subtitle: const Text('Messages scanned per import'),
-                trailing: const Text('100'),
-                onTap: () => context.push('/settings/history-import'),
-              ),
               if (config.flavor == AppFlavor.privateFull)
-                ListTile(
-                  leading: const Icon(Icons.campaign_outlined),
-                  title: const Text('Auto-import'),
-                  subtitle: Text(
-                    autoImportEnabled
-                        ? 'On \u00b7 Every ${_intervalLabel(configStateAsync.value?.autoImportIntervalMinutes ?? 15)}'
-                        : 'Off',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
+                _SettingsTile(
+                  icon: Icons.campaign_outlined,
+                  title: 'Auto-import',
+                  subtitle: autoImportEnabled ? 'On' : 'Off',
                   onTap: () => context.push('/settings/auto-import'),
                 ),
             ],
           ),
-          _ConfigurationSection(
-            title: 'Wallet',
+          const SizedBox(height: AppSpacing.s6),
+
+          // WALLET
+          Text('WALLET', style: AppTypography.h6),
+          const SizedBox(height: 8),
+          _SettingsCard(
             children: [
-              ListTile(
-                key: const ValueKey('open-wallet-connection'),
-                minVerticalPadding: 12,
-                leading: const Icon(Icons.account_balance_wallet_outlined),
-                title: const Text('Wallet connection'),
-                subtitle: const Text('Open the dedicated connection screen.'),
-                trailing: const Icon(Icons.chevron_right),
+              _SettingsTile(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Wallet connection',
+                subtitle: 'Connect to your Wallet API',
                 onTap: () => context.push(AppRoute.walletConnection.path),
-              ),
-              SwitchListTile(
-                secondary: const Icon(Icons.rate_review_outlined),
-                title: const Text('Auto-create'),
-                subtitle: const Text(
-                  'Automatically queue transactions matched by automatic mapping rules',
-                ),
-                value: autoCreateEnabled,
-                onChanged: (value) => _toggleAutoCreate(ref, value),
               ),
             ],
           ),
-          _ConfigurationSection(
-            title: 'Data & Diagnostics',
+          const SizedBox(height: AppSpacing.s6),
+
+          // DATA & DIAGNOSTICS
+          Text('DATA & DIAGNOSTICS', style: AppTypography.h6),
+          const SizedBox(height: 8),
+          _SettingsCard(
             children: [
-              ListTile(
-                leading: const Icon(Icons.cleaning_services_outlined),
-                title: const Text('Data Control'),
-                subtitle: const Text('Clear activity or reset local data'),
-                trailing: const Icon(Icons.chevron_right),
+              _SettingsTile(
+                icon: Icons.cleaning_services_outlined,
+                title: 'Data control',
+                subtitle: 'Export or delete local cache',
                 onTap: () => context.push(AppRoute.dataControl.path),
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.s8),
+
+          // Divider
+          Container(
+            height: 2,
+            color: AppColors.divider(Theme.of(context).brightness),
+          ),
+          const SizedBox(height: AppSpacing.s6),
+
+          // Version info
+          Center(
+            child: Text(
+              'version 2.4.1 (stable) \u00b7 engine v1.8',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.neutral500,
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _toggleScreenshot(WidgetRef ref, bool enabled) async {
+    final repo = await ref.read(configurationRepositoryProvider.future);
+    await repo.updateSecureWindowEnabled(enabled);
+    ref.invalidate(_configurationStateProvider);
   }
 }
 
@@ -145,67 +157,142 @@ final _configurationStateProvider = FutureProvider<ConfigurationState>((ref) {
       .then((repo) => repo.load());
 });
 
-Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
-  final repo = await ref.read(configurationRepositoryProvider.future);
-  await repo.updateAutoCreateEnabled(enabled);
-  ref.invalidate(_configurationStateProvider);
-}
-
-String _intervalLabel(int minutes) {
-  if (minutes == 60) return '1 hour';
-  return '$minutes minutes';
-}
-
-class _ConfigurationSummary extends StatelessWidget {
-  const _ConfigurationSummary({required this.flavor});
+class _SystemEnvironmentCard extends StatelessWidget {
+  const _SystemEnvironmentCard({required this.flavor});
 
   final AppFlavor flavor;
 
   @override
   Widget build(BuildContext context) {
     final flavorName = switch (flavor) {
-      AppFlavor.privateFull => 'Private full',
-      AppFlavor.playManual => 'Play manual',
+      AppFlavor.privateFull => 'privateFull',
+      AppFlavor.playManual => 'playManual',
     };
 
-    return ListTile(
-      leading: const Icon(Icons.info_outline),
-      title: const Text('Build configuration'),
-      subtitle: Text(flavorName),
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(color: AppColors.surface),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'SYSTEM ENVIRONMENT',
+                style: AppTypography.micro.copyWith(
+                  color: AppColors.neutral600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Build: $flavorName',
+                style: AppTypography.h5,
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: AppColors.divider(Theme.of(context).brightness),
+                width: 2,
+              ),
+            ),
+            child: Text(
+              flavorName,
+              style: AppTypography.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _ConfigurationSection extends StatelessWidget {
-  const _ConfigurationSection({required this.title, required this.children});
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({required this.children});
 
-  final String title;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      container: true,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
+    return Container(
+      decoration: const BoxDecoration(color: AppColors.surface),
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i < children.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.divider(Theme.of(context).brightness),
+                indent: 52,
               ),
-              ...children,
-            ],
-          ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.neutral700),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTypography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.neutral400,
+              ),
+          ],
         ),
       ),
     );

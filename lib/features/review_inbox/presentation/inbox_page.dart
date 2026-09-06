@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
 import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_controller.dart';
 import 'package:money_sync/features/sms_ingestion/application/delete_imported_message.dart';
 
-/// The inbox list. All rows come from the [inboxEventsProvider] stream plus
-/// pagination state in [InboxViewState]; the page holds no row cache — a
-/// message imported while this screen is open appears without a refresh
-/// (M4.14 WP1), and deletion reaches the DB so the stream re-emits without it.
 class InboxPage extends ConsumerWidget {
   const InboxPage({super.key});
 
@@ -22,32 +18,32 @@ class InboxPage extends ConsumerWidget {
     final viewController = ref.read(inboxViewProvider.notifier);
     final filtersActive =
         view.senderFilter != null || view.dateRangeFilter != null;
-    // Grouped headers use global sender totals; those would lie under a
-    // filter, so an active filter renders the flat list (M4.15 WP2).
     final flatLayout =
         view.layout == InboxLayout.flatNewestFirst || filtersActive;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Inbox'),
-        actions: [
-          if (!filtersActive)
-            IconButton(
-              tooltip: view.layout == InboxLayout.groupedBySender
-                  ? 'Switch to flat list'
-                  : 'Switch to grouped by sender',
-              icon: Icon(
-                view.layout == InboxLayout.groupedBySender
-                    ? Icons.view_agenda_outlined
-                    : Icons.view_list_outlined,
-              ),
-              onPressed: viewController.toggleLayout,
-            ),
-          const SettingsAppBarAction(),
-        ],
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Alerts', style: AppTypography.display),
+                const SizedBox(height: 4),
+                Text(
+                  '${eventsAsync.value?.length ?? 0} messages waiting',
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.text.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _FilterBar(viewController: viewController),
           Expanded(
             child: eventsAsync.when(
@@ -87,8 +83,6 @@ class InboxPage extends ConsumerWidget {
     );
   }
 
-  /// First-page rows win over deeper pages; a row that drifted out of the
-  /// live first page but is already loaded deeper must not render twice.
   static List<SmsEvent> _merge(List<SmsEvent> firstPage, List<SmsEvent> more) {
     if (more.isEmpty) return firstPage;
     final seen = firstPage.map((e) => e.id).toSet();
@@ -100,98 +94,94 @@ class InboxPage extends ConsumerWidget {
   }
 }
 
-/// Sender + date-range filters (M4.15 WP2). The sender list comes from the
-/// live per-sender summaries; the date range uses the Material picker.
+/// Search input + filter icon + calendar icon, matching the design artifact.
 class _FilterBar extends ConsumerWidget {
   const _FilterBar({required this.viewController});
 
   final InboxViewController viewController;
 
-  static const _allSenders = '';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final view = ref.watch(inboxViewProvider);
-    final summaries =
-        ref.watch(inboxSenderSummariesProvider).value ??
-        const <SmsEventSenderSummary>[];
     final range = view.dateRangeFilter;
     final hasFilters = view.senderFilter != null || range != null;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 4, 0),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            DropdownButton<String>(
-              value: view.senderFilter ?? _allSenders,
-              underline: const SizedBox.shrink(),
-              isDense: true,
-              items: [
-                const DropdownMenuItem(
-                  value: _allSenders,
-                  child: Text('All senders'),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search senders...',
+                hintStyle: AppTypography.bodySmall.copyWith(
+                  color: AppColors.neutral500,
                 ),
-                for (final s in summaries)
-                  DropdownMenuItem(
-                    value: s.senderKey,
-                    child: Text(
-                      s.senderDisplay ?? s.senderKey,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
+                prefixIcon: const Icon(Icons.search, size: 18),
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+              ),
               onChanged: (value) => viewController.setSenderFilter(
-                value == _allSenders ? null : value,
+                value.isEmpty ? null : value,
               ),
             ),
-            const SizedBox(width: 8),
-            InkWell(
-              borderRadius: BorderRadius.zero,
-              onTap: () async {
-                final picked = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                  initialDateRange: range,
-                  helpText: 'Filter messages by received date',
-                );
-                if (picked != null) {
-                  viewController.setDateRangeFilter(picked);
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.date_range_outlined,
-                      size: 18,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(_dateLabel(range)),
-                  ],
-                ),
-              ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Filter',
+            icon: const Icon(Icons.filter_list, size: 18),
+            onPressed: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+                initialDateRange: range,
+                helpText: 'Filter messages by received date',
+              );
+              if (picked != null) {
+                viewController.setDateRangeFilter(picked);
+              }
+            },
+          ),
+          IconButton(
+            tooltip: 'Date range',
+            icon: const Icon(Icons.calendar_today_outlined, size: 18),
+            onPressed: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+                initialDateRange: range,
+                helpText: 'Filter messages by received date',
+              );
+              if (picked != null) {
+                viewController.setDateRangeFilter(picked);
+              }
+            },
+          ),
+          if (hasFilters)
+            IconButton(
+              tooltip: 'Clear filters',
+              icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+              onPressed: viewController.clearFilters,
             ),
-            if (hasFilters)
-              IconButton(
-                tooltip: 'Clear filters',
-                icon: const Icon(Icons.filter_alt_off_outlined),
-                onPressed: viewController.clearFilters,
-              ),
-          ],
-        ),
+          IconButton(
+            tooltip: view.layout == InboxLayout.groupedBySender
+                ? 'Switch to flat list'
+                : 'Switch to grouped by sender',
+            icon: Icon(
+              view.layout == InboxLayout.groupedBySender
+                  ? Icons.view_agenda_outlined
+                  : Icons.view_list_outlined,
+              size: 18,
+            ),
+            onPressed: viewController.toggleLayout,
+          ),
+        ],
       ),
     );
-  }
-
-  String _dateLabel(DateTimeRange? range) {
-    if (range == null) return 'Any date';
-    String day(DateTime d) => '${d.day}/${d.month}/${d.year}';
-    return '${day(range.start)} – ${day(range.end)}';
   }
 }
 
@@ -241,7 +231,7 @@ class _FlatList extends StatelessWidget {
             onVisible: () => viewController.loadFlatMore(cursor: events.last),
           );
         }
-        return _EventTile(event: events[index]);
+        return _EventCard(event: events[index]);
       },
     );
   }
@@ -298,7 +288,7 @@ class _GroupedList extends ConsumerWidget {
             ),
           ),
         )
-        ..addAll([for (final event in shown) _EventTile(event: event)]);
+        ..addAll([for (final event in shown) _EventCard(event: event)]);
 
       if (total > shown.length &&
           (expanded ? view.senderHasMore[key] != false : true)) {
@@ -323,8 +313,6 @@ class _GroupedList extends ConsumerWidget {
   }
 }
 
-/// Spinner shown at the tail of the flat list; building it triggers the next
-/// page load. The controller's re-entry guard makes repeat calls no-ops.
 class _LoadMoreSentinel extends ConsumerWidget {
   const _LoadMoreSentinel({required this.onVisible});
 
@@ -346,82 +334,102 @@ class _LoadMoreSentinel extends ConsumerWidget {
   }
 }
 
-class _EventTile extends ConsumerWidget {
-  const _EventTile({required this.event});
+/// Card-style event tile matching the design artifact: sender + amount row,
+/// time, body text, status tag.
+class _EventCard extends ConsumerWidget {
+  const _EventCard({required this.event});
 
   final SmsEvent event;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final senderName = event.senderDisplay ?? event.senderKey;
     return Dismissible(
-      key: ValueKey('sms-${event.id}'),
+      key: ValueKey(event.id),
       direction: DismissDirection.endToStart,
-      confirmDismiss: (_) => _confirmDelete(context, ref),
       background: Container(
-        color: Theme.of(context).colorScheme.errorContainer,
+        color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.only(right: 16),
         child: Icon(
-          Icons.delete_outline,
-          color: Theme.of(context).colorScheme.error,
+          Icons.delete,
+          color: Theme.of(context).colorScheme.onError,
         ),
       ),
+      confirmDismiss: (_) async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Delete this imported message?'),
+            content: const Text(
+              'The app copy is removed. The SMS on your device is not changed.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        return confirmed ?? false;
+      },
+      onDismissed: (_) => _delete(context, ref),
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
+        child: InkWell(
           onTap: () => context.push('/inbox/detail/${event.id}'),
-          leading: const Icon(Icons.sms_outlined),
-          title: Text(
-            // M4.16: the full original message is the review source; the
-            // masked preview is only a fallback for purged/filtered rows.
-            event.encryptedBody ?? event.redactedBody ?? '(no body)',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  senderName,
+                  style: AppTypography.bodySmall.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _formatTime(event.receivedAtEpochMs),
+                  style: AppTypography.micro.copyWith(
+                    color: AppColors.neutral600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  event.encryptedBody ?? event.redactedBody ?? '(no body)',
+                  style: AppTypography.bodySmall,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                StatusChip(status: event.status),
+              ],
+            ),
           ),
-          subtitle: Text(
-            '${event.senderDisplay ?? event.senderKey} · '
-            '${_formatTime(event.receivedAtEpochMs)}',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          trailing: StatusChip(status: event.status),
         ),
       ),
     );
   }
 
-  Future<bool> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete this imported message?'),
-        content: const Text(
-          'The app copy is removed. The SMS on your device is not changed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return false;
-
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final db = ref.read(appDatabaseProvider).asData?.value;
-    if (db == null) return false;
+    if (db == null) return;
     final setting = await (db.select(
       db.appSettings,
     )..where((row) => row.singletonId.equals(1))).getSingle();
     final useCase = DeleteImportedMessage(database: db);
-    final result = await useCase(
+    await useCase(
       eventId: event.id,
       privacyEpoch: setting.privacyEpoch,
     );
-    return result is DeleteMessageDeleted;
+    ref.invalidate(inboxEventsProvider);
   }
 
   String _formatTime(int epochMs) {
@@ -438,19 +446,49 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Exhaustive switch: a new enum member is a compile error here, not a
-    // blank chip (M4.14 §3.2).
     final label = switch (status) {
       SmsEventStatus.captured => 'Imported',
-      SmsEventStatus.review => 'Review',
+      SmsEventStatus.review => 'Pending Review',
       SmsEventStatus.interpreted => 'Interpreted',
       SmsEventStatus.ignored => 'Ignored',
       SmsEventStatus.purged => 'Purged',
     };
-    return Chip(
-      label: Text(label),
-      labelStyle: AppTypography.micro,
-      visualDensity: VisualDensity.compact,
+    // Design artifact: review = outline (border + text), others = filled
+    if (status == SmsEventStatus.review) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppColors.accent),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.micro.copyWith(color: AppColors.accent),
+        ),
+      );
+    }
+    final (bg, fg) = switch (status) {
+      SmsEventStatus.captured => (AppColors.neutral100, AppColors.neutral800),
+      SmsEventStatus.interpreted => (
+        AppColors.success.withValues(alpha: 0.12),
+        AppColors.success,
+      ),
+      SmsEventStatus.ignored => (
+        AppColors.neutral200,
+        AppColors.neutral600,
+      ),
+      SmsEventStatus.purged => (
+        AppColors.warning.withValues(alpha: 0.12),
+        AppColors.warning,
+      ),
+      SmsEventStatus.review => (AppColors.accent100, AppColors.accent800),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(color: bg),
+      child: Text(
+        label,
+        style: AppTypography.micro.copyWith(color: fg),
+      ),
     );
   }
 }

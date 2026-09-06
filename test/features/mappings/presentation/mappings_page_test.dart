@@ -44,8 +44,8 @@ void main() {
     await tester.pumpWidget(wrapWith(const MappingsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Rule a'), findsOneWidget);
-    expect(find.text('Rule b'), findsOneWidget);
+    // Title format: "<sender> → <account>"
+    expect(find.text('SAMPATH BANK \u2192 wallet-1'), findsNWidgets(2));
     expect(find.text('Disabled'), findsOneWidget);
     expect(find.byIcon(Icons.add), findsOneWidget);
   });
@@ -86,8 +86,7 @@ void main() {
 
     expect(find.text('New mapping'), findsOneWidget);
     expect(find.text('Rule name'), findsOneWidget);
-    expect(find.text('Senders'), findsOneWidget);
-    expect(find.text('SAMPATH BANK'), findsOneWidget);
+    expect(find.text('Sender'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Save mapping'),
       200,
@@ -183,7 +182,9 @@ void main() {
       'Test Rule',
     );
 
-    // Select tracked sender from picker.
+    // Select tracked sender from dropdown.
+    await tester.tap(find.text('Sender'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('SAMPATH BANK'));
     await tester.pumpAndSettle();
 
@@ -203,7 +204,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // List now shows the saved rule — no manual refresh needed.
-    expect(find.text('Test Rule'), findsOneWidget);
+    // Title format: "<sender> → <account>"
+    expect(find.text('SAMPATH BANK \u2192 Spending'), findsOneWidget);
     expect(find.textContaining('No mapping rules yet'), findsNothing);
   });
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
-import 'package:money_sync/app/settings_app_bar_action.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
@@ -25,9 +26,25 @@ class _ActivityPageState extends ConsumerState<ActivityPage> {
     final log = Logger('activity');
 
     return Scaffold(
-      appBar: const _ActivityAppBar(),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Activity', style: AppTypography.display),
+                const SizedBox(height: 4),
+                Text(
+                  'A log of every sync mutation',
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.text.withValues(alpha: 0.55),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _FilterBar(
             selected: _filter,
             onChanged: (code) => setState(() => _filter = code),
@@ -103,6 +120,19 @@ class _FilterBar extends StatelessWidget {
                 label: Text(label),
                 selected: selected == code,
                 onSelected: (_) => onChanged(code),
+                selectedColor: AppColors.accent,
+                checkmarkColor: AppColors.bg,
+                labelStyle: AppTypography.micro.copyWith(
+                  color: selected == code
+                      ? AppColors.bg
+                      : AppColors.neutral700,
+                ),
+                backgroundColor: AppColors.surface,
+                side: BorderSide(
+                  color: selected == code
+                      ? AppColors.accent
+                      : AppColors.neutral300,
+                ),
               ),
             ),
         ],
@@ -323,15 +353,4 @@ class _ActivityMessage extends StatelessWidget {
   }
 }
 
-class _ActivityAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _ActivityAppBar();
 
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) => AppBar(
-    title: const Text('Activity'),
-    actions: const [SettingsAppBarAction()],
-  );
-}

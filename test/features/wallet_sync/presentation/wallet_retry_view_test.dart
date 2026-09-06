@@ -55,7 +55,6 @@ void main() {
 
       expect(find.text('No failed transactions to retry.'), findsOneWidget);
 
-      // Flush Drift stream cleanup timers.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
@@ -87,9 +86,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(CheckboxListTile), findsOneWidget);
+      // The mutation renders as a card with amount text
+      expect(find.text('LKR 25.00'), findsOneWidget);
 
-      // Flush Drift stream cleanup timers.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
@@ -121,7 +120,6 @@ void main() {
 
       expect(find.text('Retry All'), findsOneWidget);
 
-      // Flush Drift stream cleanup timers.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
@@ -154,21 +152,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Initially empty.
       expect(find.text('No failed transactions to retry.'), findsOneWidget);
 
-      // Insert a retry mutation directly (simulates a failed create).
       await insertRetry(db, id: 'm-live');
 
-      // Let the stream propagate.
       await tester.pump();
       await tester.pump();
 
-      // The new mutation should appear automatically.
       expect(find.text('No failed transactions to retry.'), findsNothing);
-      expect(find.byType(CheckboxListTile), findsOneWidget);
+      expect(find.text('LKR 25.00'), findsOneWidget);
 
-      // Flush Drift stream cleanup timers.
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 50));
     });
