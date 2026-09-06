@@ -2,13 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
-/// Read-only detail page for a succeeded mutation. Shows the stored payload
-/// snapshot with no action button (terminal state, nothing to approve).
 class SuccessItemDetailPage extends ConsumerWidget {
   const SuccessItemDetailPage({required this.mutationId, super.key});
 
@@ -17,7 +18,10 @@ class SuccessItemDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Success detail')),
+      appBar: AppBar(
+        title: const Text('Success Detail'),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
       body: FutureBuilder<WalletMutation?>(
         future: _loadMutation(ref),
         builder: (context, snapshot) {
@@ -40,7 +44,7 @@ class SuccessItemDetailPage extends ConsumerWidget {
           final accountId = payload['accountId'] as String?;
           final categoryId = payload['categoryId'] as String?;
           final counterParty = payload['counterParty'] as String?;
-          final rawNote = payload['note'] as String?;
+          final note = payload['note'] as String?;
           final labelIds = (payload['labelIds'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList();
@@ -57,8 +61,9 @@ class SuccessItemDetailPage extends ConsumerWidget {
               : categoryName;
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
             children: [
+              // Summary card
               _SuccessSummary(
                 amountText: amountText,
                 title: title,
@@ -66,52 +71,107 @@ class SuccessItemDetailPage extends ConsumerWidget {
                 accountName: accountName,
                 dateText: _formatDateOnly(mutation.createdAtEpochMs),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.s6),
+
+              // Detail rows
               _DetailRow(label: 'Amount', value: amountText),
-              _DetailRow(label: 'Kind', value: kind),
-              _DetailRow(label: 'Direction', value: direction),
-              _DetailRow(label: 'Payment type', value: paymentType),
+              _DetailRow(label: 'Kind', value: _capitalizeKind(kind)),
+              _DetailRow(label: 'Direction', value: _capitalizeKind(direction)),
+              _DetailRow(label: 'Payment', value: _formatPaymentType(paymentType)),
               _DetailRow(label: 'Account', value: accountName),
               _DetailRow(label: 'Category', value: categoryName),
               _DetailRow(label: 'Counterparty', value: counterParty ?? ''),
-              _DetailRow(label: 'Note', value: _stripNoteMarker(rawNote)),
-              if (labelNames.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: Text(
-                          'Labels',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            for (final name in labelNames)
-                              Chip(
-                                label: Text(
-                                  name,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+              if (note != null && note.isNotEmpty)
+                _DetailRow(label: 'Note', value: note),
+
+              // Labels
+              if (labelNames.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.s4),
+                Text(
+                  'Labels',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.neutral600,
                   ),
                 ),
-              _DetailRow(label: 'State', value: mutation.state.name),
-              _DetailRow(
-                label: 'Created via app',
-                value: _formatTime(mutation.createdAtEpochMs),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    for (final name in labelNames)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: AppColors.divider(Theme.of(context).brightness),
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          name,
+                          style: AppTypography.bodySmall.copyWith(
+                            color: AppColors.neutral600,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+
+              // Divider
+              const SizedBox(height: AppSpacing.s6),
+              Container(
+                height: 2,
+                color: AppColors.divider(Theme.of(context).brightness),
+              ),
+              const SizedBox(height: AppSpacing.s6),
+
+              // State + Created
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'State',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
+                    decoration: const BoxDecoration(color: AppColors.accent100),
+                    child: Text(
+                      'Succeeded',
+                      style: AppTypography.micro.copyWith(
+                        color: AppColors.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.s4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Created',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.neutral600,
+                    ),
+                  ),
+                  Text(
+                    _formatTime(mutation.createdAtEpochMs),
+                    style: AppTypography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ],
           );
@@ -177,10 +237,9 @@ class SuccessItemDetailPage extends ConsumerWidget {
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
     final majorUnits = abs / 100;
-    final formatted = majorUnits
+    return majorUnits
         .toStringAsFixed(2)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return formatted;
   }
 
   String _formatTime(int epochMs) {
@@ -188,40 +247,30 @@ class SuccessItemDetailPage extends ConsumerWidget {
       epochMs,
       isUtc: true,
     ).toLocal();
-    return '${dt.day}/${dt.month}/${dt.year} '
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  static const _monthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
-  /// Plain-language date for the summary sentence, e.g. "25 Aug 2026".
-  static String _formatDateOnly(int epochMs) {
+  String _formatDateOnly(int epochMs) {
     final dt = DateTime.fromMillisecondsSinceEpoch(
       epochMs,
       isUtc: true,
     ).toLocal();
-    return '${dt.day} ${_monthNames[dt.month - 1]} ${dt.year}';
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  /// Strips the `[sw:...]` reconciliation marker prefix from a note, showing
-  /// only the user-visible portion. Returns empty string for null/blank input.
-  static String _stripNoteMarker(String? note) {
-    if (note == null || note.isEmpty) return '';
-    final markerPattern = RegExp(r'^\[sw:[A-Z0-9]+\]\s*');
-    return note.replaceFirst(markerPattern, '');
+  String _capitalizeKind(String kind) {
+    if (kind.isEmpty) return kind;
+    return kind[0].toUpperCase() + kind.substring(1);
+  }
+
+  String _formatPaymentType(String type) {
+    return type
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
   }
 }
 
@@ -236,27 +285,22 @@ class _DetailRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
+          Text(
+            label,
+            style: AppTypography.body.copyWith(color: AppColors.neutral600),
           ),
-          Expanded(child: Text(value.isEmpty ? '—' : value)),
+          Text(
+            value.isEmpty ? '\u2014' : value,
+            style: AppTypography.body.copyWith(fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
   }
 }
 
-/// Plain-language summary card: what was created, where it went, and when.
-/// Sits above the raw `_DetailRow` list so a glance answers the question
-/// before the reader has to parse individual fields.
 class _SuccessSummary extends StatelessWidget {
   const _SuccessSummary({
     required this.amountText,
@@ -274,50 +318,53 @@ class _SuccessSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final successColor = theme.colorScheme.tertiary;
     final showCategoryLine = title != categoryName;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.check_circle, color: successColor, size: 18),
-                const SizedBox(width: 6),
-                Text(
-                  'Added to Wallet',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: successColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(color: AppColors.surface),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "Added to Wallet" label
+          Row(
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.success,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Added to Wallet',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w700,
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              amountText,
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
               ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s4),
+
+          // Amount
+          Text(amountText, style: AppTypography.amount),
+
+          // Title
+          const SizedBox(height: 2),
+          Text(
+            showCategoryLine ? '$title \u203a $categoryName' : title,
+            style: AppTypography.body,
+          ),
+
+          // Account + date
+          const SizedBox(height: 4),
+          Text(
+            'Added to $accountName on $dateText',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.neutral500,
             ),
-            Text(
-              showCategoryLine ? '$title · $categoryName' : title,
-              style: theme.textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Added to $accountName on $dateText',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

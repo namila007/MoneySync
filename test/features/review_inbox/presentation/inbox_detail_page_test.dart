@@ -107,10 +107,10 @@ void main() {
     await tester.tap(find.text('full body 1'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Message'), findsOneWidget);
+    expect(find.text('Inbox Detail'), findsOneWidget);
     expect(find.text('full body 1'), findsOneWidget);
-    expect(find.textContaining('SENDER_A ·'), findsOneWidget);
-    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('SENDER_A'), findsWidgets);
+    expect(find.text('Pending Review'), findsOneWidget);
   });
 
   testWidgets('detail shows the body, sender and status chip', (tester) async {
@@ -126,7 +126,7 @@ void main() {
     expect(find.text('BANKX'), findsOneWidget);
     expect(find.text('full body 0'), findsOneWidget);
     expect(find.text('redacted body 0'), findsNothing);
-    expect(find.text('Review'), findsOneWidget); // status chip label
+    expect(find.text('Pending Review'), findsOneWidget); // status tag label
   });
 
   testWidgets(
@@ -189,16 +189,16 @@ void main() {
       await tester.tap(find.text('full body 0'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Candidate summary'), findsOneWidget);
-      expect(find.text('Amount: LKR 5,000.00'), findsOneWidget);
-      expect(find.text('Confidence: 96%'), findsOneWidget);
+      expect(find.text('LKR 5,000.00'), findsOneWidget);
+      expect(find.text('High Confidence'), findsOneWidget);
 
       await tester.tap(find.text('Detail'));
       await tester.pumpAndSettle();
 
       expect(find.text('Candidate detail'), findsOneWidget);
-      expect(find.text('Kind: income'), findsOneWidget);
-      expect(find.text('Direction: credit'), findsOneWidget);
+      // Kind value appears in the detail sheet row
+      expect(find.text('income'), findsWidgets);
+      expect(find.text('credit'), findsWidgets);
     },
   );
 
@@ -215,7 +215,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Candidate summary'), findsNothing);
-    expect(find.text('Review'), findsOneWidget); // status chip only
+    expect(find.text('Pending Review'), findsOneWidget); // status tag only
   });
 
   testWidgets('detail of a deleted message shows not-found', (tester) async {

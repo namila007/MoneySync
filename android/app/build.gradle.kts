@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "me.namila.money_sync"
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = "29.0.14206865"
 
     subprojects {

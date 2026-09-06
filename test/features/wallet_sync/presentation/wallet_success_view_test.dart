@@ -99,8 +99,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('LKR'), findsOneWidget);
-      expect(find.textContaining('expense'), findsOneWidget);
-      expect(find.textContaining('succeeded'), findsOneWidget);
+      expect(find.textContaining('Expense'), findsOneWidget);
       await flushDrift(tester);
     });
 
@@ -136,7 +135,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('1,234,567.00'), findsOneWidget);
-      expect(find.textContaining('income'), findsOneWidget);
+      expect(find.textContaining('Income'), findsOneWidget);
       await flushDrift(tester);
     });
 
@@ -174,7 +173,7 @@ void main() {
 
       expect(find.textContaining('50.00'), findsOneWidget);
       expect(find.textContaining('-50.00'), findsNothing);
-      expect(find.textContaining('refund'), findsOneWidget);
+      expect(find.textContaining('Refund'), findsOneWidget);
       await flushDrift(tester);
     });
 
@@ -312,9 +311,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('expense'), findsOneWidget);
-      expect(find.textContaining('income'), findsOneWidget);
-      expect(find.byType(ListTile), findsNWidgets(2));
+      expect(find.textContaining('Expense'), findsWidgets);
+      expect(find.textContaining('Income'), findsWidgets);
       await flushDrift(tester);
     });
 
@@ -345,7 +343,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(ListTile), findsOneWidget);
+      expect(find.textContaining('LKR'), findsOneWidget);
       await flushDrift(tester);
     });
 

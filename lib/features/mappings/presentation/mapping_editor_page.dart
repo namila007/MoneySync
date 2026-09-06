@@ -477,32 +477,18 @@ class _SenderPicker extends ConsumerWidget {
           );
         }
         final addresses = [for (final s in senders) s.address];
-        return Card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Text(
-                  'Senders',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              for (final addr in addresses)
-                CheckboxListTile(
-                  value: selectedSenders.contains(addr),
-                  onChanged: (checked) {
-                    final next = checked == true
-                        ? [...selectedSenders, addr]
-                        : selectedSenders.where((a) => a != addr).toList();
-                    onChanged(next);
-                  },
-                  title: Text(addr),
-                  dense: true,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-            ],
-          ),
+        final current = selectedSenders.isNotEmpty
+            ? selectedSenders.first
+            : null;
+        return DropdownButtonFormField<String>(
+          initialValue: current,
+          decoration: const InputDecoration(labelText: 'Sender'),
+          items: [
+            for (final addr in addresses)
+              DropdownMenuItem(value: addr, child: Text(addr)),
+          ],
+          onChanged: (v) => onChanged(v != null ? [v] : []),
+          validator: (v) => (v == null || v.isEmpty) ? 'Choose a sender' : null,
         );
       },
     );

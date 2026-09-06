@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/review_inbox/domain/review_transaction_use_case.dart';
 import 'package:money_sync/features/review_inbox/presentation/inbox_detail_page.dart'
@@ -601,10 +603,7 @@ class CategoryPicker extends ConsumerWidget {
                   const Expanded(
                     child: Text(
                       'Select category',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.h4,
                     ),
                   ),
                   TextButton(
@@ -737,7 +736,17 @@ class _LabelPicker extends ConsumerWidget {
               children: [
                 for (final label in selected)
                   InputChip(
-                    label: Text(label.name),
+                    label: Text(
+                      label.name,
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.text,
+                      ),
+                    ),
+                    backgroundColor: AppColors.surface,
+                    side: BorderSide(
+                      color: AppColors.divider(Theme.of(context).brightness),
+                      width: 1,
+                    ),
                     onDeleted: () {
                       final next = List<String>.from(selectedLabelIds)
                         ..remove(label.id);
@@ -745,8 +754,18 @@ class _LabelPicker extends ConsumerWidget {
                     },
                   ),
                 ActionChip(
-                  avatar: const Icon(Icons.add, size: 18),
-                  label: const Text('Add label'),
+                  avatar: Icon(Icons.add, size: 18, color: AppColors.accent),
+                  label: Text(
+                    'Add label',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.text,
+                    ),
+                  ),
+                  backgroundColor: AppColors.surface,
+                  side: BorderSide(
+                    color: AppColors.divider(Theme.of(context).brightness),
+                    width: 1,
+                  ),
                   onPressed: labels.isEmpty
                       ? null
                       : () => _showLabelSheet(context, labels),

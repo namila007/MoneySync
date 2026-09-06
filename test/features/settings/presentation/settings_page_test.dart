@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:money_sync/bootstrap/app_config.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/providers.dart';
-import 'package:money_sync/core/scheduling/auto_import_scheduler.dart';
 import 'package:money_sync/features/settings/domain/configuration.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
 import 'package:money_sync/features/settings/presentation/settings_page.dart';
@@ -15,7 +14,6 @@ import 'package:money_sync/features/sms_permission/presentation/sms_permission_c
 Widget _app({
   ConfigurationRepository? configRepo,
   AppFlavor flavor = AppFlavor.playManual,
-  AutoImportScheduler? scheduler,
 }) {
   return ProviderScope(
     overrides: [
@@ -24,22 +22,18 @@ Widget _app({
       configurationRepositoryProvider.overrideWith(
         (ref) async => configRepo ?? _FakeConfigRepo(),
       ),
-      if (scheduler != null)
-        autoImportSchedulerProvider.overrideWithValue(scheduler),
     ],
     child: const MaterialApp(home: SettingsPage()),
   );
 }
 
 void main() {
-  group('SettingsPage (post M4.15 flattening)', () {
-    testWidgets('shows all four sections and no Configuration hub tile', (
-      tester,
-    ) async {
+  group('SettingsPage (modernist design)', () {
+    testWidgets('shows all three sections', (tester) async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
 
-      expect(find.text('Security & Privacy'), findsOneWidget);
+      expect(find.text('SECURITY & PRIVACY'), findsOneWidget);
 
       final scrollable = find.descendant(
         of: find.byType(ListView),
@@ -47,102 +41,53 @@ void main() {
       );
 
       await tester.scrollUntilVisible(
-        find.text('SMS & Tracking'),
+        find.text('SMS & TRACKING'),
         250,
         scrollable: scrollable,
       );
-      expect(find.text('SMS & Tracking'), findsOneWidget);
+      expect(find.text('SMS & TRACKING'), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('Wallet'),
+        find.text('DATA & DIAGNOSTICS'),
         250,
         scrollable: scrollable,
       );
-      expect(find.text('Wallet'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('Data & Diagnostics'),
-        250,
-        scrollable: scrollable,
-      );
-      expect(find.text('Data & Diagnostics'), findsOneWidget);
-
-      // The hub page, its entry tile, and its duplicate sections are gone.
-      expect(find.text('Configuration hub', skipOffstage: false), findsNothing);
-      expect(find.text('MANAGE', skipOffstage: false), findsNothing);
-      expect(find.text('CAPABILITIES', skipOffstage: false), findsNothing);
-      expect(find.text('Delete app data', skipOffstage: false), findsNothing);
-      expect(find.text('Activity history', skipOffstage: false), findsNothing);
+      expect(find.text('DATA & DIAGNOSTICS'), findsOneWidget);
     });
 
-    testWidgets(
-      'Permissions tile is present and Message reading is not inline',
-      (tester) async {
-        await tester.pumpWidget(_app());
-        await tester.pumpAndSettle();
-
-        final scrollable = find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text('Permissions'),
-          250,
-          scrollable: scrollable,
-        );
-
-        expect(find.text('Permissions'), findsOneWidget);
-        // Message reading moved to Permissions page — no longer inline.
-        expect(find.text('Message reading'), findsNothing);
-      },
-    );
-
-    testWidgets('auto-import toggle is visible only on privateFull', (
-      tester,
-    ) async {
+    testWidgets('shows system environment card', (tester) async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
 
-      final scrollable = find.descendant(
-        of: find.byType(ListView),
-        matching: find.byType(Scrollable),
-      );
-      await tester.scrollUntilVisible(
-        find.text('SMS & Tracking'),
-        250,
-        scrollable: scrollable,
-      );
+      expect(find.text('SYSTEM ENVIRONMENT'), findsOneWidget);
+      expect(find.text('Build: playManual'), findsOneWidget);
+    });
 
-      // playManual: no Auto-import tile
-      expect(find.text('Auto-import'), findsNothing);
-
+    testWidgets('shows privateFull flavor in environment card', (tester) async {
       await tester.pumpWidget(_app(flavor: AppFlavor.privateFull));
       await tester.pumpAndSettle();
 
-      final scrollable2 = find.descendant(
-        of: find.byType(ListView),
-        matching: find.byType(Scrollable),
-      );
-      await tester.scrollUntilVisible(
-        find.text('Auto-import'),
-        250,
-        scrollable: scrollable2,
-      );
-      expect(find.text('Auto-import'), findsOneWidget);
+      expect(find.text('Build: privateFull'), findsOneWidget);
     });
 
-    testWidgets('auto-import tile shows status and navigates on tap', (
-      tester,
-    ) async {
-      final scheduler = _FakeAutoImportScheduler();
-      final repo = _FakeConfigRepo(autoImportEnabled: false);
-      await tester.pumpWidget(
-        _app(
-          flavor: AppFlavor.privateFull,
-          configRepo: repo,
-          scheduler: scheduler,
-        ),
-      );
+    testWidgets('App lock tile navigates to security', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      expect(find.text('App lock'), findsOneWidget);
+      expect(find.text('Secure with biometrics/PIN'), findsOneWidget);
+    });
+
+    testWidgets('Screenshot protection toggle is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Screenshot protection'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
+    });
+
+    testWidgets('Message reading tile is present', (tester) async {
+      await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
 
       final scrollable = find.descendant(
@@ -150,38 +95,96 @@ void main() {
         matching: find.byType(Scrollable),
       );
       await tester.scrollUntilVisible(
-        find.text('Auto-import'),
+        find.text('Message reading'),
         250,
         scrollable: scrollable,
       );
-      await tester.ensureVisible(find.text('Auto-import'));
+
+      expect(find.text('Message reading'), findsOneWidget);
+      expect(find.text('Configure SMS permissions'), findsOneWidget);
+    });
+
+    testWidgets('History Import tile is present', (tester) async {
+      await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
 
-      // The auto-import tile is now a ListTile (not SwitchListTile)
-      // showing status text "Off" when disabled.
-      expect(find.text('Off'), findsWidgets);
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('History Import'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('History Import'), findsOneWidget);
+      expect(find.text('Import range settings'), findsOneWidget);
+    });
+
+    testWidgets('Tracked senders tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Tracked senders'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('Tracked senders'), findsOneWidget);
+    });
+
+    testWidgets('Data control tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Data control'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('Data control'), findsOneWidget);
+      expect(find.text('Export or delete local cache'), findsOneWidget);
+    });
+
+    testWidgets('shows version info at bottom', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.textContaining('version 2.4.1'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.textContaining('version 2.4.1'), findsOneWidget);
     });
   });
 }
 
 final class _FakeConfigRepo implements ConfigurationRepository {
-  _FakeConfigRepo({this.autoImportEnabled = false});
-
-  bool autoImportEnabled;
-  final List<bool> autoImportUpdates = [];
-
   @override
-  Future<ConfigurationState> load() async =>
-      ConfigurationState(autoImportEnabled: autoImportEnabled);
+  Future<ConfigurationState> load() async => const ConfigurationState();
 
   @override
   Future<void> updateSecureWindowEnabled(bool enabled) async {}
 
   @override
-  Future<void> updateAutoImportEnabled(bool enabled) async {
-    autoImportEnabled = enabled;
-    autoImportUpdates.add(enabled);
-  }
+  Future<void> updateAutoImportEnabled(bool enabled) async {}
 
   @override
   Future<void> updateTheme(AppThemeMode mode) async {}
@@ -203,18 +206,6 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateAutoImportIntervalMinutes(int minutes) async {}
-}
-
-final class _FakeAutoImportScheduler implements AutoImportScheduler {
-  final List<String> calls = [];
-
-  @override
-  Future<void> enable({
-    Duration frequency = const Duration(minutes: 15),
-  }) async => calls.add('enable');
-
-  @override
-  Future<void> disable() async => calls.add('disable');
 }
 
 final class _UnavailableGateway implements SmsPermissionGateway {

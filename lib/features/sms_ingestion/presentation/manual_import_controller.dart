@@ -11,6 +11,7 @@ import 'package:money_sync/features/review_inbox/domain/wallet_create_eligibilit
 import 'package:money_sync/features/sms_ingestion/data/share_intent_pigeon.g.dart';
 import 'package:money_sync/features/sms_ingestion/domain/ingest_manual_message.dart';
 import 'package:money_sync/features/sms_ingestion/domain/manual_input_validation.dart';
+import 'package:money_sync/features/transaction_parser/domain/interpret_message.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart'
     show CandidateRecordState;
 import 'package:money_sync/features/wallet_connection/data/drift_wallet_catalog_cache.dart';
@@ -155,11 +156,24 @@ class ManualImportController extends Notifier<ManualImportState> {
         db.appSettings,
       )..where((row) => row.singletonId.equals(1))).getSingle();
 
+      final registry = await ref.read(rulePackRegistryProvider.future);
+      Future<InterpretationResult> interpret({
+        required String rawBody,
+        required String sender,
+        required DateTime receivedAtUtc,
+      }) async =>
+          InterpretMessage(registry: registry)(
+            rawBody: rawBody,
+            sender: sender,
+            receivedAtUtc: receivedAtUtc,
+          );
+
       final body = state.body;
       final sender = state.sender;
       final isShareIntent = state.isShareIntent;
       final ingest = IngestManualMessage(
         database: db,
+        interpret: interpret,
         identitySigner: ref.read(sourceIdentitySignerProvider),
         candidateHook:
             (candidate, eventId, candidatePayload, normalizedSender) async {

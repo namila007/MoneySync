@@ -5,19 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
-/// Mutations in queued/syncing state, for the waiting view.
-/// StreamProvider watching wallet_mutations directly, mirroring
-/// homeWalletHealthProvider's pattern — refreshes live without manual
-/// invalidation.
 final waitingMutationsProvider =
     StreamProvider.autoDispose<List<WalletMutation>>((ref) async* {
       final db = await ref.watch(appDatabaseProvider.future);
@@ -53,16 +54,25 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Waiting'),
+        leading: BackButton(
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: _approvingAll ? null : _approveSelected,
-              child: Text('Approve (${_selected.length})'),
+              child: Text(
+                'Approve (${_selected.length})',
+                style: const TextStyle(color: AppColors.accent),
+              ),
             ),
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: () => setState(() => _selected.clear()),
-              child: const Text('Clear'),
+              child: const Text(
+                'Clear',
+                style: TextStyle(color: AppColors.neutral600),
+              ),
             ),
         ],
       ),
@@ -71,10 +81,33 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (mutations) {
           if (mutations.isEmpty) {
-            return const Center(child: Text('No pending transactions.'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.hourglass_empty,
+                    size: 48,
+                    color: AppColors.neutral400,
+                  ),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    'No pending transactions.',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
-          return ListView.builder(
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
             itemCount: mutations.length,
+            separatorBuilder: (_, _) => Container(
+              height: 2,
+              color: AppColors.divider(Theme.of(context).brightness),
+            ),
             itemBuilder: (context, index) {
               final m = mutations[index];
               final selected = _selected.contains(m.id);
@@ -85,41 +118,168 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
               final currencyCode =
                   (payload['currencyCode'] as String?) ?? 'LKR';
               final kind = (payload['kind'] as String?) ?? 'expense';
+              final counterParty =
+                  (payload['counterParty'] as String?) ?? '';
+              final categoryId = payload['categoryId'] as String?;
 
-              return ListTile(
-                leading: Checkbox(
-                  value: selected,
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      _selected.add(m.id);
-                    } else {
-                      _selected.remove(m.id);
-                    }
-                  }),
+              final catalog = ref.watch(walletCatalogProvider).value;
+              final categoryName = _resolveCategoryName(catalog, categoryId);
+              final caption = counterParty.isNotEmpty
+                  ? '$counterParty \u2014 $categoryName'
+                  : kind == 'income'
+                  ? 'Income'
+                  : 'Expense';
+
+              return Dismissible(
+                key: ValueKey(m.id),
+                direction: DismissDirection.horizontal,
+                background: Container(
+                  color: Theme.of(context).colorScheme.error,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Icon(
+                    Icons.delete,
+                    color: Theme.of(context).colorScheme.onError,
+                  ),
                 ),
-                title: Text(
-                  '$currencyCode ${_formatAmount(amountMinor)} · $kind',
+                secondaryBackground: Container(
+                  color: AppColors.accent100,
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Icon(Icons.edit_outlined, color: AppColors.accent),
                 ),
-                subtitle: Text(
-                  [
-                    '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
-                    if (payload['labelIds'] is List<dynamic> &&
-                        (payload['labelIds'] as List<dynamic>).isNotEmpty)
-                      'labels: ${(payload['labelIds'] as List<dynamic>).join(', ')}',
-                  ].where((s) => s.isNotEmpty).join(' · '),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () =>
+                confirmDismiss: (direction) async {
+                  if (direction == DismissDirection.startToEnd) {
+                    context.push('/settings/wallet/waiting/${m.id}');
+                    return false;
+                  }
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete this pending mutation?'),
+                      content: const Text(
+                        'This mutation will be removed from the queue.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(false),
+                          child: const Text('Cancel'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(ctx).pop(true),
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return confirmed ?? false;
+                },
+                onDismissed: (_) => _deleteMutation(m.id),
+                child: GestureDetector(
+                  onTap: () =>
                       context.push('/settings/wallet/waiting/${m.id}'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    color: selected ? AppColors.accent100 : AppColors.surface,
+                    child: Row(
+                    children: [
+                      // Checkbox
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          if (selected) {
+                            _selected.remove(m.id);
+                          } else {
+                            _selected.add(m.id);
+                          }
+                        }),
+                        child: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? AppColors.accent
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: selected
+                                  ? AppColors.accent
+                                  : AppColors.neutral400,
+                              width: 2,
+                            ),
+                          ),
+                          child: selected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 14,
+                                )
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Content
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$currencyCode ${_formatAmount(amountMinor)}',
+                              style: AppTypography.h5.copyWith(fontSize: 15),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              caption,
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.neutral500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            kind.toUpperCase(),
+                            style: AppTypography.micro.copyWith(
+                              color: AppColors.neutral500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatTime(m.createdAtEpochMs),
+                            style: AppTypography.bodyXs.copyWith(
+                              color: AppColors.neutral400,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: AppColors.neutral400,
+                      ),
+                    ],
+                  ),
                 ),
-                onTap: () => context.push('/settings/wallet/waiting/${m.id}'),
+              ),
               );
             },
           );
         },
       ),
     );
+  }
+
+  Future<void> _deleteMutation(String mutationId) async {
+    final db = ref.read(appDatabaseProvider).asData?.value;
+    if (db == null) return;
+    await (db.delete(db.walletMutations)
+          ..where((m) => m.id.equals(mutationId)))
+        .go();
   }
 
   Future<void> _approveSelected() async {
@@ -143,8 +303,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
         final payload = intent.payload;
         final snapshot = TransactionCandidateSnapshot(
           accountId: (payload['accountId'] as String?) ?? '',
-          // M5.22 WP-M: sign by the stored direction so an expense is not
-          // filed as income by Wallet's sign convention.
           amountMinor: signedMinorUnits(
             (payload['amountMinor'] is int) ? payload['amountMinor'] as int : 0,
             _directionFrom(payload['direction']),
@@ -176,7 +334,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
             intent: intent,
             next: WalletMutationState.succeeded,
           );
-          // Move the candidate out of needsReview (M5.18 finding 3).
           if (intent.candidateId.isNotEmpty) {
             await dao.transitionCandidateState(
               candidateId: intent.candidateId,
@@ -221,10 +378,9 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
     final majorUnits = abs / 100;
-    final formatted = majorUnits
+    return majorUnits
         .toStringAsFixed(2)
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return formatted;
   }
 
   String _formatTime(int epochMs) {
@@ -234,6 +390,19 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     ).toLocal();
     return '${dt.day}/${dt.month}/${dt.year} '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _resolveCategoryName(
+    WalletCatalog? catalog,
+    String? categoryId,
+  ) {
+    if (categoryId == null || catalog == null) {
+      return categoryId ?? 'Uncategorized';
+    }
+    for (final c in catalog.categories) {
+      if (c.id == categoryId) return '${c.groupName} \u203a ${c.name}';
+    }
+    return categoryId;
   }
 
   static WalletPaymentType _wirePaymentType(String value) => switch (value) {
@@ -247,17 +416,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
   };
 }
 
-/// Stored payload `direction` back to the enum. Unknown or missing values are
-/// neutral, which leaves the amount magnitude untouched rather than guessing
-/// a sign (M5.22 WP-M).
 TransactionDirection _directionFrom(Object? raw) => switch (raw) {
   'debit' => TransactionDirection.debit,
   'credit' => TransactionDirection.credit,
   _ => TransactionDirection.neutral,
 };
 
-/// Stored payload `kind` back to the enum, so the refund sign rule applies on
-/// the approve path too (M5.22, plan/05:108).
 TransactionKind? _kindFrom(Object? raw) => switch (raw) {
   'refund' => TransactionKind.refund,
   'income' => TransactionKind.income,
