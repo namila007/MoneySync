@@ -38,6 +38,7 @@ jobs:
 
       - name: Test with coverage
         run: flutter test --coverage --branch-coverage
+        timeout-minutes: 3
 
       - name: Upload coverage report
         if: always()
