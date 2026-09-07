@@ -307,15 +307,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
   }
 
-  String _formatTime(int epochMs) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(
-      epochMs,
-      isUtc: true,
-    ).toLocal();
-    return '${dt.day}/${dt.month}/${dt.year} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
   static String _resolveCategoryName(
     WalletCatalog? catalog,
     String? categoryId,
