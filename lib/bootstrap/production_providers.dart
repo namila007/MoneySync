@@ -5,12 +5,16 @@ import 'package:money_sync/bootstrap/providers.dart';
 import 'package:money_sync/core/capabilities/app_capabilities.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/core/database/encrypted_database_opener.dart';
+import 'package:money_sync/core/logging/activity_writer_generation.dart';
+import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/reset_recovery.dart';
 import 'package:money_sync/core/privacy/reset_tombstone.dart';
 import 'package:money_sync/core/security/database_key_provider.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/keystore_database_key_provider.dart';
 import 'package:money_sync/core/security/native_security_channel.dart';
+import 'package:money_sync/features/data_control/application/clear_local_data.dart'
+    as data_control;
 import 'package:money_sync/features/notifications/data/flutter_local_notifications_service.dart';
 import 'package:money_sync/features/notifications/domain/notification_service.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
@@ -21,6 +25,7 @@ import 'package:money_sync/features/transaction_parser/data/rule_pack_registry_r
 import 'package:money_sync/features/transaction_parser/domain/rule_pack_registry.dart';
 import 'package:money_sync/features/wallet_connection/data/keystore_wallet_secret_store.dart';
 import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source.dart';
+import 'package:money_sync/features/wallet_sync/application/discard_wallet_mutation.dart';
 import 'package:money_sync/features/wallet_sync/data/http_wallet_api_data_source.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 
@@ -64,6 +69,41 @@ final appDatabaseProvider = FutureProvider<AppDatabase>((ref) async {
   ref.onDispose(() => db.close());
   return db;
 });
+
+/// "Delete this record" for the wallet-sync lists (retry / waiting /
+/// succeeded). Soft-deletes; see [DiscardWalletMutation].
+final discardWalletMutationProvider = FutureProvider<DiscardWalletMutation>((
+  ref,
+) async {
+  final db = await ref.watch(appDatabaseProvider.future);
+  return DiscardWalletMutation(database: db);
+});
+
+/// Clear-activity / reset-all-local-data use case.
+///
+/// Hosted at the root scope so `DataControlController` — which Riverpod also
+/// hosts at the root because it is never itself overridden — resolves the real
+/// implementation instead of a throwing default. (An earlier design overrode
+/// this only in a nested `ProviderScope`, invisible to the root-hosted
+/// controller, so every clear/reset failed before it started. Same root-scope
+/// rule as `smsPermissionGatewayProvider` — see bootstrap.dart.)
+///
+/// Overridden in tests with a fake.
+final clearLocalDataUseCaseProvider =
+    FutureProvider<data_control.IClearLocalDataUseCase>((ref) async {
+      final db = await ref.watch(appDatabaseProvider.future);
+      final channel = ref.watch(nativeSecurityChannelProvider);
+      final databasePath = await channel.getSensitiveDatabasePath();
+      return data_control.ClearLocalDataUseCase(
+        database: db,
+        clearLocalDataService: ClearLocalDataService(
+          database: db,
+          channel: channel,
+          databasePath: databasePath,
+          activityGeneration: ActivityWriterGeneration(),
+        ),
+      );
+    });
 
 final freshAuthPortProvider = FutureProvider<FreshAuthPort>((ref) async {
   return LocalAuthDeviceAuthenticator(auth: LocalAuthentication());

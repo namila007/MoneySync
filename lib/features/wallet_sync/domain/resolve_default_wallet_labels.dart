@@ -21,7 +21,7 @@ Future<List<String>> resolveDefaultWalletLabels(
   ]) {
     final id = await repository.ensureLabel(name);
     if (id == null) {
-      _log.error('Could not resolve or create label: SafeErrorCode: $name');
+      _log.error('Could not resolve or create label: $name');
       continue;
     }
     ids.add(id);

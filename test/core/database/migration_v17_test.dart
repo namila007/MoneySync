@@ -6,7 +6,7 @@ void main() {
     test('schema version is 17', () {
       final db = AppDatabase.inMemoryForTesting();
       addTearDown(db.close);
-      expect(db.schemaVersion, 17);
+      expect(db.schemaVersion, 18);
     });
 
     test('fresh install defaults autoImportIntervalMinutes to 15', () async {

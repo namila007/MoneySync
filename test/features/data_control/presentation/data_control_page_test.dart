@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
-import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_page.dart';
 
 import 'package:money_sync/features/data_control/application/clear_local_data.dart';
@@ -43,7 +43,7 @@ class _FakeClearLocalDataUseCase implements IClearLocalDataUseCase {
 Widget _makeTestApp(IClearLocalDataUseCase useCase) {
   return ProviderScope(
     overrides: [
-      clearLocalDataUseCaseProvider.overrideWithValue(useCase),
+      clearLocalDataUseCaseProvider.overrideWith((ref) => useCase),
       configurationProvider.overrideWithValue(
         const AsyncData(ConfigurationState()),
       ),
@@ -182,7 +182,7 @@ void main() {
       expect(find.text('Reset all local data?'), findsNothing);
     });
 
-    testWidgets('confirm reset shows success banner', (tester) async {
+    testWidgets('confirm reset shows the close-app banner', (tester) async {
       tester.view.physicalSize = const Size(800, 1600);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -196,8 +196,9 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Reset everything'));
       await tester.pumpAndSettle();
 
+      expect(find.textContaining('All local data was reset'), findsOneWidget);
       expect(
-        find.text('All local data reset. The app will restart.'),
+        find.widgetWithText(FilledButton, 'Close MoneySync'),
         findsOneWidget,
       );
     });

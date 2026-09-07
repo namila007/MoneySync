@@ -10,13 +10,11 @@ class MoneySyncTopBar extends StatelessWidget implements PreferredSizeWidget {
   const MoneySyncTopBar({super.key});
 
   @override
-  Size get preferredSize => const Size.fromHeight(56);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, topPadding + 8, 16, 8),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -25,42 +23,52 @@ class MoneySyncTopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // Logo square
-          Container(
-            width: 30,
-            height: 30,
-            color: AppColors.text,
-            alignment: Alignment.center,
-            child: const Icon(Icons.sync, color: AppColors.bg, size: 18),
+      // The Scaffold makes room for the status bar above a custom appBar but
+      // does not offset the content into it — SafeArea does, so the bar sits
+      // below the notification bar instead of colliding with it.
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              // Logo square
+              Container(
+                width: 30,
+                height: 30,
+                color: AppColors.text,
+                alignment: Alignment.center,
+                child: const Icon(Icons.sync, color: AppColors.bg, size: 18),
+              ),
+              const SizedBox(width: 10),
+              // Wordmark
+              Text(
+                'MoneySync',
+                style: AppTypography.h5.copyWith(color: AppColors.text),
+              ),
+              const Spacer(),
+              // Bell icon
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.notifications_outlined, size: 19),
+                tooltip: 'Notifications',
+                color: AppColors.accent,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+              const SizedBox(width: 2),
+              // Settings hamburger
+              IconButton(
+                key: const ValueKey('open-settings'),
+                onPressed: () => context.push('/settings'),
+                icon: const Icon(Icons.tune, size: 19),
+                color: AppColors.accent,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          // Wordmark
-          Text(
-            'MoneySync',
-            style: AppTypography.h5.copyWith(color: AppColors.text),
-          ),
-          const Spacer(),
-          // Bell icon
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_outlined, size: 19),
-            color: AppColors.accent,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          const SizedBox(width: 2),
-          // Settings hamburger
-          IconButton(
-            key: const ValueKey('open-settings'),
-            onPressed: () => context.push('/settings'),
-            icon: const Icon(Icons.tune, size: 19),
-            color: AppColors.accent,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-        ],
+        ),
       ),
     );
   }

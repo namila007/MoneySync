@@ -12,17 +12,12 @@ import 'package:money_sync/bootstrap/startup_state.dart';
 import 'package:money_sync/core/database/app_database.dart'
     hide TransactionCandidate;
 import 'package:money_sync/core/database/database_health.dart';
-import 'package:money_sync/core/logging/activity_writer_generation.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
-import 'package:money_sync/core/privacy/clear_local_data.dart';
 import 'package:money_sync/core/privacy/retention_policy.dart';
 import 'package:money_sync/core/security/device_authenticator.dart';
 import 'package:money_sync/core/security/foreground_lock.dart';
 import 'package:money_sync/core/scheduling/auto_import_scheduler.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
-import 'package:money_sync/features/data_control/application/clear_local_data.dart'
-    as data_control;
-import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
 import 'package:money_sync/features/onboarding/data/drift_onboarding_repository.dart';
 import 'package:money_sync/features/settings/data/drift_configuration_repository.dart';
 import 'package:money_sync/features/settings/domain/configuration_repository.dart';
@@ -390,9 +385,6 @@ class _AwaitingStartup extends ConsumerStatefulWidget {
 
 class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     with WidgetsBindingObserver {
-  data_control.ClearLocalDataUseCase? _useCase;
-  final _activityGeneration = ActivityWriterGeneration();
-
   @override
   void initState() {
     super.initState();
@@ -437,18 +429,6 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     } catch (e, s) {
       log.error('setSecureWindowProtection failed at startup', e, s);
     }
-
-    final databasePath = await channel.getSensitiveDatabasePath();
-    final clearService = ClearLocalDataService(
-      database: db,
-      channel: channel,
-      databasePath: databasePath,
-      activityGeneration: _activityGeneration,
-    );
-    _useCase = data_control.ClearLocalDataUseCase(
-      database: db,
-      clearLocalDataService: clearService,
-    );
 
     // M5.5: recover outbox rows interrupted by process death before any UI
     // reaches the mutation flows. Best-effort — recovery failure must not
@@ -673,23 +653,10 @@ class _AwaitingStartupState extends ConsumerState<_AwaitingStartup>
     );
   }
 
-  Widget _appWithOverrides() {
-    final useCase = _useCase;
-    if (useCase == null) {
-      return Directionality(
-        textDirection: TextDirection.ltr,
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    // smsPermissionGatewayProvider is deliberately NOT overridden here: it must
-    // be hosted by the root container in bootstrap.dart, because the notifier
-    // that reads it is not scoped to this ProviderScope and would otherwise
-    // resolve the root's throwing default.
-    final overrides = [
-      clearLocalDataUseCaseProvider.overrideWithValue(useCase),
-    ];
-    return ProviderScope(overrides: overrides, child: const MoneySyncApp());
-  }
+  // Every production dependency this shell needs is now hosted by the root
+  // ProviderScope in bootstrap.dart (see clearLocalDataUseCaseProvider —
+  // notifiers that read it are root-hosted and would miss a nested override).
+  Widget _appWithOverrides() => const MoneySyncApp();
 }
 
 /// Stub for startup connection — refresh() never calls fresh auth,

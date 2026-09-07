@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
 import 'package:money_sync/features/data_control/application/clear_local_data.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
@@ -47,12 +48,6 @@ final class DataControlFailure extends DataControlState {
   final String errorMessage;
 }
 
-final clearLocalDataUseCaseProvider = Provider<IClearLocalDataUseCase?>((ref) {
-  throw UnimplementedError(
-    'IClearLocalDataUseCase not provided — supply via ProviderScope override.',
-  );
-});
-
 final dataControlControllerProvider =
     NotifierProvider<DataControlController, DataControlState>(
       DataControlController.new,
@@ -64,19 +59,14 @@ class DataControlController extends Notifier<DataControlState> {
     return const DataControlIdle();
   }
 
-  IClearLocalDataUseCase _useCase() {
-    final useCase = ref.read(clearLocalDataUseCaseProvider);
-    if (useCase == null) {
-      throw StateError('IClearLocalDataUseCase not provided.');
-    }
-    return useCase;
-  }
+  Future<IClearLocalDataUseCase> _useCase() =>
+      ref.read(clearLocalDataUseCaseProvider.future);
 
   Future<void> clearActivity() async {
     state = const DataControlBusy(DataClearScope.clearActivity);
 
     try {
-      final result = await _useCase().clearActivity();
+      final result = await (await _useCase()).clearActivity();
 
       if (result.success) {
         state = const DataControlSuccess(DataClearScope.clearActivity);
@@ -101,7 +91,7 @@ class DataControlController extends Notifier<DataControlState> {
     state = const DataControlBusy(DataClearScope.resetAllLocalData);
 
     try {
-      final result = await _useCase().resetAllLocalData();
+      final result = await (await _useCase()).resetAllLocalData();
 
       if (result.success) {
         state = const DataControlSuccess(DataClearScope.resetAllLocalData);
