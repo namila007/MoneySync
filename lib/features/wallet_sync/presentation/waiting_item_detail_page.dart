@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/domain/activity_event.dart';
@@ -100,6 +103,11 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    // Original message card
+                    _OriginalMessageCard(mutation: mutation),
+                    const SizedBox(height: AppSpacing.s6),
+
+                    // Editable fields
                     TextField(
                       controller: _amountController,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -343,7 +351,10 @@ class _WaitingItemDetailPageState extends ConsumerState<WaitingItemDetailPage> {
     final amountMinor = (payload['amountMinor'] is int)
         ? payload['amountMinor'] as int
         : 0;
-    _amountController.text = (amountMinor.abs() / 100).toStringAsFixed(2);
+    final sign = amountMinor < 0 ? '-' : '';
+    final abs = amountMinor.abs();
+    _amountController.text =
+        '$sign${abs ~/ 100}.${(abs % 100).toString().padLeft(2, '0')}';
     _currencyCode = payload['currencyCode'] as String? ?? 'LKR';
     _kind = _kindFrom(payload['kind']);
     _direction = _directionFrom(payload['direction']);
@@ -622,3 +633,82 @@ TransactionDirection _directionFrom(Object? raw) => switch (raw) {
   'credit' => TransactionDirection.credit,
   _ => TransactionDirection.neutral,
 };
+
+/// Displays the original SMS message that created this mutation, if available.
+class _OriginalMessageCard extends ConsumerWidget {
+  const _OriginalMessageCard({required this.mutation});
+
+  final WalletMutation mutation;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final candidateId = mutation.candidateId;
+    if (candidateId == null || candidateId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return FutureBuilder<String?>(
+      future: _fetchOriginalMessage(ref, candidateId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox.shrink();
+        }
+        final message = snapshot.data;
+        if (message == null || message.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Original message',
+                style: AppTypography.micro.copyWith(
+                  color: AppColors.neutral500,
+                  letterSpacing: 0.77,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                style: AppTypography.bodySmall.copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<String?> _fetchOriginalMessage(
+    WidgetRef ref,
+    String candidateId,
+  ) async {
+    try {
+      final db = await ref.read(appDatabaseProvider.future);
+      // Find the candidate by candidateId string
+      final candidates = await (db.select(db.transactionCandidates)
+            ..where((c) => c.candidateId.equals(candidateId))
+            ..limit(1))
+          .get();
+      if (candidates.isEmpty) return null;
+      final candidate = candidates.first;
+      // Fetch the SMS event
+      final events = await (db.select(db.smsEvents)
+            ..where((e) => e.id.equals(candidate.smsEventId))
+            ..limit(1))
+          .get();
+      if (events.isEmpty) return null;
+      final event = events.first;
+      return event.encryptedBody ?? event.redactedBody;
+    } catch (_) {
+      return null;
+    }
+  }
+}

@@ -106,12 +106,13 @@ class _ReviewTransactionPanelState
   }
 
   static String _formatAmountWithCommas(int minorUnits) {
+    final sign = minorUnits < 0 ? '-' : '';
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100; // minor → major for display
-    final formatted = majorUnits
-        .toStringAsFixed(2)
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    final formatted = '$whole.${fraction.toString().padLeft(2, '0')}'
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return minorUnits < 0 ? '-$formatted' : formatted;
+    return '$sign$formatted';
   }
 
   @override

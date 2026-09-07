@@ -17,6 +17,7 @@ import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart'
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
+import 'package:money_sync/features/wallet_sync/presentation/discardable_mutation_tile.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 final waitingMutationsProvider =
@@ -29,6 +30,7 @@ final waitingMutationsProvider =
                 storedMutationState(WalletMutationState.syncing),
               ]),
             )
+            ..where((m) => m.discardedAtEpochMs.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
             ..limit(200))
           .watch();
@@ -45,6 +47,9 @@ class WaitingView extends ConsumerStatefulWidget {
 
 class _WaitingViewState extends ConsumerState<WaitingView> {
   final _selected = <String>{};
+
+  /// Rows the user just swipe-deleted, hidden until the stream re-emits.
+  final _discarded = <String>{};
   bool _approvingAll = false;
 
   @override
@@ -77,7 +82,10 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
       body: mutationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (mutations) {
+        data: (all) {
+          final mutations = all
+              .where((m) => !_discarded.contains(m.id))
+              .toList();
           if (mutations.isEmpty) {
             return Center(
               child: Column(
@@ -121,57 +129,19 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
 
               final catalog = ref.watch(walletCatalogProvider).value;
               final categoryName = _resolveCategoryName(catalog, categoryId);
-              final caption = counterParty.isNotEmpty
-                  ? '$counterParty \u2014 $categoryName'
-                  : kind == 'income'
-                  ? 'Income'
-                  : 'Expense';
 
-              return Dismissible(
-                key: ValueKey(m.id),
-                direction: DismissDirection.horizontal,
-                background: Container(
-                  color: Theme.of(context).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Icon(
-                    Icons.delete,
-                    color: Theme.of(context).colorScheme.onError,
-                  ),
-                ),
-                secondaryBackground: Container(
-                  color: AppColors.accent100,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Icon(Icons.edit_outlined, color: AppColors.accent),
-                ),
-                confirmDismiss: (direction) async {
-                  if (direction == DismissDirection.startToEnd) {
-                    context.push('/settings/wallet/waiting/${m.id}');
-                    return false;
-                  }
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Delete this pending mutation?'),
-                      content: const Text(
-                        'This mutation will be removed from the queue.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  );
-                  return confirmed ?? false;
-                },
-                onDismissed: (_) => _deleteMutation(m.id),
+              final titleParts = <String>[];
+              if (counterParty.isNotEmpty) titleParts.add(counterParty);
+              if (kind.isNotEmpty) titleParts.add(_capitalizeKind(kind));
+              final title = titleParts.isNotEmpty
+                  ? titleParts.join(' \u2014 ')
+                  : categoryName.isNotEmpty
+                  ? categoryName
+                  : 'Unknown';
+
+              return DiscardableMutationTile(
+                mutationId: m.id,
+                onDiscarded: () => setState(() => _discarded.add(m.id)),
                 child: GestureDetector(
                   onTap: () => context.push('/settings/wallet/waiting/${m.id}'),
                   child: Container(
@@ -183,36 +153,41 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
                     child: Row(
                       children: [
                         // Checkbox
-                        GestureDetector(
-                          key: ValueKey('checkbox-${m.id}'),
-                          onTap: () => setState(() {
-                            if (selected) {
-                              _selected.remove(m.id);
-                            } else {
-                              _selected.add(m.id);
-                            }
-                          }),
-                          child: Container(
-                            width: 22,
-                            height: 22,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.accent
-                                  : Colors.transparent,
-                              border: Border.all(
+                        Semantics(
+                          checked: selected,
+                          label: 'Select transaction',
+                          button: true,
+                          child: GestureDetector(
+                            key: ValueKey('checkbox-${m.id}'),
+                            onTap: () => setState(() {
+                              if (selected) {
+                                _selected.remove(m.id);
+                              } else {
+                                _selected.add(m.id);
+                              }
+                            }),
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
                                 color: selected
                                     ? AppColors.accent
-                                    : AppColors.neutral400,
-                                width: 2,
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.accent
+                                      : AppColors.neutral400,
+                                  width: 2,
+                                ),
                               ),
+                              child: selected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 14,
+                                    )
+                                  : null,
                             ),
-                            child: selected
-                                ? const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 14,
-                                  )
-                                : null,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -226,12 +201,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
                                 style: AppTypography.h5.copyWith(fontSize: 15),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                caption,
-                                style: AppTypography.bodySmall.copyWith(
-                                  color: AppColors.neutral500,
-                                ),
-                              ),
+                      Text(
+                        title,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.neutral500,
+                        ),
+                      ),
                             ],
                           ),
                         ),
@@ -271,14 +246,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     );
   }
 
-  Future<void> _deleteMutation(String mutationId) async {
-    final db = ref.read(appDatabaseProvider).asData?.value;
-    if (db == null) return;
-    await (db.delete(
-      db.walletMutations,
-    )..where((m) => m.id.equals(mutationId))).go();
-  }
-
   Future<void> _approveSelected() async {
     setState(() => _approvingAll = true);
 
@@ -315,7 +282,7 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
           categoryId: payload['categoryId'] as String?,
           labelIds:
               (payload['labelIds'] as List<dynamic>?)
-                  ?.map((e) => e.toString())
+                  ?.whereType<String>()
                   .toList() ??
               const [],
         );
@@ -374,10 +341,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
 
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100;
-    return majorUnits
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
   }
 
   String _formatTime(int epochMs) {
@@ -387,6 +356,11 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     ).toLocal();
     return '${dt.day}/${dt.month}/${dt.year} '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _capitalizeKind(String kind) {
+    if (kind.isEmpty) return kind;
+    return kind[0].toUpperCase() + kind.substring(1);
   }
 
   static String _resolveCategoryName(

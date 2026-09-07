@@ -17,6 +17,52 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
   bool _showCustomCap = false;
   final _customCapController = TextEditingController();
 
+  Future<void> _pickCustomDateRange(
+    BuildContext context,
+    HistoryImportController controller,
+  ) async {
+    final now = DateTime.now();
+    final from = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 7)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.accent,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (from == null || !context.mounted) return;
+    final to = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: from,
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.accent,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (to == null) return;
+    controller.setCustomDateRange(from, to);
+  }
+
+  String _formatDateShort(DateTime d) {
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
   @override
   void dispose() {
     _customCapController.dispose();
@@ -165,7 +211,7 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
           Text('2. CONFIGURATION', style: AppTypography.h6),
           const SizedBox(height: 10),
 
-          // Import range selector — interactive preset buttons
+          // Import range selector — preset buttons + custom date range
           Text(
             'IMPORT RANGE',
             style: AppTypography.micro.copyWith(color: AppColors.neutral600),
@@ -174,34 +220,67 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [7, 14, 30, 60].map((days) {
-              final selected = state.windowDays == days;
-              return GestureDetector(
-                onTap: () => controller.selectPreset(days),
+            children: [
+              for (final days in [7, 14, 30, 60])
+                GestureDetector(
+                  onTap: () => controller.selectPreset(days),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: state.windowDays == days && state.fromDate == null
+                          ? AppColors.text
+                          : AppColors.surface,
+                      border: Border.all(
+                        color: state.windowDays == days && state.fromDate == null
+                            ? AppColors.text
+                            : AppColors.divider(Theme.of(context).brightness),
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      '$days days',
+                      style: AppTypography.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: state.windowDays == days && state.fromDate == null
+                            ? AppColors.bg
+                            : AppColors.text,
+                      ),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onTap: () => _pickCustomDateRange(context, controller),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.text : AppColors.surface,
+                    color: state.fromDate != null
+                        ? AppColors.accent
+                        : AppColors.surface,
                     border: Border.all(
-                      color: selected
-                          ? AppColors.text
+                      color: state.fromDate != null
+                          ? AppColors.accent
                           : AppColors.divider(Theme.of(context).brightness),
                       width: 2,
                     ),
                   ),
                   child: Text(
-                    '$days days',
+                    state.fromDate != null
+                        ? '${_formatDateShort(state.fromDate!)} – ${_formatDateShort(state.toDate!)}'
+                        : 'Custom range',
                     style: AppTypography.bodySmall.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: selected ? AppColors.bg : AppColors.text,
+                      color: state.fromDate != null ? Colors.white : AppColors.text,
                     ),
                   ),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.s4),
 

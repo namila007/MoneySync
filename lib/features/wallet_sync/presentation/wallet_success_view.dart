@@ -13,6 +13,7 @@ import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/discardable_mutation_tile.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 final succeededMutationsProvider =
@@ -24,6 +25,7 @@ final succeededMutationsProvider =
                 storedMutationState(WalletMutationState.succeeded),
               ),
             )
+            ..where((m) => m.discardedAtEpochMs.isNull())
             ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
             ..limit(200))
           .watch();
@@ -31,11 +33,19 @@ final succeededMutationsProvider =
 
 final _log = Logger('WalletSuccessView');
 
-class SuccessView extends ConsumerWidget {
+class SuccessView extends ConsumerStatefulWidget {
   const SuccessView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SuccessView> createState() => _SuccessViewState();
+}
+
+class _SuccessViewState extends ConsumerState<SuccessView> {
+  /// Rows the user just swipe-deleted, hidden until the stream re-emits.
+  final _discarded = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
     final mutationsAsync = ref.watch(succeededMutationsProvider);
 
     return Scaffold(
@@ -46,7 +56,10 @@ class SuccessView extends ConsumerWidget {
       body: mutationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (mutations) {
+        data: (all) {
+          final mutations = all
+              .where((m) => !_discarded.contains(m.id))
+              .toList();
           if (mutations.isEmpty) {
             return Center(
               child: Column(
@@ -80,7 +93,11 @@ class SuccessView extends ConsumerWidget {
 
               // Mutation cards
               for (final m in mutations) ...[
-                _SuccessCard(mutation: m),
+                DiscardableMutationTile(
+                  mutationId: m.id,
+                  onDiscarded: () => setState(() => _discarded.add(m.id)),
+                  child: _SuccessCard(mutation: m),
+                ),
                 const SizedBox(height: 8),
               ],
             ],
@@ -117,81 +134,39 @@ class _SuccessCard extends ConsumerWidget {
         ? 'Refund'
         : 'Expense';
 
-    final db = ref.read(appDatabaseProvider).asData?.value;
-
-    return Dismissible(
-      key: ValueKey(mutation.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: Theme.of(context).colorScheme.error,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 16),
-        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
-      ),
-      confirmDismiss: (_) async {
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Delete succeeded mutation?'),
-            content: const Text(
-              'This record will be removed from the succeeded list.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
-        );
-        return confirmed ?? false;
-      },
-      onDismissed: (_) => _deleteMutation(db, mutation.id),
-      child: GestureDetector(
-        onTap: () => context.push('/settings/wallet/succeeded/${mutation.id}'),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: const BoxDecoration(color: AppColors.surface),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: AppTypography.h5.copyWith(fontSize: 15)),
-                    const SizedBox(height: 2),
-                    Text(
-                      _formatTime(mutation.updatedAtEpochMs),
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.neutral500,
-                      ),
+    return GestureDetector(
+      onTap: () => context.push('/settings/wallet/succeeded/${mutation.id}'),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: const BoxDecoration(color: AppColors.surface),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.h5.copyWith(fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatTime(mutation.updatedAtEpochMs),
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.neutral500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              Text(
-                '$currencyCode ${_formatAmount(amountMinor)}',
-                style: AppTypography.amount.copyWith(
-                  fontSize: 18,
-                  color: AppColors.accent,
-                ),
+            ),
+            Text(
+              '$currencyCode ${_formatAmount(amountMinor)}',
+              style: AppTypography.amount.copyWith(
+                fontSize: 18,
+                color: AppColors.accent,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
-  }
-
-  Future<void> _deleteMutation(AppDatabase? db, String mutationId) async {
-    if (db == null) return;
-    await (db.delete(
-      db.walletMutations,
-    )..where((m) => m.id.equals(mutationId))).go();
   }
 
   static Map<String, Object?> _decodePayload(String jsonStr) {
@@ -207,10 +182,12 @@ class _SuccessCard extends ConsumerWidget {
 
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100;
-    return majorUnits
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
   }
 
   String _formatTime(int epochMs) {

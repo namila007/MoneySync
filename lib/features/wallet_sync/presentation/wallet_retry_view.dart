@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
 import 'package:money_sync/app/theme/app_colors.dart';
 import 'package:money_sync/app/theme/app_spacing.dart';
 import 'package:money_sync/app/theme/app_typography.dart';
@@ -13,7 +14,10 @@ import 'package:money_sync/features/mappings/presentation/mapping_providers.dart
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/discardable_mutation_tile.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
+
+final _log = Logger('WalletRetryView');
 
 final retryMutationsProvider = StreamProvider.autoDispose<List<WalletMutation>>(
   (ref) async* {
@@ -24,6 +28,7 @@ final retryMutationsProvider = StreamProvider.autoDispose<List<WalletMutation>>(
               storedMutationState(WalletMutationState.retryScheduled),
             ),
           )
+          ..where((m) => m.discardedAtEpochMs.isNull())
           ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
           ..limit(200))
         .watch();
@@ -39,6 +44,9 @@ class RetryView extends ConsumerStatefulWidget {
 
 class _RetryViewState extends ConsumerState<RetryView> {
   final _selected = <String>{};
+
+  /// Rows the user just swipe-deleted, hidden until the stream re-emits.
+  final _discarded = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +77,10 @@ class _RetryViewState extends ConsumerState<RetryView> {
       body: mutationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (mutations) {
+        data: (all) {
+          final mutations = all
+              .where((m) => !_discarded.contains(m.id))
+              .toList();
           if (mutations.isEmpty) {
             return Center(
               child: Column(
@@ -115,50 +126,9 @@ class _RetryViewState extends ConsumerState<RetryView> {
                   ? 'Income'
                   : 'Expense';
 
-              return Dismissible(
-                key: ValueKey(m.id),
-                direction: DismissDirection.horizontal,
-                background: Container(
-                  color: Theme.of(context).colorScheme.error,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Icon(
-                    Icons.delete,
-                    color: Theme.of(context).colorScheme.onError,
-                  ),
-                ),
-                secondaryBackground: Container(
-                  color: AppColors.accent100,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Icon(Icons.edit_outlined, color: AppColors.accent),
-                ),
-                confirmDismiss: (direction) async {
-                  if (direction == DismissDirection.startToEnd) {
-                    return false;
-                  }
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Delete this failed mutation?'),
-                      content: const Text(
-                        'This mutation will be removed from the retry queue.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(ctx).pop(false),
-                          child: const Text('Cancel'),
-                        ),
-                        FilledButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: const Text('Delete'),
-                        ),
-                      ],
-                    ),
-                  );
-                  return confirmed ?? false;
-                },
-                onDismissed: (_) => _deleteMutation(m.id),
+              return DiscardableMutationTile(
+                mutationId: m.id,
+                onDiscarded: () => setState(() => _discarded.add(m.id)),
                 child: GestureDetector(
                   onTap: () => setState(() {
                     if (selected) {
@@ -176,27 +146,32 @@ class _RetryViewState extends ConsumerState<RetryView> {
                     child: Row(
                       children: [
                         // Checkbox
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.accent
-                                : Colors.transparent,
-                            border: Border.all(
+                        Semantics(
+                          checked: selected,
+                          label: 'Select transaction',
+                          button: true,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
                               color: selected
                                   ? AppColors.accent
-                                  : AppColors.neutral400,
-                              width: 2,
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.accent
+                                    : AppColors.neutral400,
+                                width: 2,
+                              ),
                             ),
+                            child: selected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 14,
+                                  )
+                                : null,
                           ),
-                          child: selected
-                              ? const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 14,
-                                )
-                              : null,
                         ),
                         const SizedBox(width: 12),
                         // Content
@@ -256,14 +231,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
     );
   }
 
-  Future<void> _deleteMutation(String mutationId) async {
-    final db = ref.read(appDatabaseProvider).asData?.value;
-    if (db == null) return;
-    await (db.delete(
-      db.walletMutations,
-    )..where((m) => m.id.equals(mutationId))).go();
-  }
-
   Future<void> _retrySingle(String mutationId) async {
     final db = ref.read(appDatabaseProvider).asData?.value;
     if (db == null) return;
@@ -301,10 +268,12 @@ class _RetryViewState extends ConsumerState<RetryView> {
 
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100;
-    return majorUnits
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
   }
 
   static String _resolveCategoryName(
@@ -324,6 +293,9 @@ class _RetryViewState extends ConsumerState<RetryView> {
     try {
       final decoded = jsonDecode(jsonStr);
       if (decoded is Map<String, Object?>) return decoded;
+      return {};
+    } on FormatException catch (e) {
+      _log.warning('Failed to decode mutation payload', e);
       return {};
     } catch (_) {
       return {};

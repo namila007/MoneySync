@@ -27,6 +27,8 @@ final class HistoryImportState {
   const HistoryImportState({
     this.preset = 7,
     this.customDays,
+    this.fromDate,
+    this.toDate,
     this.messageCap = 100,
     this.trackedSenders = const [],
     this.isScanning = false,
@@ -40,6 +42,8 @@ final class HistoryImportState {
 
   final int preset;
   final int? customDays;
+  final DateTime? fromDate;
+  final DateTime? toDate;
   final int messageCap;
   final List<String> trackedSenders;
   final bool isScanning;
@@ -53,6 +57,8 @@ final class HistoryImportState {
   HistoryImportState copyWith({
     int? preset,
     Object? customDays = _sentinel,
+    Object? fromDate = _sentinel,
+    Object? toDate = _sentinel,
     int? messageCap,
     List<String>? trackedSenders,
     bool? isScanning,
@@ -66,6 +72,8 @@ final class HistoryImportState {
       customDays: customDays == _sentinel
           ? this.customDays
           : customDays as int?,
+      fromDate: fromDate == _sentinel ? this.fromDate : fromDate as DateTime?,
+      toDate: toDate == _sentinel ? this.toDate : toDate as DateTime?,
       messageCap: messageCap ?? this.messageCap,
       trackedSenders: trackedSenders ?? this.trackedSenders,
       isScanning: isScanning ?? this.isScanning,
@@ -111,11 +119,15 @@ class HistoryImportController extends Notifier<HistoryImportState> {
   }
 
   void selectPreset(int days) {
-    state = state.copyWith(preset: days, customDays: null);
+    state = state.copyWith(preset: days, customDays: null, fromDate: null, toDate: null);
   }
 
   void setCustomDays(int days) {
-    state = state.copyWith(customDays: days.clamp(1, 90));
+    state = state.copyWith(customDays: days.clamp(1, 90), fromDate: null, toDate: null);
+  }
+
+  void setCustomDateRange(DateTime from, DateTime to) {
+    state = state.copyWith(fromDate: from, toDate: to, customDays: null, preset: 0);
   }
 
   void setMessageCap(int cap) {
@@ -139,10 +151,11 @@ class HistoryImportController extends Notifier<HistoryImportState> {
     )..where((row) => row.singletonId.equals(1))).getSingle();
 
     final now = DateTime.now();
-    final fromEpochMs = now
-        .subtract(Duration(days: state.windowDays))
+    final fromDate = state.fromDate;
+    final toDate = state.toDate;
+    final fromEpochMs = (fromDate ?? now.subtract(Duration(days: state.windowDays)))
         .millisecondsSinceEpoch;
-    final untilEpochMs = now.millisecondsSinceEpoch;
+    final untilEpochMs = (toDate ?? now).millisecondsSinceEpoch;
 
     state = state.copyWith(
       isScanning: true,

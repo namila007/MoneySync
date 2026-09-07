@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:money_sync/app/router.dart';
-import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/logging/log_levels.dart';
@@ -40,7 +39,6 @@ class SecurityPrivacyPage extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const _SecureStatusTile(),
               ],
             );
           }
@@ -50,8 +48,6 @@ class SecurityPrivacyPage extends ConsumerWidget {
               _AppLockSection(config: config),
               const Divider(),
               _ScreenshotProtectionSection(config: config),
-              const Divider(),
-              const _SecureStatusTile(),
             ],
           );
         },
@@ -177,32 +173,17 @@ class _ScreenshotProtectionSection extends ConsumerWidget {
         'Blocks screenshots and screen recording of the app.',
       ),
       value: config.secureWindowEnabled,
-      onChanged: (enabled) => _toggleSecureWindow(ref, enabled),
+      onChanged: (enabled) =>
+          _toggleSecureWindow(context, ref, enabled),
     );
   }
 }
 
-class _SecureStatusTile extends StatelessWidget {
-  const _SecureStatusTile();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: const Icon(Icons.visibility_off_outlined),
-      title: const Text('Secure screen'),
-      subtitle: const Text(
-        'Prevents screenshots and recording on financial routes. '
-        'Always enabled. Cannot be turned off.',
-      ),
-      trailing: Icon(
-        Icons.check_circle,
-        color: MoneySyncTheme.of(context).success,
-      ),
-    );
-  }
-}
-
-Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
+Future<void> _toggleSecureWindow(
+  BuildContext context,
+  WidgetRef ref,
+  bool enabled,
+) async {
   final repo = await ref.read(configurationRepositoryProvider.future);
   await repo.updateSecureWindowEnabled(enabled);
   ref.invalidate(configurationProvider);
@@ -212,5 +193,10 @@ Future<void> _toggleSecureWindow(WidgetRef ref, bool enabled) async {
     );
   } catch (e, s) {
     Logger('security').error('setSecureWindowProtection failed', e, s);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Screenshot protection failed: $e')),
+      );
+    }
   }
 }

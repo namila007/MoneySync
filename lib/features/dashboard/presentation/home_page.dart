@@ -4,29 +4,47 @@ import 'package:go_router/go_router.dart';
 import 'package:money_sync/app/theme/app_colors.dart';
 import 'package:money_sync/app/theme/app_spacing.dart';
 import 'package:money_sync/app/theme/app_typography.dart';
-import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/dashboard/presentation/home_wallet_health.dart';
 
-final homeSummaryProvider = FutureProvider<({int imported, int candidates})>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  final events = await db.select(db.smsEvents).get();
-  final candidates = await db.select(db.transactionCandidates).get();
-  return (imported: events.length, candidates: candidates.length);
-});
-
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summary = ref.watch(homeSummaryProvider);
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(homeWalletHealthProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final health = ref.watch(homeWalletHealthProvider);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
-      children: [
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(homeWalletHealthProvider);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
+        children: [
         // H1 title
         Text('Dashboard', style: AppTypography.display),
         const SizedBox(height: 4),
@@ -39,10 +57,10 @@ class HomePage extends ConsumerWidget {
         const SizedBox(height: AppSpacing.s6),
 
         // Accent summary banner
-        summary.when(
+        health.when(
           loading: () => const SizedBox.shrink(),
           error: (_, _) => const SizedBox.shrink(),
-          data: (counts) => Container(
+          data: (h) => Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(color: AppColors.accent),
             child: Column(
@@ -57,7 +75,7 @@ class HomePage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${counts.candidates} to review · ${counts.imported} synced',
+                  '${h.reviewCount} to review · ${h.succeededCount} synced',
                   style: AppTypography.amount.copyWith(color: AppColors.bg),
                 ),
               ],
@@ -130,6 +148,7 @@ class HomePage extends ConsumerWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }
@@ -190,26 +209,30 @@ class _CountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: const BoxDecoration(color: AppColors.surface),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('$count', style: AppTypography.count),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
-                color: AppColors.neutral600,
+    return Semantics(
+      button: true,
+      label: '$label: $count',
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$count', style: AppTypography.count),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: AppColors.neutral600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -224,88 +247,100 @@ class _LatestActivitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latest = health.latestRecord;
-    if (latest == null) {
+    final recentSuccesses = health.recentSuccesses;
+    if (recentSuccesses.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final dt = DateTime.fromMillisecondsSinceEpoch(latest.createdAtEpochMs);
-    final timeStr = '${_dayLabel(dt)}, ${_hour(dt)}:${_min(dt)}';
-
     return Column(
       children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(color: AppColors.surface),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Wallet transaction',
-                      style: AppTypography.bodySmall.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      timeStr,
-                      style: AppTypography.bodyXs.copyWith(
-                        color: AppColors.neutral600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${latest.currencyCode} ${_formatAmount(latest.amountMinor)}',
-                style: AppTypography.bodySmall.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.accent700,
-                ),
-              ),
-            ],
+        for (final s in recentSuccesses) ...[
+          _SuccessCard(
+            kind: s.kind,
+            counterParty: s.counterParty,
+            amountMinor: s.amountMinor,
+            currencyCode: s.currencyCode,
+            createdAtEpochMs: s.createdAtEpochMs,
           ),
-        ),
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }
+}
+
+class _SuccessCard extends StatelessWidget {
+  const _SuccessCard({
+    required this.kind,
+    required this.counterParty,
+    required this.amountMinor,
+    required this.currencyCode,
+    required this.createdAtEpochMs,
+  });
+
+  final String kind;
+  final String counterParty;
+  final int amountMinor;
+  final String currencyCode;
+  final int createdAtEpochMs;
+
+  @override
+  Widget build(BuildContext context) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(createdAtEpochMs);
+    final timeStr =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+    final titleParts = <String>[];
+    if (kind.isNotEmpty) titleParts.add(_capitalize(kind));
+    if (counterParty.isNotEmpty) titleParts.add(counterParty);
+    final title = titleParts.join(' \u2014 ');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: const BoxDecoration(color: AppColors.surface),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.h5.copyWith(fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeStr,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.neutral500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$currencyCode ${_formatAmount(amountMinor)}',
+            style: AppTypography.amount.copyWith(
+              fontSize: 18,
+              color: AppColors.accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
 
   String _formatAmount(int minorUnits) {
-    final sign = minorUnits < 0 ? '-' : '';
     final abs = minorUnits.abs();
-    final whole = abs ~/ 100;
-    final fraction = (abs % 100).toString().padLeft(2, '0');
-    return '$sign${_thousands(whole)}.$fraction';
+    final majorUnits = abs / 100;
+    return majorUnits
+        .toStringAsFixed(2)
+        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
   }
-
-  String _thousands(int n) {
-    final s = n.toString();
-    final buf = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
-
-  String _dayLabel(DateTime dt) {
-    final now = DateTime.now();
-    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
-      return 'Today';
-    }
-    final yesterday = now.subtract(const Duration(days: 1));
-    if (dt.year == yesterday.year &&
-        dt.month == yesterday.month &&
-        dt.day == yesterday.day) {
-      return 'Yesterday';
-    }
-    return '${dt.day}/${dt.month}/${dt.year}';
-  }
-
-  String _hour(DateTime dt) => dt.hour.toString().padLeft(2, '0');
-
-  String _min(DateTime dt) => dt.minute.toString().padLeft(2, '0');
 }

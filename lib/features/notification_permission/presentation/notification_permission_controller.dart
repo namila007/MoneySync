@@ -26,8 +26,26 @@ class NotificationPermissionNotifier
     extends Notifier<AsyncValue<NotificationPermissionStatus>> {
   @override
   AsyncValue<NotificationPermissionStatus> build() {
-    unawaited(refresh());
+    unawaited(_autoRequest());
     return const AsyncValue.loading();
+  }
+
+  /// Check status first, then auto-request if not yet requested.
+  Future<void> _autoRequest() async {
+    try {
+      final gateway = ref.read(notificationPermissionGatewayProvider);
+      final status = await gateway.current().timeout(
+        const Duration(seconds: 5),
+      );
+      if (!ref.mounted) return;
+      state = AsyncValue.data(status);
+      if (status == NotificationPermissionStatus.notRequested) {
+        if (!ref.mounted) return;
+        await request();
+      }
+    } catch (_) {
+      // Best effort — don't crash on disposal
+    }
   }
 
   Future<void> refresh() async {

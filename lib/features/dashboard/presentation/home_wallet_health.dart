@@ -4,8 +4,8 @@ import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
-import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
 /// Read-only projection of the outbox / record-link state for the home
 /// dashboard (plan/04 §Home; M5.11). No domain logic — pure counts + the
@@ -17,6 +17,7 @@ final class HomeWalletHealth {
     required this.waitingCount,
     required this.succeededCount,
     this.latestRecord,
+    this.recentSuccesses = const [],
   });
 
   final int reviewCount;
@@ -24,6 +25,7 @@ final class HomeWalletHealth {
   final int waitingCount;
   final int succeededCount;
   final LatestWalletRecord? latestRecord;
+  final List<SucceededMutationSummary> recentSuccesses;
 
   static const empty = HomeWalletHealth(
     reviewCount: 0,
@@ -49,24 +51,48 @@ final class LatestWalletRecord {
   final int createdAtEpochMs;
 }
 
+/// A succeeded mutation summary for the home dashboard recent activity.
+final class SucceededMutationSummary {
+  const SucceededMutationSummary({
+    required this.id,
+    required this.kind,
+    required this.counterParty,
+    required this.amountMinor,
+    required this.currencyCode,
+    required this.createdAtEpochMs,
+  });
+
+  final String id;
+  final String kind;
+  final String counterParty;
+  final int amountMinor;
+  final String currencyCode;
+  final int createdAtEpochMs;
+}
+
 final homeWalletHealthProvider = StreamProvider.autoDispose<HomeWalletHealth>((
   ref,
 ) async* {
   final db = await ref.watch(appDatabaseProvider.future);
-  final mutations = db.select(db.walletMutations);
+  // Swipe-deleted (soft-deleted) mutations must not inflate the dashboard
+  // counts — they are hidden everywhere else too.
+  final mutations = db.select(db.walletMutations)
+    ..where((m) => m.discardedAtEpochMs.isNull());
   final candidates = db.select(db.transactionCandidates);
+  // Count SMS events with review status for the REVIEW tile — this matches
+  // what the inbox page actually shows (smsEvents, not candidates).
+  final smsEvents = db.select(db.smsEvents)
+    ..where((t) => t.status.equalsValue(SmsEventStatus.review));
 
-  // Watch both tables — re-emit on any mutation OR candidate write.
+  // Watch all three tables — re-emit on any write.
   await for (final _ in mutations.watch().asyncExpand(
-    (_) => candidates.watch(),
+    (_) => candidates.watch().asyncExpand((_) => smsEvents.watch()),
   )) {
-    final candidateRows = await candidates.get();
     final mutationRows = await mutations.get();
+    final reviewSmsEvents = await smsEvents.get();
 
-    // Review = candidates awaiting user review (pre-create, not post-create).
-    final review = candidateRows
-        .where((r) => r.state == CandidateRecordState.needsReview)
-        .length;
+    // Review = SMS events with review status (what the inbox shows).
+    final review = reviewSmsEvents.length;
     final retry = mutationRows
         .where((r) => r.state == WalletMutationState.retryScheduled)
         .length;
@@ -105,12 +131,28 @@ final homeWalletHealthProvider = StreamProvider.autoDispose<HomeWalletHealth>((
       );
     }
 
+    // Fetch recent succeeded mutations for the home dashboard (max 3).
+    final recentSucceeded = await (db.select(db.walletMutations)
+          ..where(
+            (m) => m.state.equals(
+              storedMutationState(WalletMutationState.succeeded),
+            ),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+          ..limit(3))
+        .get();
+    final recentSuccesses = [
+      for (final m in recentSucceeded)
+        _summarizeSucceeded(m),
+    ];
+
     yield HomeWalletHealth(
       reviewCount: review,
       retryCount: retry,
       waitingCount: waiting,
       succeededCount: succeeded,
       latestRecord: latest,
+      recentSuccesses: recentSuccesses,
     );
   }
 });
@@ -147,4 +189,31 @@ String _currencyFrom(List<WalletMutation> mutations) {
     }
   }
   return 'LKR';
+}
+
+/// Summarizes a succeeded mutation for the home dashboard.
+SucceededMutationSummary _summarizeSucceeded(WalletMutation mutation) {
+  String kind = 'expense';
+  String counterParty = '';
+  int amountMinor = 0;
+  String currencyCode = 'LKR';
+  try {
+    final decoded = jsonDecode(mutation.payload);
+    if (decoded is Map<String, dynamic>) {
+      kind = decoded['kind'] as String? ?? 'expense';
+      counterParty = decoded['counterParty'] as String? ?? '';
+      amountMinor = decoded['amountMinor'] is int
+          ? decoded['amountMinor'] as int
+          : 0;
+      currencyCode = decoded['currencyCode'] as String? ?? 'LKR';
+    }
+  } catch (_) {}
+  return SucceededMutationSummary(
+    id: mutation.id,
+    kind: kind,
+    counterParty: counterParty,
+    amountMinor: amountMinor,
+    currencyCode: currencyCode,
+    createdAtEpochMs: mutation.createdAtEpochMs,
+  );
 }

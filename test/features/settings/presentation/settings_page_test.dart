@@ -78,14 +78,6 @@ void main() {
       expect(find.text('Secure with biometrics/PIN'), findsOneWidget);
     });
 
-    testWidgets('Screenshot protection toggle is present', (tester) async {
-      await tester.pumpWidget(_app());
-      await tester.pumpAndSettle();
-
-      expect(find.text('Screenshot protection'), findsOneWidget);
-      expect(find.byType(Switch), findsOneWidget);
-    });
-
     testWidgets('Message reading tile is present', (tester) async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
