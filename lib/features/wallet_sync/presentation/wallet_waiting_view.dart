@@ -184,6 +184,7 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
                       children: [
                         // Checkbox
                         GestureDetector(
+                          key: ValueKey('checkbox-${m.id}'),
                           onTap: () => setState(() {
                             if (selected) {
                               _selected.remove(m.id);
