@@ -93,6 +93,54 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     });
 
+    testWidgets('swipe-to-delete confirms then discards the mutation', (
+      tester,
+    ) async {
+      final db = createDb();
+      addTearDown(db.close);
+      await insertRetry(db);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appDatabaseProvider.overrideWith((ref) async => db)],
+          child: MaterialApp.router(
+            routerConfig: GoRouter(
+              initialLocation: '/settings/wallet/retry',
+              routes: [
+                GoRoute(
+                  path: '/settings/wallet/retry',
+                  builder: (_, _) => const RetryView(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.fling(find.text('LKR 25.00'), const Offset(-600, 0), 1500);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Delete this record?'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      final row = await (db.select(
+        db.walletMutations,
+      )..where((m) => m.id.equals('m1'))).getSingle();
+      expect(row.discardedAtEpochMs, isNotNull);
+
+      await tester.pumpAndSettle();
+      expect(find.text('LKR 25.00'), findsNothing);
+      expect(find.text('No failed transactions to retry.'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 50));
+    });
+
     testWidgets('Retry All button is always visible', (tester) async {
       final db = createDb();
       addTearDown(db.close);

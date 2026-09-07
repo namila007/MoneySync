@@ -8391,6 +8391,16 @@ class $WalletMutationsTable extends WalletMutations
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _discardedAtEpochMsMeta =
+      const VerificationMeta('discardedAtEpochMs');
+  @override
+  late final GeneratedColumn<int> discardedAtEpochMs = GeneratedColumn<int>(
+    'discarded_at_epoch_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8411,6 +8421,7 @@ class $WalletMutationsTable extends WalletMutations
     leaseUntilEpochMs,
     lastHttpStatus,
     walletCorrelationId,
+    discardedAtEpochMs,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8568,6 +8579,15 @@ class $WalletMutationsTable extends WalletMutations
         ),
       );
     }
+    if (data.containsKey('discarded_at_epoch_ms')) {
+      context.handle(
+        _discardedAtEpochMsMeta,
+        discardedAtEpochMs.isAcceptableOrUnknown(
+          data['discarded_at_epoch_ms']!,
+          _discardedAtEpochMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -8653,6 +8673,10 @@ class $WalletMutationsTable extends WalletMutations
         DriftSqlType.string,
         data['${effectivePrefix}wallet_correlation_id'],
       ),
+      discardedAtEpochMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}discarded_at_epoch_ms'],
+      ),
     );
   }
 
@@ -8688,6 +8712,12 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
   final int? leaseUntilEpochMs;
   final int? lastHttpStatus;
   final String? walletCorrelationId;
+
+  /// Set when the user swipe-deletes the row from a wallet-sync list. The row
+  /// and its lineage/dedup guarantees stay intact (a discarded `succeeded`
+  /// create still blocks a duplicate); every list query and dashboard count
+  /// filters `discarded_at_epoch_ms IS NULL`. Not applied to in-flight states.
+  final int? discardedAtEpochMs;
   const WalletMutation({
     required this.id,
     required this.operationKind,
@@ -8707,6 +8737,7 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     this.leaseUntilEpochMs,
     this.lastHttpStatus,
     this.walletCorrelationId,
+    this.discardedAtEpochMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8757,6 +8788,9 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     if (!nullToAbsent || walletCorrelationId != null) {
       map['wallet_correlation_id'] = Variable<String>(walletCorrelationId);
     }
+    if (!nullToAbsent || discardedAtEpochMs != null) {
+      map['discarded_at_epoch_ms'] = Variable<int>(discardedAtEpochMs);
+    }
     return map;
   }
 
@@ -8800,6 +8834,9 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
       walletCorrelationId: walletCorrelationId == null && nullToAbsent
           ? const Value.absent()
           : Value(walletCorrelationId),
+      discardedAtEpochMs: discardedAtEpochMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(discardedAtEpochMs),
     );
   }
 
@@ -8835,6 +8872,7 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
       walletCorrelationId: serializer.fromJson<String?>(
         json['walletCorrelationId'],
       ),
+      discardedAtEpochMs: serializer.fromJson<int?>(json['discardedAtEpochMs']),
     );
   }
   @override
@@ -8863,6 +8901,7 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
       'leaseUntilEpochMs': serializer.toJson<int?>(leaseUntilEpochMs),
       'lastHttpStatus': serializer.toJson<int?>(lastHttpStatus),
       'walletCorrelationId': serializer.toJson<String?>(walletCorrelationId),
+      'discardedAtEpochMs': serializer.toJson<int?>(discardedAtEpochMs),
     };
   }
 
@@ -8885,6 +8924,7 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     Value<int?> leaseUntilEpochMs = const Value.absent(),
     Value<int?> lastHttpStatus = const Value.absent(),
     Value<String?> walletCorrelationId = const Value.absent(),
+    Value<int?> discardedAtEpochMs = const Value.absent(),
   }) => WalletMutation(
     id: id ?? this.id,
     operationKind: operationKind ?? this.operationKind,
@@ -8918,6 +8958,9 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     walletCorrelationId: walletCorrelationId.present
         ? walletCorrelationId.value
         : this.walletCorrelationId,
+    discardedAtEpochMs: discardedAtEpochMs.present
+        ? discardedAtEpochMs.value
+        : this.discardedAtEpochMs,
   );
   WalletMutation copyWithCompanion(WalletMutationsCompanion data) {
     return WalletMutation(
@@ -8969,6 +9012,9 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
       walletCorrelationId: data.walletCorrelationId.present
           ? data.walletCorrelationId.value
           : this.walletCorrelationId,
+      discardedAtEpochMs: data.discardedAtEpochMs.present
+          ? data.discardedAtEpochMs.value
+          : this.discardedAtEpochMs,
     );
   }
 
@@ -8992,7 +9038,8 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
           ..write('nextAttemptAtEpochMs: $nextAttemptAtEpochMs, ')
           ..write('leaseUntilEpochMs: $leaseUntilEpochMs, ')
           ..write('lastHttpStatus: $lastHttpStatus, ')
-          ..write('walletCorrelationId: $walletCorrelationId')
+          ..write('walletCorrelationId: $walletCorrelationId, ')
+          ..write('discardedAtEpochMs: $discardedAtEpochMs')
           ..write(')'))
         .toString();
   }
@@ -9017,6 +9064,7 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
     leaseUntilEpochMs,
     lastHttpStatus,
     walletCorrelationId,
+    discardedAtEpochMs,
   );
   @override
   bool operator ==(Object other) =>
@@ -9039,7 +9087,8 @@ class WalletMutation extends DataClass implements Insertable<WalletMutation> {
           other.nextAttemptAtEpochMs == this.nextAttemptAtEpochMs &&
           other.leaseUntilEpochMs == this.leaseUntilEpochMs &&
           other.lastHttpStatus == this.lastHttpStatus &&
-          other.walletCorrelationId == this.walletCorrelationId);
+          other.walletCorrelationId == this.walletCorrelationId &&
+          other.discardedAtEpochMs == this.discardedAtEpochMs);
 }
 
 class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
@@ -9061,6 +9110,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
   final Value<int?> leaseUntilEpochMs;
   final Value<int?> lastHttpStatus;
   final Value<String?> walletCorrelationId;
+  final Value<int?> discardedAtEpochMs;
   final Value<int> rowid;
   const WalletMutationsCompanion({
     this.id = const Value.absent(),
@@ -9081,6 +9131,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     this.leaseUntilEpochMs = const Value.absent(),
     this.lastHttpStatus = const Value.absent(),
     this.walletCorrelationId = const Value.absent(),
+    this.discardedAtEpochMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   WalletMutationsCompanion.insert({
@@ -9102,6 +9153,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     this.leaseUntilEpochMs = const Value.absent(),
     this.lastHttpStatus = const Value.absent(),
     this.walletCorrelationId = const Value.absent(),
+    this.discardedAtEpochMs = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        operationKind = Value(operationKind),
@@ -9130,6 +9182,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     Expression<int>? leaseUntilEpochMs,
     Expression<int>? lastHttpStatus,
     Expression<String>? walletCorrelationId,
+    Expression<int>? discardedAtEpochMs,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9154,6 +9207,8 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
       if (lastHttpStatus != null) 'last_http_status': lastHttpStatus,
       if (walletCorrelationId != null)
         'wallet_correlation_id': walletCorrelationId,
+      if (discardedAtEpochMs != null)
+        'discarded_at_epoch_ms': discardedAtEpochMs,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9177,6 +9232,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
     Value<int?>? leaseUntilEpochMs,
     Value<int?>? lastHttpStatus,
     Value<String?>? walletCorrelationId,
+    Value<int?>? discardedAtEpochMs,
     Value<int>? rowid,
   }) {
     return WalletMutationsCompanion(
@@ -9199,6 +9255,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
       leaseUntilEpochMs: leaseUntilEpochMs ?? this.leaseUntilEpochMs,
       lastHttpStatus: lastHttpStatus ?? this.lastHttpStatus,
       walletCorrelationId: walletCorrelationId ?? this.walletCorrelationId,
+      discardedAtEpochMs: discardedAtEpochMs ?? this.discardedAtEpochMs,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9272,6 +9329,9 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
         walletCorrelationId.value,
       );
     }
+    if (discardedAtEpochMs.present) {
+      map['discarded_at_epoch_ms'] = Variable<int>(discardedAtEpochMs.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9299,6 +9359,7 @@ class WalletMutationsCompanion extends UpdateCompanion<WalletMutation> {
           ..write('leaseUntilEpochMs: $leaseUntilEpochMs, ')
           ..write('lastHttpStatus: $lastHttpStatus, ')
           ..write('walletCorrelationId: $walletCorrelationId, ')
+          ..write('discardedAtEpochMs: $discardedAtEpochMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -18590,6 +18651,7 @@ typedef $$WalletMutationsTableCreateCompanionBuilder =
       Value<int?> leaseUntilEpochMs,
       Value<int?> lastHttpStatus,
       Value<String?> walletCorrelationId,
+      Value<int?> discardedAtEpochMs,
       Value<int> rowid,
     });
 typedef $$WalletMutationsTableUpdateCompanionBuilder =
@@ -18612,6 +18674,7 @@ typedef $$WalletMutationsTableUpdateCompanionBuilder =
       Value<int?> leaseUntilEpochMs,
       Value<int?> lastHttpStatus,
       Value<String?> walletCorrelationId,
+      Value<int?> discardedAtEpochMs,
       Value<int> rowid,
     });
 
@@ -18762,6 +18825,11 @@ class $$WalletMutationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get discardedAtEpochMs => $composableBuilder(
+    column: $table.discardedAtEpochMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> walletMutationItemsRefs(
     Expression<bool> Function($$WalletMutationItemsTableFilterComposer f) f,
   ) {
@@ -18886,6 +18954,11 @@ class $$WalletMutationsTableOrderingComposer
     column: $table.walletCorrelationId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get discardedAtEpochMs => $composableBuilder(
+    column: $table.discardedAtEpochMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$WalletMutationsTableAnnotationComposer
@@ -18982,6 +19055,11 @@ class $$WalletMutationsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get discardedAtEpochMs => $composableBuilder(
+    column: $table.discardedAtEpochMs,
+    builder: (column) => column,
+  );
+
   Expression<T> walletMutationItemsRefs<T extends Object>(
     Expression<T> Function($$WalletMutationItemsTableAnnotationComposer a) f,
   ) {
@@ -19058,6 +19136,7 @@ class $$WalletMutationsTableTableManager
                 Value<int?> leaseUntilEpochMs = const Value.absent(),
                 Value<int?> lastHttpStatus = const Value.absent(),
                 Value<String?> walletCorrelationId = const Value.absent(),
+                Value<int?> discardedAtEpochMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletMutationsCompanion(
                 id: id,
@@ -19078,6 +19157,7 @@ class $$WalletMutationsTableTableManager
                 leaseUntilEpochMs: leaseUntilEpochMs,
                 lastHttpStatus: lastHttpStatus,
                 walletCorrelationId: walletCorrelationId,
+                discardedAtEpochMs: discardedAtEpochMs,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -19100,6 +19180,7 @@ class $$WalletMutationsTableTableManager
                 Value<int?> leaseUntilEpochMs = const Value.absent(),
                 Value<int?> lastHttpStatus = const Value.absent(),
                 Value<String?> walletCorrelationId = const Value.absent(),
+                Value<int?> discardedAtEpochMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => WalletMutationsCompanion.insert(
                 id: id,
@@ -19120,6 +19201,7 @@ class $$WalletMutationsTableTableManager
                 leaseUntilEpochMs: leaseUntilEpochMs,
                 lastHttpStatus: lastHttpStatus,
                 walletCorrelationId: walletCorrelationId,
+                discardedAtEpochMs: discardedAtEpochMs,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

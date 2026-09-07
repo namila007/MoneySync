@@ -9,7 +9,7 @@ import 'package:money_sync/features/mappings/domain/mapping_rule.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
-final log = Logger('mappings.list');
+final _log = Logger('mappings.list');
 
 class MappingsPage extends ConsumerWidget {
   const MappingsPage({super.key});
@@ -135,35 +135,28 @@ class _MappingRuleTile extends ConsumerWidget {
             ],
           ),
         );
-        return confirmed ?? false;
-      },
-      onDismissed: (_) async {
+        if (confirmed != true) return false;
         try {
           final useCase = await ref.read(deleteMappingRuleProvider.future);
           await useCase(ruleId: rule.id);
-          log.info('Deleted mapping rule ${rule.id}');
+          _log.info('Deleted mapping rule ${rule.id}');
           onDelete();
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Mapping rule "$senderLabel \u2192 $accountName" deleted.',
-                ),
-              ),
-            );
-          }
+          return true;
         } catch (e, s) {
-          log.error('Failed to delete mapping rule ${rule.id}', e, s);
+          _log.error('Failed to delete mapping rule ${rule.id}', e, s);
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Could not delete mapping rule.')),
             );
           }
+          return false;
         }
       },
+      onDismissed: (_) {},
       child: Card(
         child: ListTile(
-          onTap: () => _showDetailSheet(context, rule, accountName),
+          onTap: () =>
+              _showDetailSheet(context, rule, senderLabel, accountName),
           title: Text(
             '$senderLabel \u2192 $accountName',
             style: AppTypography.body.copyWith(fontWeight: FontWeight.w800),
@@ -178,6 +171,7 @@ class _MappingRuleTile extends ConsumerWidget {
   void _showDetailSheet(
     BuildContext context,
     MappingRule rule,
+    String senderLabel,
     String accountName,
   ) {
     final syncLabel = switch (rule.syncMode) {
@@ -194,10 +188,7 @@ class _MappingRuleTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${rule.senderMatcher.aliases.first} \u2192 $accountName',
-              style: AppTypography.h5,
-            ),
+            Text('$senderLabel \u2192 $accountName', style: AppTypography.h5),
             const SizedBox(height: 16),
             _DetailRow(
               label: 'Senders',

@@ -8,6 +8,7 @@ enum DomainFailureCode {
   invalidMutationIntent,
   invalidInstrumentEvidence,
   invalidMappingRule,
+  mutationInFlight,
 }
 
 /// A failure that may cross domain boundaries without carrying sensitive input.
@@ -82,5 +83,16 @@ final class InvalidMappingRuleFailure extends DomainFailure {
     : super(
         DomainFailureCode.invalidMappingRule,
         'The mapping rule is not valid.',
+      );
+}
+
+/// The wallet mutation cannot be discarded because it is still being sent or
+/// reconciled — its outcome is not yet known, so removing the local record
+/// could strand a possibly-created remote record. Retry once it settles.
+final class WalletMutationInFlightFailure extends DomainFailure {
+  const WalletMutationInFlightFailure()
+    : super(
+        DomainFailureCode.mutationInFlight,
+        'This record is still syncing. Try again once it finishes.',
       );
 }

@@ -116,6 +116,31 @@ final class WalletMutationsDao {
     );
   }
 
+  /// Soft-deletes the row for [id] — stamps `discarded_at_epoch_ms` so every
+  /// list query and dashboard count hides it, while the row (and the partial
+  /// unique index that guards against a duplicate create) stays in place.
+  /// Returns the number of rows changed (0 if already discarded or absent).
+  Future<int> discard({required String id, required int nowEpochMs}) {
+    return (_database.update(
+      _database.walletMutations,
+    )..where((t) => t.id.equals(id) & t.discardedAtEpochMs.isNull())).write(
+      WalletMutationsCompanion(
+        discardedAtEpochMs: Value(nowEpochMs),
+        updatedAtEpochMs: Value(nowEpochMs),
+      ),
+    );
+  }
+
+  /// The stored state of the row for [id], or null when it does not exist.
+  /// Reads the raw column — unlike [byId] it does not reconstruct (and
+  /// re-validate) a full [WalletMutationIntent].
+  Future<WalletMutationState?> stateOf(String id) async {
+    final row = await (_database.select(
+      _database.walletMutations,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    return row?.state;
+  }
+
   /// The mutation row for [id], or null.
   Future<WalletMutationIntent?> byId(String id) async {
     final rows = await (_database.select(

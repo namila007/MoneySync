@@ -482,6 +482,12 @@ class WalletMutations extends Table {
   IntColumn get lastHttpStatus => integer().nullable()();
   TextColumn get walletCorrelationId => text().nullable()();
 
+  /// Set when the user swipe-deletes the row from a wallet-sync list. The row
+  /// and its lineage/dedup guarantees stay intact (a discarded `succeeded`
+  /// create still blocks a duplicate); every list query and dashboard count
+  /// filters `discarded_at_epoch_ms IS NULL`. Not applied to in-flight states.
+  IntColumn get discardedAtEpochMs => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 
@@ -673,7 +679,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -689,6 +695,13 @@ class AppDatabase extends _$AppDatabase {
         'DELETE FROM app_settings WHERE rowid NOT IN '
         '(SELECT MAX(rowid) FROM app_settings WHERE singleton_id = 1) '
         'AND singleton_id = 1',
+      );
+
+      // Ensure the unique index exists BEFORE the INSERT OR IGNORE so that
+      // the insert correctly deduplicates on corrupted DBs (M6 PR review #2).
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_app_settings_singleton '
+        'ON app_settings (singleton_id)',
       );
 
       await customStatement(
@@ -720,10 +733,6 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_record_link_remote_id '
         'ON wallet_record_links (remote_id) WHERE remote_id IS NOT NULL',
-      );
-      await customStatement(
-        'CREATE UNIQUE INDEX IF NOT EXISTS idx_app_settings_singleton '
-        'ON app_settings (singleton_id)',
       );
     },
     onUpgrade: (m, from, to) async {
@@ -1174,6 +1183,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 17) {
         await m.addColumn(appSettings, appSettings.autoImportIntervalMinutes);
+      }
+      if (from < 18) {
+        await m.addColumn(walletMutations, walletMutations.discardedAtEpochMs);
       }
     },
   );

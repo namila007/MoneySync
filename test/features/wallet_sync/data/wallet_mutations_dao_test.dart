@@ -188,4 +188,34 @@ void main() {
       expect(row.read<String>('state'), 'reconciling');
     });
   });
+
+  group('discard', () {
+    test('stamps discardedAtEpochMs and returns 1', () async {
+      await dao.upsert(intent(id: 'd1'));
+      final changed = await dao.discard(id: 'd1', nowEpochMs: 999);
+      expect(changed, 1);
+
+      final row = await (database.select(
+        database.walletMutations,
+      )..where((m) => m.id.equals('d1'))).getSingle();
+      expect(row.discardedAtEpochMs, 999);
+      expect(row.state, WalletMutationState.queued); // state untouched
+    });
+
+    test('is idempotent — a second discard changes nothing', () async {
+      await dao.upsert(intent(id: 'd2'));
+      await dao.discard(id: 'd2', nowEpochMs: 1);
+      final again = await dao.discard(id: 'd2', nowEpochMs: 2);
+      expect(again, 0);
+
+      final row = await (database.select(
+        database.walletMutations,
+      )..where((m) => m.id.equals('d2'))).getSingle();
+      expect(row.discardedAtEpochMs, 1);
+    });
+
+    test('returns 0 for an unknown id', () async {
+      expect(await dao.discard(id: 'nope', nowEpochMs: 1), 0);
+    });
+  });
 }

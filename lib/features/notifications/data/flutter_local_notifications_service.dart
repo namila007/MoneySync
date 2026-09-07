@@ -12,6 +12,7 @@ class FlutterLocalNotificationsService implements NotificationService {
 
   final FlutterLocalNotificationsPlugin plugin;
   bool _initialized = false;
+  Future<void>? _initFuture;
 
   Future<void> initialize({
     required String androidDefaultIcon,
@@ -28,12 +29,13 @@ class FlutterLocalNotificationsService implements NotificationService {
 
   Future<void> _ensureInitialized() async {
     if (_initialized) return;
-    try {
-      await initialize(androidDefaultIcon: '@mipmap/ic_launcher');
-    } catch (e, s) {
-      _log.error('Failed to lazy-initialize notifications', e, s);
-      _initialized = true;
-    }
+    _initFuture ??= initialize(androidDefaultIcon: '@mipmap/ic_launcher')
+        .catchError((e, s) {
+          _log.error('Failed to lazy-initialize notifications', e, s);
+          _initFuture = null;
+        });
+    await _initFuture;
+    _initialized = true;
   }
 
   @override
