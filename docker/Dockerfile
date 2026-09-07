@@ -38,5 +38,3 @@ RUN git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/f
     flutter precache --android && \
     flutter doctor --android-licenses > /dev/null && \
     chown -R root:root ${FLUTTER_HOME}
-
-WORKDIR /github/workspace
