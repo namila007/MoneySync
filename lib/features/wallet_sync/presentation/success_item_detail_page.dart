@@ -77,7 +77,10 @@ class SuccessItemDetailPage extends ConsumerWidget {
               _DetailRow(label: 'Amount', value: amountText),
               _DetailRow(label: 'Kind', value: _capitalizeKind(kind)),
               _DetailRow(label: 'Direction', value: _capitalizeKind(direction)),
-              _DetailRow(label: 'Payment', value: _formatPaymentType(paymentType)),
+              _DetailRow(
+                label: 'Payment',
+                value: _formatPaymentType(paymentType),
+              ),
               _DetailRow(label: 'Account', value: accountName),
               _DetailRow(label: 'Category', value: categoryName),
               _DetailRow(label: 'Counterparty', value: counterParty ?? ''),
@@ -106,7 +109,9 @@ class SuccessItemDetailPage extends ConsumerWidget {
                         ),
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: AppColors.divider(Theme.of(context).brightness),
+                            color: AppColors.divider(
+                              Theme.of(context).brightness,
+                            ),
                             width: 1,
                           ),
                         ),

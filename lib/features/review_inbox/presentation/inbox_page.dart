@@ -22,9 +22,7 @@ class InboxPage extends ConsumerWidget {
         view.layout == InboxLayout.flatNewestFirst || filtersActive;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inbox'),
-      ),
+      appBar: AppBar(title: const Text('Inbox')),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -119,13 +117,16 @@ class _FilterBar extends ConsumerWidget {
                 ),
                 prefixIcon: const Icon(Icons.search, size: 18),
                 isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: const OutlineInputBorder(borderRadius: BorderRadius.zero),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: const OutlineInputBorder(
+                  borderRadius: BorderRadius.zero,
+                ),
               ),
-              onChanged: (value) => viewController.setSenderFilter(
-                value.isEmpty ? null : value,
-              ),
+              onChanged: (value) =>
+                  viewController.setSenderFilter(value.isEmpty ? null : value),
             ),
           ),
           const SizedBox(width: 8),
@@ -351,10 +352,7 @@ class _EventCard extends ConsumerWidget {
         color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        child: Icon(
-          Icons.delete,
-          color: Theme.of(context).colorScheme.onError,
-        ),
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
       ),
       confirmDismiss: (_) async {
         final confirmed = await showDialog<bool>(
@@ -425,10 +423,7 @@ class _EventCard extends ConsumerWidget {
       db.appSettings,
     )..where((row) => row.singletonId.equals(1))).getSingle();
     final useCase = DeleteImportedMessage(database: db);
-    await useCase(
-      eventId: event.id,
-      privacyEpoch: setting.privacyEpoch,
-    );
+    await useCase(eventId: event.id, privacyEpoch: setting.privacyEpoch);
     ref.invalidate(inboxEventsProvider);
   }
 
@@ -457,9 +452,7 @@ class StatusChip extends StatelessWidget {
     if (status == SmsEventStatus.review) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.accent),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: AppColors.accent)),
         child: Text(
           label,
           style: AppTypography.micro.copyWith(color: AppColors.accent),
@@ -472,10 +465,7 @@ class StatusChip extends StatelessWidget {
         AppColors.success.withValues(alpha: 0.12),
         AppColors.success,
       ),
-      SmsEventStatus.ignored => (
-        AppColors.neutral200,
-        AppColors.neutral600,
-      ),
+      SmsEventStatus.ignored => (AppColors.neutral200, AppColors.neutral600),
       SmsEventStatus.purged => (
         AppColors.warning.withValues(alpha: 0.12),
         AppColors.warning,
@@ -485,10 +475,7 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(color: bg),
-      child: Text(
-        label,
-        style: AppTypography.micro.copyWith(color: fg),
-      ),
+      child: Text(label, style: AppTypography.micro.copyWith(color: fg)),
     );
   }
 }

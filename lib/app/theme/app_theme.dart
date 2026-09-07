@@ -26,7 +26,9 @@ abstract final class AppTheme {
       onSecondaryContainer: isDark ? AppColors.accent100 : AppColors.accent900,
       surface: isDark ? AppColors.darkSurface : AppColors.surface,
       onSurface: isDark ? AppColors.darkText : AppColors.text,
-      surfaceContainerHighest: isDark ? AppColors.darkSurface : AppColors.surface,
+      surfaceContainerHighest: isDark
+          ? AppColors.darkSurface
+          : AppColors.surface,
       error: isDark ? AppColors.accent500 : AppColors.accent700,
       onError: isDark ? AppColors.darkBg : AppColors.bg,
       errorContainer: isDark ? AppColors.accent900 : AppColors.accent100,
@@ -48,7 +50,11 @@ abstract final class AppTheme {
       ),
       scaffoldBackgroundColor: isDark ? AppColors.darkBg : AppColors.bg,
       dividerColor: dividerColor,
-      dividerTheme: DividerThemeData(color: dividerColor, thickness: 2, space: 0),
+      dividerTheme: DividerThemeData(
+        color: dividerColor,
+        thickness: 2,
+        space: 0,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: isDark ? AppColors.darkBg : AppColors.bg,
         foregroundColor: colorScheme.onSurface,
@@ -135,7 +141,9 @@ abstract final class AppTheme {
         backgroundColor: isDark ? AppColors.darkBg : AppColors.bg,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        indicatorShape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        indicatorShape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
         indicatorColor: colorScheme.primary.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -201,9 +209,7 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      extensions: [
-        isDark ? MoneySyncTheme.dark : MoneySyncTheme.light,
-      ],
+      extensions: [isDark ? MoneySyncTheme.dark : MoneySyncTheme.light],
     );
   }
 }

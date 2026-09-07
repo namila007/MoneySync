@@ -194,7 +194,10 @@ class _SecureStatusTile extends StatelessWidget {
         'Prevents screenshots and recording on financial routes. '
         'Always enabled. Cannot be turned off.',
       ),
-      trailing: Icon(Icons.check_circle, color: MoneySyncTheme.of(context).success),
+      trailing: Icon(
+        Icons.check_circle,
+        color: MoneySyncTheme.of(context).success,
+      ),
     );
   }
 }

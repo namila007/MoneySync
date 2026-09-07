@@ -164,45 +164,44 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
   });
 
-  testWidgets(
-    'Wallet connection page renders and can be popped',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            appConfigProvider.overrideWithValue(AppConfig.playManual()),
-            onboardingStateProvider.overrideWith(
-              () => _CompletedOnboardingNotifier(),
-            ),
-          ],
-          child: MaterialApp(
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: Center(
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const WalletConnectionPage(),
-                      ),
+  testWidgets('Wallet connection page renders and can be popped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appConfigProvider.overrideWithValue(AppConfig.playManual()),
+          onboardingStateProvider.overrideWith(
+            () => _CompletedOnboardingNotifier(),
+          ),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const WalletConnectionPage(),
                     ),
-                    child: const Text('open wallet'),
                   ),
+                  child: const Text('open wallet'),
                 ),
               ),
             ),
           ),
         ),
-      );
-      await tester.tap(find.text('open wallet'));
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.tap(find.text('open wallet'));
+    await tester.pumpAndSettle();
 
-      expect(find.byType(WalletConnectionPage), findsOneWidget);
+    expect(find.byType(WalletConnectionPage), findsOneWidget);
 
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text('open wallet'), findsOneWidget);
-    },
-  );
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('open wallet'), findsOneWidget);
+  });
 }
 
 class _FailThenSucceedWalletActions implements WalletConnectionActions {

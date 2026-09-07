@@ -86,10 +86,9 @@ class _MappingRuleTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final catalog = ref.watch(walletCatalogProvider).value;
     final accountName = _resolveAccountName(catalog, rule.walletAccountId);
-    final senderLabel =
-        rule.senderMatcher.aliases.isNotEmpty
-            ? rule.senderMatcher.aliases.first
-            : rule.name;
+    final senderLabel = rule.senderMatcher.aliases.isNotEmpty
+        ? rule.senderMatcher.aliases.first
+        : rule.name;
     final syncLabel = switch (rule.syncMode) {
       MappingSyncMode.automatic => 'Automatic',
       MappingSyncMode.review => 'Review',
@@ -147,7 +146,9 @@ class _MappingRuleTile extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Mapping rule "$senderLabel \u2192 $accountName" deleted.'),
+                content: Text(
+                  'Mapping rule "$senderLabel \u2192 $accountName" deleted.',
+                ),
               ),
             );
           }
@@ -198,11 +199,17 @@ class _MappingRuleTile extends ConsumerWidget {
               style: AppTypography.h5,
             ),
             const SizedBox(height: 16),
-            _DetailRow(label: 'Senders', value: rule.senderMatcher.aliases.join(', ')),
+            _DetailRow(
+              label: 'Senders',
+              value: rule.senderMatcher.aliases.join(', '),
+            ),
             _DetailRow(label: 'Account', value: accountName),
             _DetailRow(label: 'Payment type', value: rule.paymentType),
             _DetailRow(label: 'Processing', value: syncLabel),
-            _DetailRow(label: 'Status', value: rule.enabled ? 'Enabled' : 'Disabled'),
+            _DetailRow(
+              label: 'Status',
+              value: rule.enabled ? 'Enabled' : 'Disabled',
+            ),
             if (rule.merchantMatcher != null) ...[
               const SizedBox(height: 8),
               _DetailRow(
@@ -229,10 +236,7 @@ class _MappingRuleTile extends ConsumerWidget {
     );
   }
 
-  static String _resolveAccountName(
-    WalletCatalog? catalog,
-    String accountId,
-  ) {
+  static String _resolveAccountName(WalletCatalog? catalog, String accountId) {
     if (catalog == null) return accountId;
     for (final a in catalog.accounts) {
       if (a.id == accountId) return a.name;
@@ -265,8 +269,19 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.neutral600)),
-          Flexible(child: Text(value, style: AppTypography.bodySmall, textAlign: TextAlign.end)),
+          Text(
+            label,
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.neutral600,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              style: AppTypography.bodySmall,
+              textAlign: TextAlign.end,
+            ),
+          ),
         ],
       ),
     );

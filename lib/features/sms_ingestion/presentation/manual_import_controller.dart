@@ -161,12 +161,11 @@ class ManualImportController extends Notifier<ManualImportState> {
         required String rawBody,
         required String sender,
         required DateTime receivedAtUtc,
-      }) async =>
-          InterpretMessage(registry: registry)(
-            rawBody: rawBody,
-            sender: sender,
-            receivedAtUtc: receivedAtUtc,
-          );
+      }) async => InterpretMessage(registry: registry)(
+        rawBody: rawBody,
+        sender: sender,
+        receivedAtUtc: receivedAtUtc,
+      );
 
       final body = state.body;
       final sender = state.sender;

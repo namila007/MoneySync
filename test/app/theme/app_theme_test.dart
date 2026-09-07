@@ -34,8 +34,7 @@ void main() {
     });
 
     test('no non-zero border radius in bottom sheet', () {
-      final shape =
-          theme.bottomSheetTheme.shape as RoundedRectangleBorder?;
+      final shape = theme.bottomSheetTheme.shape as RoundedRectangleBorder?;
       expect(shape?.borderRadius, BorderRadius.zero);
     });
 
@@ -110,14 +109,13 @@ void main() {
   });
 
   group('Archivo font resolution', () {
-    testWidgets('resolves Archivo without fallback for body text',
-        (tester) async {
+    testWidgets('resolves Archivo without fallback for body text', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: const Scaffold(
-            body: Text('test', style: AppTypography.body),
-          ),
+          home: const Scaffold(body: Text('test', style: AppTypography.body)),
         ),
       );
       final text = tester.widget<Text>(find.text('test'));

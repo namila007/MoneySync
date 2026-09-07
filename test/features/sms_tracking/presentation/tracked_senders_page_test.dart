@@ -64,9 +64,7 @@ void main() {
     expect(find.text('TELCO Z'), findsOneWidget);
   });
 
-  testWidgets('a filter with no matches shows the empty list', (
-    tester,
-  ) async {
+  testWidgets('a filter with no matches shows the empty list', (tester) async {
     await tester.pumpWidget(_app(_FakeController()));
     await tester.tap(find.text('open'));
     await settle(tester);
@@ -79,9 +77,7 @@ void main() {
     expect(find.text('TELCO Z'), findsNothing);
   });
 
-  testWidgets('save icon in AppBar triggers save and pops', (
-    tester,
-  ) async {
+  testWidgets('save icon in AppBar triggers save and pops', (tester) async {
     final controller = _FakeController();
     await tester.pumpWidget(_app(controller));
     await tester.tap(find.text('open'));

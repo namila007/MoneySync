@@ -601,10 +601,7 @@ class CategoryPicker extends ConsumerWidget {
               child: Row(
                 children: [
                   const Expanded(
-                    child: Text(
-                      'Select category',
-                      style: AppTypography.h4,
-                    ),
+                    child: Text('Select category', style: AppTypography.h4),
                   ),
                   TextButton(
                     onPressed: () {

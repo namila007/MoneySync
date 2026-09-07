@@ -71,8 +71,10 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
             children: [
               Text('1. CHOOSE SOURCES', style: AppTypography.h6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: const BoxDecoration(color: AppColors.neutral100),
                 child: Text(
                   '${state.trackedSenders.length} available',
@@ -153,7 +155,10 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
           const SizedBox(height: AppSpacing.s6),
 
           // Divider
-          Container(height: 2, color: AppColors.divider(Theme.of(context).brightness)),
+          Container(
+            height: 2,
+            color: AppColors.divider(Theme.of(context).brightness),
+          ),
           const SizedBox(height: AppSpacing.s6),
 
           // 2. Configuration
@@ -174,8 +179,10 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
               return GestureDetector(
                 onTap: () => controller.selectPreset(days),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: selected ? AppColors.text : AppColors.surface,
                     border: Border.all(
@@ -249,7 +256,9 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: _showCustomCap ? AppColors.accent : AppColors.surface,
+                    color: _showCustomCap
+                        ? AppColors.accent
+                        : AppColors.surface,
                     border: Border.all(
                       color: _showCustomCap
                           ? AppColors.accent
@@ -320,9 +329,7 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
           const SizedBox(height: 6),
           Text(
             'Maximum messages to scan per source',
-            style: AppTypography.bodyXs.copyWith(
-              color: AppColors.neutral500,
-            ),
+            style: AppTypography.bodyXs.copyWith(color: AppColors.neutral500),
           ),
           const SizedBox(height: AppSpacing.s6),
 

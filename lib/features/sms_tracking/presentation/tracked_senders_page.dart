@@ -13,8 +13,7 @@ class TrackedSendersPage extends ConsumerStatefulWidget {
   final Future<List<String>> Function()? loadDeviceSenders;
 
   @override
-  ConsumerState<TrackedSendersPage> createState() =>
-      _TrackedSendersPageState();
+  ConsumerState<TrackedSendersPage> createState() => _TrackedSendersPageState();
 }
 
 class _TrackedSendersPageState extends ConsumerState<TrackedSendersPage> {
@@ -152,10 +151,7 @@ class _TrackedSendersPageState extends ConsumerState<TrackedSendersPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Synchronization Logic',
-                        style: AppTypography.h5,
-                      ),
+                      Text('Synchronization Logic', style: AppTypography.h5),
                       const SizedBox(height: 6),
                       Text(
                         'MoneySync only scans messages from the senders selected '

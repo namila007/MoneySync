@@ -98,9 +98,7 @@ class _BlockedBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.s2),
         Text(
           'Secure storage and device authentication must be set up first.',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.neutral500,
-          ),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral500),
           textAlign: TextAlign.center,
         ),
       ],
@@ -182,9 +180,7 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
       const SizedBox(height: AppSpacing.s4),
       Text(
         'Paste your Wallet API token to link accounts, categories and targets.',
-        style: AppTypography.body.copyWith(
-          color: AppColors.neutral600,
-        ),
+        style: AppTypography.body.copyWith(color: AppColors.neutral600),
       ),
       const SizedBox(height: AppSpacing.s6),
 
@@ -249,9 +245,7 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
         child: Text(
           'The Wallet API links MoneySync to your budgeting wallet so approved '
           'transactions post automatically.',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.neutral600,
-          ),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral600),
         ),
       ),
 
@@ -262,7 +256,11 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
           decoration: const BoxDecoration(color: AppColors.accent100),
           child: Row(
             children: [
-              const Icon(Icons.error_outline, size: 18, color: AppColors.accent),
+              const Icon(
+                Icons.error_outline,
+                size: 18,
+                color: AppColors.accent,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -407,7 +405,8 @@ class _ConnectedBody extends ConsumerWidget {
         _InfoRow(
           icon: Icons.vpn_key_outlined,
           label: 'API token',
-          value: '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+          value:
+              '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
           trailing: GestureDetector(
             onTap: () => _handleReplace(context, ref),
             child: Text(
@@ -448,9 +447,7 @@ class _ConnectedBody extends ConsumerWidget {
         Text(
           'Disconnecting removes the stored token and cached metadata. '
           'It does not change inbox SMS or remote Wallet records.',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.neutral500,
-          ),
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral500),
           textAlign: TextAlign.center,
         ),
       ],

@@ -74,9 +74,7 @@ class SuccessView extends ConsumerWidget {
               // Subtitle
               Text(
                 'Mutations successfully posted to your wallet.',
-                style: AppTypography.body.copyWith(
-                  color: AppColors.neutral500,
-                ),
+                style: AppTypography.body.copyWith(color: AppColors.neutral500),
               ),
               const SizedBox(height: AppSpacing.s4),
 
@@ -126,10 +124,7 @@ class _SuccessCard extends ConsumerWidget {
         color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        child: Icon(
-          Icons.delete,
-          color: Theme.of(context).colorScheme.onError,
-        ),
+        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onError),
       ),
       confirmDismiss: (_) async {
         final confirmed = await showDialog<bool>(
@@ -155,49 +150,46 @@ class _SuccessCard extends ConsumerWidget {
       },
       onDismissed: (_) => _deleteMutation(db, mutation.id),
       child: GestureDetector(
-      onTap: () => context.push('/settings/wallet/succeeded/${mutation.id}'),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: const BoxDecoration(color: AppColors.surface),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.h5.copyWith(fontSize: 15),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatTime(mutation.updatedAtEpochMs),
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.neutral500,
+        onTap: () => context.push('/settings/wallet/succeeded/${mutation.id}'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTypography.h5.copyWith(fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(
+                      _formatTime(mutation.updatedAtEpochMs),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.neutral500,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            Text(
-              '$currencyCode ${_formatAmount(amountMinor)}',
-              style: AppTypography.amount.copyWith(
-                fontSize: 18,
-                color: AppColors.accent,
+              Text(
+                '$currencyCode ${_formatAmount(amountMinor)}',
+                style: AppTypography.amount.copyWith(
+                  fontSize: 18,
+                  color: AppColors.accent,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
   Future<void> _deleteMutation(AppDatabase? db, String mutationId) async {
     if (db == null) return;
-    await (db.delete(db.walletMutations)
-          ..where((m) => m.id.equals(mutationId)))
-        .go();
+    await (db.delete(
+      db.walletMutations,
+    )..where((m) => m.id.equals(mutationId))).go();
   }
 
   static Map<String, Object?> _decodePayload(String jsonStr) {

@@ -170,10 +170,7 @@ class _CategoryList extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          cat.name,
-                          style: AppTypography.body,
-                        ),
+                        child: Text(cat.name, style: AppTypography.body),
                       ),
                     ],
                   ),
@@ -191,10 +188,7 @@ class _CategoryList extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(
-                            sub.name,
-                            style: AppTypography.body,
-                          ),
+                          child: Text(sub.name, style: AppTypography.body),
                         ),
                       ],
                     ),
@@ -215,10 +209,7 @@ class _CategoryList extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          sub.name,
-                          style: AppTypography.body,
-                        ),
+                        child: Text(sub.name, style: AppTypography.body),
                       ),
                     ],
                   ),
