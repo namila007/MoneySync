@@ -34,12 +34,11 @@ jobs:
           restore-keys: |
             build-runner-${{ runner.os }}-
 
-      - name: Verify generated code
+      - name: Run build_runner
+        run: dart run build_runner build
+
+      - name: Verify no changes
         run: |
-          pwd
-          ls -la
-          ls -la .git || echo "No .git directory"
-          dart run build_runner build
           git diff --exit-code
           test -z "$(git ls-files --others --exclude-standard)"
 
