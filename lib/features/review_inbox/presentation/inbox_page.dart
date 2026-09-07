@@ -376,7 +376,7 @@ class _EventCard extends ConsumerWidget {
         );
         return confirmed ?? false;
       },
-      onDismissed: (_) => _delete(context, ref),
+      onDismissed: (_) => _delete(ref),
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: InkWell(
@@ -416,7 +416,7 @@ class _EventCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+  Future<void> _delete(WidgetRef ref) async {
     final db = ref.read(appDatabaseProvider).asData?.value;
     if (db == null) return;
     final setting = await (db.select(

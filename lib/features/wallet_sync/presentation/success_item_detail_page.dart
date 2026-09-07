@@ -241,10 +241,12 @@ class SuccessItemDetailPage extends ConsumerWidget {
 
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100;
-    return majorUnits
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
   }
 
   String _formatTime(int epochMs) {

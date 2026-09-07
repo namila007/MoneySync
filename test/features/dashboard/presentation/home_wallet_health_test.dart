@@ -8,9 +8,6 @@ void main() {
   ProviderScope wrap(HomeWalletHealth health) {
     return ProviderScope(
       overrides: [
-        homeSummaryProvider.overrideWith(
-          (ref) async => (imported: 5, candidates: 3),
-        ),
         homeWalletHealthProvider.overrideWith((ref) => Stream.value(health)),
       ],
       child: const MaterialApp(home: HomePage()),
@@ -41,23 +38,27 @@ void main() {
   testWidgets('renders the latest created record card', (tester) async {
     await tester.pumpWidget(
       wrap(
-        HomeWalletHealth(
+        const HomeWalletHealth(
           reviewCount: 0,
           retryCount: 0,
           waitingCount: 0,
-          succeededCount: 0,
-          latestRecord: LatestWalletRecord(
-            remoteId: 'record-9',
-            amountMinor: -123456,
-            currencyCode: 'LKR',
-            createdAtEpochMs: 1_700_000_000_000,
-          ),
+          succeededCount: 3,
+          recentSuccesses: [
+            SucceededMutationSummary(
+              id: 'm1',
+              kind: 'expense',
+              counterParty: 'Keells Super',
+              amountMinor: 620000,
+              currencyCode: 'LKR',
+              createdAtEpochMs: 1_700_000_000_000,
+            ),
+          ],
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Wallet transaction'), findsOneWidget);
+    expect(find.textContaining('Keells Super'), findsOneWidget);
     expect(find.textContaining('LKR'), findsOneWidget);
   });
 
@@ -67,8 +68,8 @@ void main() {
       await tester.pumpWidget(wrap(HomeWalletHealth.empty));
       await tester.pumpAndSettle();
 
-      // No latest record card shown when health is empty
-      expect(find.text('Wallet transaction'), findsNothing);
+      // No success cards shown when health is empty
+      expect(find.textContaining('LKR'), findsNothing);
     },
   );
 }

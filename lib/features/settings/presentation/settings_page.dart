@@ -17,10 +17,10 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final configStateAsync = ref.watch(_configurationStateProvider);
-    final screenshotProtected =
-        configStateAsync.value?.secureWindowEnabled ?? true;
     final autoImportEnabled =
         configStateAsync.value?.autoImportEnabled ?? false;
+    final autoCreateEnabled =
+        configStateAsync.value?.autoCreateEnabled ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -44,16 +44,6 @@ class SettingsPage extends ConsumerWidget {
                 title: 'App lock',
                 subtitle: 'Secure with biometrics/PIN',
                 onTap: () => context.push(AppRoute.securityPrivacy.path),
-              ),
-              _SettingsTile(
-                icon: Icons.smartphone_outlined,
-                title: 'Screenshot protection',
-                subtitle: 'Prevent screenshots of sensitive data',
-                trailing: Switch(
-                  value: screenshotProtected,
-                  onChanged: (value) => _toggleScreenshot(ref, value),
-                  activeThumbColor: AppColors.accent,
-                ),
               ),
             ],
           ),
@@ -104,6 +94,16 @@ class SettingsPage extends ConsumerWidget {
                 subtitle: 'Connect to your Wallet API',
                 onTap: () => context.push(AppRoute.walletConnection.path),
               ),
+              _SettingsTile(
+                icon: Icons.auto_awesome_outlined,
+                title: 'Auto-create transactions',
+                subtitle: autoCreateEnabled ? 'On' : 'Off',
+                trailing: Switch(
+                  value: autoCreateEnabled,
+                  onChanged: (value) => _toggleAutoCreate(ref, value),
+                  activeThumbColor: AppColors.accent,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.s6),
@@ -144,9 +144,9 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleScreenshot(WidgetRef ref, bool enabled) async {
+  Future<void> _toggleAutoCreate(WidgetRef ref, bool enabled) async {
     final repo = await ref.read(configurationRepositoryProvider.future);
-    await repo.updateSecureWindowEnabled(enabled);
+    await repo.updateAutoCreateEnabled(enabled);
     ref.invalidate(_configurationStateProvider);
   }
 }

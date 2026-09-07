@@ -260,9 +260,10 @@ class _AmountCard extends StatelessWidget {
 
   String _formatAmount(int minorUnits, String code) {
     final sign = minorUnits < 0 ? '-' : '';
-    final majorUnits = minorUnits.abs() / 100;
-    final formatted = majorUnits
-        .toStringAsFixed(2)
+    final abs = minorUnits.abs();
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    final formatted = '$whole.${fraction.toString().padLeft(2, '0')}'
         .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
     return '$sign$code $formatted';
   }

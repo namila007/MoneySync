@@ -57,7 +57,7 @@ void main() {
         expect(find.text('5'), findsOneWidget);
         expect(find.text('20'), findsOneWidget);
         expect(find.text('50'), findsOneWidget);
-        expect(find.text('Custom'), findsOneWidget);
+        expect(find.text('Custom range'), findsOneWidget);
       });
 
       testWidgets('shows Privacy Guard card', (tester) async {
