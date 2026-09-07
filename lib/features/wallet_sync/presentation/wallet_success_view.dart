@@ -113,6 +113,8 @@ class _SuccessCard extends ConsumerWidget {
         ? '$counterParty \u2014 $categoryName'
         : kind == 'income'
         ? 'Income'
+        : kind == 'refund'
+        ? 'Refund'
         : 'Expense';
 
     final db = ref.read(appDatabaseProvider).asData?.value;

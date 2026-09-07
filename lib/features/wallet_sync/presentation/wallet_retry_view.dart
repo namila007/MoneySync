@@ -98,6 +98,11 @@ class _RetryViewState extends ConsumerState<RetryView> {
               final m = mutations[index];
               final selected = _selected.contains(m.id);
               final payload = _decodePayload(m.payload);
+              final amountMinor = (payload['amountMinor'] is int)
+                  ? payload['amountMinor'] as int
+                  : 0;
+              final currencyCode =
+                  (payload['currencyCode'] as String?) ?? 'LKR';
               final kind = (payload['kind'] as String?) ?? 'expense';
               final counterParty = (payload['counterParty'] as String?) ?? '';
               final categoryId = payload['categoryId'] as String?;
@@ -200,12 +205,12 @@ class _RetryViewState extends ConsumerState<RetryView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                caption,
+                                '$currencyCode ${_formatAmount(amountMinor)}',
                                 style: AppTypography.h5.copyWith(fontSize: 15),
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                _formatTime(m.updatedAtEpochMs),
+                                caption,
                                 style: AppTypography.bodySmall.copyWith(
                                   color: AppColors.neutral500,
                                 ),
@@ -292,6 +297,14 @@ class _RetryViewState extends ConsumerState<RetryView> {
       await actions.retryNow(m.id);
     }
     if (!mounted) return;
+  }
+
+  String _formatAmount(int minorUnits) {
+    final abs = minorUnits.abs();
+    final majorUnits = abs / 100;
+    return majorUnits
+        .toStringAsFixed(2)
+        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
   }
 
   String _formatTime(int epochMs) {
