@@ -258,8 +258,18 @@ class SuccessItemDetailPage extends ConsumerWidget {
 
   String _formatDateOnly(int epochMs) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final dt = DateTime.fromMillisecondsSinceEpoch(
       epochMs,
