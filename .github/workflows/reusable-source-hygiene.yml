@@ -36,6 +36,9 @@ jobs:
 
       - name: Verify generated code
         run: |
+          pwd
+          ls -la
+          ls -la .git || echo "No .git directory"
           dart run build_runner build
           git diff --exit-code
           test -z "$(git ls-files --others --exclude-standard)"
