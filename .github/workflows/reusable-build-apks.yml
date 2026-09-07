@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Cache pub dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ hashFiles('**/pubspec.lock') }}
@@ -37,7 +37,7 @@ jobs:
             pub-${{ runner.os }}-
 
       - name: Cache Gradle dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -62,7 +62,7 @@ jobs:
             build/app/outputs/flutter-apk/app-privatefull-${{ inputs.build-mode }}.apk
 
       - name: Upload Play APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: apk-playmanual-${{ inputs.build-mode }}
           path: build/app/outputs/flutter-apk/app-playmanual-${{ inputs.build-mode }}.apk
@@ -70,7 +70,7 @@ jobs:
           compression-level: 0
 
       - name: Upload Private APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: apk-privatefull-${{ inputs.build-mode }}
           path: build/app/outputs/flutter-apk/app-privatefull-${{ inputs.build-mode }}.apk
