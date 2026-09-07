@@ -54,6 +54,7 @@ void main() {
       final widgetSources = <String>[
         'lib/features/settings/presentation/settings_page.dart',
         'lib/features/settings/presentation/security_privacy_page.dart',
+        'lib/features/settings/presentation/auto_import_settings_page.dart',
         'lib/features/sms_permission/presentation/sms_access_page.dart',
         'lib/features/sms_ingestion/presentation/history_scan_page.dart',
         'lib/features/sms_tracking/presentation/tracked_senders_page.dart',

@@ -6,18 +6,19 @@ plugins {
 
 android {
     namespace = "me.namila.money_sync"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "30.0.15729638"
+    compileSdk = 37
+    ndkVersion = "29.0.14206865"
 
     subprojects {
         afterEvaluate {
             extensions.findByName("android")?.let { ext ->
-                (ext as com.android.build.gradle.BaseExtension).ndkVersion = "30.0.15729638"
+                (ext as com.android.build.gradle.BaseExtension).ndkVersion = "29.0.14206865"
             }
         }
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -54,6 +55,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     testImplementation("junit:junit:4.13.2")
     implementation("com.jakewharton.timber:timber:5.0.1")
 

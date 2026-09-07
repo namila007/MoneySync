@@ -1,28 +1,39 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show OrderingTerm;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logging/logging.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
 import 'package:money_sync/features/activity_log/data/drift_activity_recovery_actions.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
+import 'package:money_sync/features/wallet_sync/presentation/discardable_mutation_tile.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
 
-/// Mutations in retryScheduled state, for the retry view.
-final retryMutationsProvider = FutureProvider<List<WalletMutation>>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return (db.select(db.walletMutations)
-        ..where(
-          (m) => m.state.equals(
-            storedMutationState(WalletMutationState.retryScheduled),
-          ),
-        )
-        ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
-        ..limit(200))
-      .get();
-});
+final _log = Logger('WalletRetryView');
+
+final retryMutationsProvider = StreamProvider.autoDispose<List<WalletMutation>>(
+  (ref) async* {
+    final db = await ref.watch(appDatabaseProvider.future);
+    yield* (db.select(db.walletMutations)
+          ..where(
+            (m) => m.state.equals(
+              storedMutationState(WalletMutationState.retryScheduled),
+            ),
+          )
+          ..where((m) => m.discardedAtEpochMs.isNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAtEpochMs)])
+          ..limit(200))
+        .watch();
+  },
+);
 
 class RetryView extends ConsumerStatefulWidget {
   const RetryView({super.key});
@@ -34,6 +45,9 @@ class RetryView extends ConsumerStatefulWidget {
 class _RetryViewState extends ConsumerState<RetryView> {
   final _selected = <String>{};
 
+  /// Rows the user just swipe-deleted, hidden until the stream re-emits.
+  final _discarded = <String>{};
+
   @override
   Widget build(BuildContext context) {
     final mutationsAsync = ref.watch(retryMutationsProvider);
@@ -41,45 +55,173 @@ class _RetryViewState extends ConsumerState<RetryView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Retry Failed'),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: _retrySelected,
-              child: Text('Retry (${_selected.length})'),
+              child: Text(
+                'Retry (${_selected.length})',
+                style: const TextStyle(color: AppColors.accent),
+              ),
             ),
-          TextButton(onPressed: _retryAll, child: const Text('Retry All')),
+          TextButton(
+            onPressed: _retryAll,
+            child: const Text(
+              'Retry All',
+              style: TextStyle(color: AppColors.accent),
+            ),
+          ),
         ],
       ),
       body: mutationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (mutations) {
+        data: (all) {
+          final mutations = all
+              .where((m) => !_discarded.contains(m.id))
+              .toList();
           if (mutations.isEmpty) {
-            return const Center(
-              child: Text('No failed transactions to retry.'),
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh, size: 48, color: AppColors.neutral400),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    'No failed transactions to retry.',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
             );
           }
-          return ListView.builder(
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
             itemCount: mutations.length,
+            separatorBuilder: (_, _) => Container(
+              height: 2,
+              color: AppColors.divider(Theme.of(context).brightness),
+            ),
             itemBuilder: (context, index) {
               final m = mutations[index];
               final selected = _selected.contains(m.id);
-              return CheckboxListTile(
-                value: selected,
-                onChanged: (v) => setState(() {
-                  if (v == true) {
-                    _selected.add(m.id);
-                  } else {
-                    _selected.remove(m.id);
-                  }
-                }),
-                title: Text(m.candidateId ?? 'Unknown'),
-                subtitle: Text(
-                  'State: ${m.state.name} · Updated: ${_formatTime(m.updatedAtEpochMs)}',
-                ),
-                secondary: IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () => _retrySingle(m.id),
+              final payload = _decodePayload(m.payload);
+              final amountMinor = (payload['amountMinor'] is int)
+                  ? payload['amountMinor'] as int
+                  : 0;
+              final currencyCode =
+                  (payload['currencyCode'] as String?) ?? 'LKR';
+              final kind = (payload['kind'] as String?) ?? 'expense';
+              final counterParty = (payload['counterParty'] as String?) ?? '';
+              final categoryId = payload['categoryId'] as String?;
+
+              final catalog = ref.watch(walletCatalogProvider).value;
+              final categoryName = _resolveCategoryName(catalog, categoryId);
+              final caption = counterParty.isNotEmpty
+                  ? '$counterParty \u2014 $categoryName'
+                  : kind == 'income'
+                  ? 'Income'
+                  : 'Expense';
+
+              return DiscardableMutationTile(
+                mutationId: m.id,
+                onDiscarded: () => setState(() => _discarded.add(m.id)),
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    if (selected) {
+                      _selected.remove(m.id);
+                    } else {
+                      _selected.add(m.id);
+                    }
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    color: selected ? AppColors.accent100 : AppColors.surface,
+                    child: Row(
+                      children: [
+                        // Checkbox
+                        Semantics(
+                          checked: selected,
+                          label: 'Select transaction',
+                          button: true,
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.accent
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.accent
+                                    : AppColors.neutral400,
+                                width: 2,
+                              ),
+                            ),
+                            child: selected
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 14,
+                                  )
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$currencyCode ${_formatAmount(amountMinor)}',
+                                style: AppTypography.h5.copyWith(fontSize: 15),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                caption,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.neutral500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              kind.toUpperCase(),
+                              style: AppTypography.micro.copyWith(
+                                color: AppColors.neutral500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            GestureDetector(
+                              onTap: () => _retrySingle(m.id),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.accent100,
+                                ),
+                                child: const Icon(
+                                  Icons.refresh,
+                                  size: 16,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -96,7 +238,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
       dao: WalletMutationsDao(database: db),
     );
     await actions.retryNow(mutationId);
-    ref.invalidate(retryMutationsProvider);
   }
 
   Future<void> _retrySelected() async {
@@ -110,7 +251,6 @@ class _RetryViewState extends ConsumerState<RetryView> {
     }
     if (!mounted) return;
     setState(() => _selected.clear());
-    ref.invalidate(retryMutationsProvider);
   }
 
   Future<void> _retryAll() async {
@@ -124,14 +264,41 @@ class _RetryViewState extends ConsumerState<RetryView> {
       await actions.retryNow(m.id);
     }
     if (!mounted) return;
-    ref.invalidate(retryMutationsProvider);
   }
 
-  String _formatTime(int epochMs) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(
-      epochMs,
-      isUtc: true,
-    ).toLocal();
-    return '${dt.day}/${dt.month}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  String _formatAmount(int minorUnits) {
+    final abs = minorUnits.abs();
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+  }
+
+  static String _resolveCategoryName(
+    WalletCatalog? catalog,
+    String? categoryId,
+  ) {
+    if (categoryId == null || catalog == null) {
+      return categoryId ?? 'Uncategorized';
+    }
+    for (final c in catalog.categories) {
+      if (c.id == categoryId) return '${c.groupName} \u203a ${c.name}';
+    }
+    return categoryId;
+  }
+
+  static Map<String, Object?> _decodePayload(String jsonStr) {
+    try {
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is Map<String, Object?>) return decoded;
+      return {};
+    } on FormatException catch (e) {
+      _log.warning('Failed to decode mutation payload', e);
+      return {};
+    } catch (_) {
+      return {};
+    }
   }
 }

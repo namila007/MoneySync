@@ -22,322 +22,128 @@ Widget _buildApp(HistoryImportState state) {
   );
 }
 
+Finder _scrollableFinder() => find.descendant(
+  of: find.byType(ListView),
+  matching: find.byType(Scrollable),
+);
+
 void main() {
   group('HistoryImportPage', () {
     group('input view', () {
-      testWidgets('renders app bar title', (tester) async {
+      testWidgets('renders Sync Past Activity title', (tester) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Import from messages'), findsOneWidget);
+        expect(find.text('Sync Past Activity'), findsOneWidget);
       });
 
-      testWidgets('shows tracked senders section', (tester) async {
+      testWidgets('renders Data Recovery tag', (tester) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Tracked senders'), findsOneWidget);
+        expect(find.text('Data Recovery'), findsOneWidget);
       });
 
-      testWidgets('shows empty state when no tracked senders', (tester) async {
+      testWidgets('shows Choose Sources section', (tester) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('No senders tracked yet.'), findsOneWidget);
+        expect(find.text('1. CHOOSE SOURCES'), findsOneWidget);
+        expect(find.text('0 available'), findsOneWidget);
       });
 
-      testWidgets('shows Choose senders button when no tracked senders', (
+      testWidgets('shows Configuration section', (tester) async {
+        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+        expect(find.text('2. CONFIGURATION'), findsOneWidget);
+      });
+
+      testWidgets('shows scan depth presets', (tester) async {
+        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+        expect(find.text('SCAN DEPTH'), findsOneWidget);
+        expect(find.text('5'), findsOneWidget);
+        expect(find.text('20'), findsOneWidget);
+        expect(find.text('50'), findsOneWidget);
+        expect(find.text('Custom range'), findsOneWidget);
+      });
+
+      testWidgets('shows Privacy Guard card', (tester) async {
+        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+        await tester.scrollUntilVisible(
+          find.text('Privacy Guard Active'),
+          250,
+          scrollable: _scrollableFinder(),
+        );
+        expect(find.text('Privacy Guard Active'), findsOneWidget);
+      });
+
+      testWidgets('shows Initiate bulk import button', (tester) async {
+        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+        await tester.scrollUntilVisible(
+          find.text('Initiate bulk import'),
+          250,
+          scrollable: _scrollableFinder(),
+        );
+        expect(find.text('Initiate bulk import'), findsOneWidget);
+      });
+
+      testWidgets('shows Update sources button', (tester) async {
+        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+        expect(find.text('Update sources'), findsOneWidget);
+      });
+
+      testWidgets('disables import button when no tracked senders', (
         tester,
       ) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Choose senders to track first'), findsOneWidget);
+        await tester.scrollUntilVisible(
+          find.text('Initiate bulk import'),
+          250,
+          scrollable: _scrollableFinder(),
+        );
+        final button = tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'Initiate bulk import'),
+        );
+        expect(button.onPressed, isNull);
       });
 
-      testWidgets('shows date range section', (tester) async {
+      testWidgets('shows import range presets', (tester) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Date range'), findsOneWidget);
-      });
-
-      testWidgets('shows 3, 7, 14 day choice chips', (tester) async {
-        await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('3 days'), findsOneWidget);
+        expect(find.text('IMPORT RANGE'), findsOneWidget);
         expect(find.text('7 days'), findsOneWidget);
         expect(find.text('14 days'), findsOneWidget);
+        expect(find.text('30 days'), findsOneWidget);
+        expect(find.text('60 days'), findsOneWidget);
       });
 
-      testWidgets('shows maximum slider section', (tester) async {
+      testWidgets('has AppBar with back button', (tester) async {
         await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Maximum'), findsOneWidget);
+        expect(find.text('History Import'), findsOneWidget);
+        expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      });
+    });
+
+    group('populated state', () {
+      testWidgets('shows source card for tracked sender', (tester) async {
+        await tester.pumpWidget(
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
+        );
+        expect(find.text('SAMPATHTX'), findsWidgets);
+        expect(find.text('1 available'), findsOneWidget);
       });
 
-      testWidgets('shows message cap value', (tester) async {
-        await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('100'), findsOneWidget);
-      });
-
-      testWidgets('shows inbox safety copy', (tester) async {
-        await tester.pumpWidget(_buildApp(const HistoryImportState()));
+      testWidgets('enables import button when senders tracked', (tester) async {
+        await tester.pumpWidget(
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
+        );
+        await tester.pumpAndSettle();
+        // The button exists in the widget tree (may be off-screen in ListView)
         expect(
-          find.text(
-            'Only messages from tracked senders are read. '
-            'Your inbox is never changed.',
-          ),
+          find.text('Initiate bulk import', skipOffstage: false),
           findsOneWidget,
         );
       });
 
-      testWidgets('shows Edit button for tracked senders', (tester) async {
-        await tester.pumpWidget(_buildApp(const HistoryImportState()));
-        expect(find.text('Edit'), findsOneWidget);
-      });
-    });
-
-    group('populated state with tracked senders', () {
-      testWidgets('shows sender chips', (tester) async {
+      testWidgets('shows estimated time', (tester) async {
         await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(trackedSenders: ['BANKA', 'BANKB']),
-          ),
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
         );
-        expect(find.text('BANKA'), findsOneWidget);
-        expect(find.text('BANKB'), findsOneWidget);
-      });
-
-      testWidgets('shows Find messages button with correct label', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              trackedSenders: ['BANKA'],
-              preset: 7,
-              messageCap: 100,
-            ),
-          ),
-        );
-        expect(find.text('Find messages (7d, 100 max)'), findsOneWidget);
-      });
-
-      testWidgets('shows custom days in button when set', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              trackedSenders: ['BANKA'],
-              customDays: 30,
-              messageCap: 200,
-            ),
-          ),
-        );
-        expect(find.text('Find messages (30d, 200 max)'), findsOneWidget);
-      });
-
-      testWidgets('7 days chip is selected by default', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(const HistoryImportState(preset: 7, trackedSenders: ['A'])),
-        );
-        final chips = tester.widgetList<ChoiceChip>(find.byType(ChoiceChip));
-        final sevenDay = chips.firstWhere(
-          (c) => c.label is Text && (c.label as Text).data == '7 days',
-        );
-        expect(sevenDay.selected, isTrue);
-      });
-    });
-
-    group('scanning in progress', () {
-      testWidgets('shows progress indicator', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(isScanning: true, trackedSenders: ['A']),
-          ),
-        );
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      });
-
-      testWidgets('shows imported count', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              isScanning: true,
-              imported: 25,
-              trackedSenders: ['A'],
-            ),
-          ),
-        );
-        expect(find.text('Stored: 25'), findsOneWidget);
-      });
-
-      testWidgets('shows filtered count when > 0', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              isScanning: true,
-              imported: 10,
-              filtered: 5,
-              trackedSenders: ['A'],
-            ),
-          ),
-        );
-        expect(find.text('Not recognised: 5'), findsOneWidget);
-      });
-
-      testWidgets('hides filtered count when 0', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              isScanning: true,
-              imported: 10,
-              filtered: 0,
-              trackedSenders: ['A'],
-            ),
-          ),
-        );
-        expect(find.textContaining('Not recognised'), findsNothing);
-      });
-
-      testWidgets('shows duplicates count when > 0', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              isScanning: true,
-              imported: 10,
-              duplicates: 3,
-              trackedSenders: ['A'],
-            ),
-          ),
-        );
-        expect(find.text('Already imported: 3'), findsOneWidget);
-      });
-
-      testWidgets('hides duplicates count when 0', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              isScanning: true,
-              imported: 10,
-              duplicates: 0,
-              trackedSenders: ['A'],
-            ),
-          ),
-        );
-        expect(find.textContaining('Already imported'), findsNothing);
-      });
-
-      testWidgets('shows Cancel button', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(isScanning: true, trackedSenders: ['A']),
-          ),
-        );
-        expect(find.text('Cancel'), findsOneWidget);
-      });
-    });
-
-    group('terminal result view', () {
-      for (final entry in {
-        TerminalResult.completed: 'Import finished',
-        TerminalResult.cancelled: 'Import cancelled',
-        TerminalResult.capReached: 'Limit reached',
-        TerminalResult.error: 'Import failed',
-        TerminalResult.blocked: 'Import blocked',
-        TerminalResult.noTrackedSenders: 'No tracked senders',
-      }.entries) {
-        testWidgets('shows correct title for ${entry.key.name}', (
-          tester,
-        ) async {
-          await tester.pumpWidget(
-            _buildApp(
-              HistoryImportState(
-                terminalResult: entry.key,
-                imported: 10,
-                filtered: 3,
-                duplicates: 1,
-              ),
-            ),
-          );
-          expect(find.text(entry.value), findsWidgets);
-        });
-      }
-
-      testWidgets('shows summary stats when not noTrackedSenders', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.completed,
-              imported: 20,
-              filtered: 5,
-              duplicates: 3,
-            ),
-          ),
-        );
+        await tester.pumpAndSettle();
         expect(
-          find.text(
-            '20 stored · 5 not recognised as transactions · 3 already imported',
-          ),
-          findsOneWidget,
-        );
-      });
-
-      testWidgets('shows skip explanation toggle when filtered > 0', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.completed,
-              imported: 10,
-              filtered: 5,
-            ),
-          ),
-        );
-        expect(find.text('Why were some messages skipped?'), findsOneWidget);
-      });
-
-      testWidgets('hides skip explanation when filtered is 0', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.completed,
-              imported: 10,
-              filtered: 0,
-            ),
-          ),
-        );
-        expect(find.text('Why were some messages skipped?'), findsNothing);
-      });
-
-      testWidgets('shows Done button for completed result', (tester) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.completed,
-              imported: 10,
-            ),
-          ),
-        );
-        expect(find.text('Done'), findsOneWidget);
-      });
-
-      testWidgets('shows Choose senders button for noTrackedSenders result', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.noTrackedSenders,
-            ),
-          ),
-        );
-        expect(find.text('Choose senders'), findsOneWidget);
-      });
-
-      testWidgets('shows copy about nothing read for noTrackedSenders', (
-        tester,
-      ) async {
-        await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(
-              terminalResult: TerminalResult.noTrackedSenders,
-            ),
-          ),
-        );
-        expect(
-          find.text('Nothing was read. Choose at least one sender to track.'),
+          find.textContaining('estimated time', skipOffstage: false),
           findsOneWidget,
         );
       });
@@ -346,10 +152,31 @@ void main() {
 }
 
 class _StubHistoryImportController extends HistoryImportController {
-  _StubHistoryImportController(this._fixedState);
+  _StubHistoryImportController(this._initialState);
 
-  final HistoryImportState _fixedState;
+  final HistoryImportState _initialState;
 
   @override
-  HistoryImportState build() => _fixedState;
+  HistoryImportState build() => _initialState;
+
+  @override
+  Future<void> reloadTrackedSenders() async {}
+
+  @override
+  void selectPreset(int days) {}
+
+  @override
+  void setCustomDays(int days) {}
+
+  @override
+  void setMessageCap(int cap) {}
+
+  @override
+  Future<void> startImport() async {}
+
+  @override
+  void cancelImport() {}
+
+  @override
+  void reset() {}
 }

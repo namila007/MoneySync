@@ -17,12 +17,23 @@ enum AppCapability {
 final class AppCapabilities {
   const AppCapabilities._(this._enabled);
 
+  /// Public constructor for tests and composition roots that need a custom
+  /// capability set (e.g. automaticSync for M6.5).
+  const AppCapabilities.of(Set<AppCapability> enabled) : _enabled = enabled;
+
   const AppCapabilities.m0() : this._(const <AppCapability>{});
 
   const AppCapabilities.m4PrivateFull()
     : this._(const <AppCapability>{
         AppCapability.smsPermission,
         AppCapability.walletCreate,
+      });
+
+  const AppCapabilities.m6PrivateFull()
+    : this._(const <AppCapability>{
+        AppCapability.smsPermission,
+        AppCapability.walletCreate,
+        AppCapability.automaticSync,
       });
 
   final Set<AppCapability> _enabled;

@@ -1,0 +1,14 @@
+name: PR Verify
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test and Analyze
+    uses: ./.github/workflows/reusable-test-and-analyze.yml

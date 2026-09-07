@@ -180,6 +180,13 @@ class AppSettings extends Table {
   IntColumn get historyMessageCap =>
       integer().withDefault(const Constant(100))();
 
+  BoolColumn get autoImportEnabled =>
+      boolean().withDefault(const Constant(false))();
+  BoolColumn get autoCreateEnabled =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get autoImportIntervalMinutes =>
+      integer().withDefault(const Constant(15))();
+
   @override
   Set<Column<Object>> get primaryKey => {singletonId};
 
@@ -475,6 +482,12 @@ class WalletMutations extends Table {
   IntColumn get lastHttpStatus => integer().nullable()();
   TextColumn get walletCorrelationId => text().nullable()();
 
+  /// Set when the user swipe-deletes the row from a wallet-sync list. The row
+  /// and its lineage/dedup guarantees stay intact (a discarded `succeeded`
+  /// create still blocks a duplicate); every list query and dashboard count
+  /// filters `discarded_at_epoch_ms IS NULL`. Not applied to in-flight states.
+  IntColumn get discardedAtEpochMs => integer().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 
@@ -618,6 +631,22 @@ class IngestionCheckpoints extends Table {
   String get tableName => 'ingestion_checkpoint';
 }
 
+/// Singleton tracking state for periodic SMS scanning (M6).
+/// One row, id = 1. Separate from IngestionCheckpoints (append-only audit log).
+class TrackingState extends Table {
+  IntColumn get id => integer().withDefault(const Constant(1))();
+  IntColumn get lastScanAtEpochMs => integer().nullable()();
+  TextColumn get lastScanOutcome => text().nullable()();
+  TextColumn get lastSafeErrorCode => text().nullable()();
+  IntColumn get privacyEpoch => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  String get tableName => 'tracking_state';
+}
+
 @DriftDatabase(
   tables: [
     AppSettings,
@@ -641,6 +670,7 @@ class IngestionCheckpoints extends Table {
     CapabilityLedger,
     RulePacks,
     IngestionCheckpoints,
+    TrackingState,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -649,12 +679,31 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.inMemoryForTesting() : super(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (_) async {
       await customStatement('PRAGMA foreign_keys = ON');
+
+      // Retrofit: remove duplicate app_settings rows, keeping only the most
+      // recent (highest rowid). This corrects a schema corruption where the
+      // Drift-declared primaryKey on app_settings was never physically applied
+      // to the SQLite table, allowing duplicates to accumulate from repeated
+      // INSERT OR IGNORE operations.
+      await customStatement(
+        'DELETE FROM app_settings WHERE rowid NOT IN '
+        '(SELECT MAX(rowid) FROM app_settings WHERE singleton_id = 1) '
+        'AND singleton_id = 1',
+      );
+
+      // Ensure the unique index exists BEFORE the INSERT OR IGNORE so that
+      // the insert correctly deduplicates on corrupted DBs (M6 PR review #2).
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_app_settings_singleton '
+        'ON app_settings (singleton_id)',
+      );
+
       await customStatement(
         'INSERT OR IGNORE INTO app_settings (singleton_id, privacy_epoch) '
         'VALUES (1, 0)',
@@ -665,6 +714,9 @@ class AppDatabase extends _$AppDatabase {
       await customStatement(
         'INSERT OR IGNORE INTO wallet_connection_status '
         '(singleton_id) VALUES (1)',
+      );
+      await customStatement(
+        'INSERT OR IGNORE INTO tracking_state (id) VALUES (1)',
       );
 
       // Partial unique indexes cannot be expressed in Drift's declarative
@@ -1120,6 +1172,21 @@ class AppDatabase extends _$AppDatabase {
       if (from >= 3 && from < 15) {
         await m.addColumn(walletCategoryCache, walletCategoryCache.systemId);
       }
+      if (from < 16) {
+        await m.addColumn(appSettings, appSettings.autoImportEnabled);
+        await m.addColumn(appSettings, appSettings.autoCreateEnabled);
+
+        await m.createTable(trackingState);
+        await customStatement(
+          'INSERT OR IGNORE INTO tracking_state (id) VALUES (1)',
+        );
+      }
+      if (from < 17) {
+        await m.addColumn(appSettings, appSettings.autoImportIntervalMinutes);
+      }
+      if (from < 18) {
+        await m.addColumn(walletMutations, walletMutations.discardedAtEpochMs);
+      }
     },
   );
 
@@ -1424,6 +1491,35 @@ class AppDatabase extends _$AppDatabase {
         throw StateError('synthetic_transaction_rollback');
       }
     });
+  }
+
+  /// Reads the singleton tracking-state row (M6.4). The row is seeded by
+  /// the v16 migration and `beforeOpen`; on a fresh in-memory test DB it
+  /// is created by the `INSERT OR IGNORE` in `beforeOpen`.
+  Future<TrackingStateData> trackingStateOrDefault() async {
+    final row = await (select(
+      trackingState,
+    )..where((row) => row.id.equals(1))).getSingleOrNull();
+    return row ?? const TrackingStateData(id: 1, privacyEpoch: 0);
+  }
+
+  /// Partial-update the singleton tracking-state row. Pass [Value.absent()]
+  /// (or null for nullable fields) to leave a field untouched. Non-null
+  /// values overwrite the current content.
+  Future<void> updateTrackingState({
+    Value<int?> lastScanAtEpochMs = const Value.absent(),
+    Value<String?> lastScanOutcome = const Value.absent(),
+    Value<String?> lastSafeErrorCode = const Value.absent(),
+    Value<int> privacyEpoch = const Value.absent(),
+  }) async {
+    await (update(trackingState)..where((row) => row.id.equals(1))).write(
+      TrackingStateCompanion(
+        lastScanAtEpochMs: lastScanAtEpochMs,
+        lastScanOutcome: lastScanOutcome,
+        lastSafeErrorCode: lastSafeErrorCode,
+        privacyEpoch: privacyEpoch,
+      ),
+    );
   }
 
   Future<void> _requireCurrentPrivacyEpoch(int capturedEpoch) async {

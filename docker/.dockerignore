@@ -1,0 +1,9 @@
+.git
+.github
+build
+.dart_tool
+.idea
+*.iml
+*.log
+node_modules
+.vscode

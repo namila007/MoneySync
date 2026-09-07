@@ -19,6 +19,9 @@ abstract interface class MappingRuleStore {
     required MappingRule rule,
     String? supersededRuleId,
   });
+
+  /// Delete all versions of a mapping rule by its [ruleId].
+  Future<void> delete(String ruleId);
 }
 
 /// Saves a mapping rule as a new immutable version. Never mutates an existing

@@ -18,6 +18,12 @@ enum ActivityEventCode {
   /// reconciliation, or scheduled for retry (M5.22 WP-N). Stored by `.name`
   /// like every other code, so adding it needs no migration.
   walletRecordFailed('wallet.record.failed'),
+
+  /// The user swipe-deleted a mutation from a wallet-sync list (retry /
+  /// waiting / succeeded). The row is soft-deleted, not physically removed —
+  /// its lineage/dedup guarantees stay intact. Stored by `.name`, no
+  /// migration.
+  walletRecordDiscarded('wallet.record.discarded'),
   walletConnected('wallet.connected'),
   walletDisconnected('wallet.disconnected'),
   walletRefreshed('wallet.refreshed'),

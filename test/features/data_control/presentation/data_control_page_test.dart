@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
-import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_page.dart';
 
 import 'package:money_sync/features/data_control/application/clear_local_data.dart';
+import 'package:money_sync/features/settings/domain/configuration.dart';
+import 'package:money_sync/features/settings/presentation/configuration_providers.dart';
 
 class _FakeClearLocalDataUseCase implements IClearLocalDataUseCase {
   _FakeClearLocalDataUseCase({
@@ -40,7 +42,12 @@ class _FakeClearLocalDataUseCase implements IClearLocalDataUseCase {
 
 Widget _makeTestApp(IClearLocalDataUseCase useCase) {
   return ProviderScope(
-    overrides: [clearLocalDataUseCaseProvider.overrideWithValue(useCase)],
+    overrides: [
+      clearLocalDataUseCaseProvider.overrideWith((ref) => useCase),
+      configurationProvider.overrideWithValue(
+        const AsyncData(ConfigurationState()),
+      ),
+    ],
     child: const MaterialApp(home: DataControlPage()),
   );
 }
@@ -48,6 +55,12 @@ Widget _makeTestApp(IClearLocalDataUseCase useCase) {
 void main() {
   group('DataControlPage', () {
     testWidgets('renders both clear activity and reset cards', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       expect(find.text('Clear activity'), findsWidgets);
@@ -59,6 +72,12 @@ void main() {
     testWidgets('clear activity button shows confirmation dialog', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Clear activity...'));
@@ -70,6 +89,12 @@ void main() {
     });
 
     testWidgets('cancel dismisses clear activity dialog', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Clear activity...'));
@@ -82,6 +107,12 @@ void main() {
     });
 
     testWidgets('confirm clear activity shows success banner', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Clear activity...'));
@@ -95,6 +126,12 @@ void main() {
     testWidgets('confirm clear activity failure shows error banner', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final fake = _FakeClearLocalDataUseCase(
         clearActivityResult: const ClearActivityResult(
           success: false,
@@ -112,6 +149,12 @@ void main() {
     });
 
     testWidgets('reset button shows confirmation dialog', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Reset local data...'));
@@ -123,6 +166,12 @@ void main() {
     });
 
     testWidgets('cancel dismisses reset dialog', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Reset local data...'));
@@ -133,7 +182,13 @@ void main() {
       expect(find.text('Reset all local data?'), findsNothing);
     });
 
-    testWidgets('confirm reset shows success banner', (tester) async {
+    testWidgets('confirm reset shows the close-app banner', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Reset local data...'));
@@ -141,8 +196,9 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Reset everything'));
       await tester.pumpAndSettle();
 
+      expect(find.textContaining('All local data was reset'), findsOneWidget);
       expect(
-        find.text('All local data reset. The app will restart.'),
+        find.widgetWithText(FilledButton, 'Close MoneySync'),
         findsOneWidget,
       );
     });
@@ -150,6 +206,12 @@ void main() {
     testWidgets('partial reset failure shows details and retry', (
       tester,
     ) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final fake = _FakeClearLocalDataUseCase(
         resetResult: const ResetAllDataResult(
           success: false,
@@ -171,6 +233,12 @@ void main() {
     });
 
     testWidgets('dismiss banner returns to idle state', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
 
       await tester.tap(find.text('Clear activity...'));
@@ -189,6 +257,12 @@ void main() {
     });
 
     testWidgets('buttons are disabled while operation is busy', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final fake = _FakeClearLocalDataUseCase(
         clearActivityDelay: const Duration(milliseconds: 100),
       );
@@ -207,6 +281,12 @@ void main() {
     });
 
     testWidgets('reset button is disabled while reset is busy', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
       final fake = _FakeClearLocalDataUseCase(
         resetDelay: const Duration(milliseconds: 100),
       );
@@ -222,6 +302,20 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('retention section is present', (tester) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_makeTestApp(_FakeClearLocalDataUseCase()));
+
+      expect(find.text('Local copy retention'), findsOneWidget);
+      expect(find.text('Raw app copy'), findsOneWidget);
+      expect(find.text('Activity history'), findsOneWidget);
     });
   });
 }

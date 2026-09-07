@@ -13,7 +13,7 @@ import 'package:money_sync/features/sms_permission/domain/sms_permission_status.
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
 /// Settings-root deep links after the Configuration hub was flattened into
-/// the settings page (M4.15 WP5).
+/// the settings page (M4.15 WP5) and restyled to match modernist design.
 void main() {
   Widget app() {
     final router = GoRouter(
@@ -29,6 +29,11 @@ void main() {
               const Scaffold(body: Text('APP-LOCK-DESTINATION')),
         ),
         GoRoute(
+          path: '/settings/permissions',
+          builder: (context, state) =>
+              const Scaffold(body: Text('PERMISSIONS-DESTINATION')),
+        ),
+        GoRoute(
           path: '/settings/message-reading',
           builder: (context, state) =>
               const Scaffold(body: Text('MESSAGE-READING')),
@@ -42,6 +47,11 @@ void main() {
           path: '/settings/tracked-senders',
           builder: (context, state) =>
               const Scaffold(body: Text('TRACKED-SENDERS')),
+        ),
+        GoRoute(
+          path: '/settings/data',
+          builder: (context, state) =>
+              const Scaffold(body: Text('DATA-CONTROL')),
         ),
       ],
     );
@@ -81,24 +91,24 @@ void main() {
       expect(find.text('TRACKED-SENDERS'), findsOneWidget);
     });
 
-    testWidgets('History window opens the import page', (tester) async {
+    testWidgets('History Import opens the import page', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
       await tester.scrollUntilVisible(
-        find.text('History window'),
+        find.text('History Import'),
         250,
         scrollable: scrollableFinder(),
       );
-      await tester.ensureVisible(find.text('History window'));
+      await tester.ensureVisible(find.text('History Import'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('History window'));
+      await tester.tap(find.text('History Import'));
       await tester.pumpAndSettle();
 
       expect(find.text('HISTORY-IMPORT'), findsOneWidget);
     });
 
-    testWidgets('Message reading opens its page', (tester) async {
+    testWidgets('Message reading opens the permissions page', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
@@ -112,17 +122,34 @@ void main() {
       await tester.tap(find.text('Message reading'));
       await tester.pumpAndSettle();
 
-      expect(find.text('MESSAGE-READING'), findsOneWidget);
+      expect(find.text('PERMISSIONS-DESTINATION'), findsOneWidget);
     });
 
     testWidgets('App lock still opens the security page', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('App lock & biometric'));
+      await tester.tap(find.text('App lock'));
       await tester.pumpAndSettle();
 
       expect(find.text('APP-LOCK-DESTINATION'), findsOneWidget);
+    });
+
+    testWidgets('Data control opens the data control page', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Data control'),
+        250,
+        scrollable: scrollableFinder(),
+      );
+      await tester.ensureVisible(find.text('Data control'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Data control'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('DATA-CONTROL'), findsOneWidget);
     });
   });
 }
@@ -148,6 +175,15 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateSecureWindowEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoImportEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoCreateEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoImportIntervalMinutes(int minutes) async {}
 }
 
 final class _UnavailableGateway implements SmsPermissionGateway {

@@ -64,9 +64,7 @@ void main() {
     expect(find.text('TELCO Z'), findsOneWidget);
   });
 
-  testWidgets('a filter with no matches shows the empty-search message', (
-    tester,
-  ) async {
+  testWidgets('a filter with no matches shows the empty list', (tester) async {
     await tester.pumpWidget(_app(_FakeController()));
     await tester.tap(find.text('open'));
     await settle(tester);
@@ -74,28 +72,55 @@ void main() {
     await tester.enterText(find.byType(TextField), 'zzz');
     await settle(tester);
 
-    expect(find.textContaining('No senders match'), findsOneWidget);
+    // No sender cards should be visible
+    expect(find.text('BANKX'), findsNothing);
+    expect(find.text('TELCO Z'), findsNothing);
   });
 
-  testWidgets('save lives in the AppBar, counts selection and pops', (
-    tester,
-  ) async {
+  testWidgets('save icon in AppBar triggers save and pops', (tester) async {
     final controller = _FakeController();
     await tester.pumpWidget(_app(controller));
     await tester.tap(find.text('open'));
     await settle(tester);
 
-    expect(find.text('2 selected'), findsOneWidget);
+    // Verify the page title and save icon are present
+    expect(find.text('Tracked Senders'), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
 
-    await tester.tap(find.text('DEVICE A'));
-    await settle(tester);
-    expect(find.text('3 selected'), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.check));
+    // Tap the save icon
+    await tester.tap(find.byIcon(Icons.save_outlined));
     await settle(tester);
 
     expect(controller.saved, isTrue);
     expect(find.text('open'), findsOneWidget); // popped back to the host page
+  });
+
+  testWidgets('shows synchronization logic card', (tester) async {
+    await tester.pumpWidget(_app(_FakeController()));
+    await tester.tap(find.text('open'));
+    await settle(tester);
+
+    expect(find.text('Synchronization Logic'), findsOneWidget);
+  });
+
+  testWidgets('shows Track all and Deselect all buttons', (tester) async {
+    await tester.pumpWidget(_app(_FakeController()));
+    await tester.tap(find.text('open'));
+    await settle(tester);
+
+    expect(find.text('Track all'), findsOneWidget);
+    expect(find.text('Deselect all'), findsOneWidget);
+  });
+
+  testWidgets('sender cards show initials avatar', (tester) async {
+    await tester.pumpWidget(_app(_FakeController()));
+    await tester.tap(find.text('open'));
+    await settle(tester);
+
+    // BANKX -> single word, first 2 chars = "BA"
+    expect(find.text('BA'), findsOneWidget);
+    // TELCO Z -> two words, first letters = "TZ"
+    expect(find.text('TZ'), findsOneWidget);
   });
 }
 

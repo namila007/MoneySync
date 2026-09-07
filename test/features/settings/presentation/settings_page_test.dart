@@ -11,10 +11,13 @@ import 'package:money_sync/features/sms_permission/domain/sms_permission_gateway
 import 'package:money_sync/features/sms_permission/domain/sms_permission_status.dart';
 import 'package:money_sync/features/sms_permission/presentation/sms_permission_controller.dart';
 
-Widget _app({ConfigurationRepository? configRepo}) {
+Widget _app({
+  ConfigurationRepository? configRepo,
+  AppFlavor flavor = AppFlavor.playManual,
+}) {
   return ProviderScope(
     overrides: [
-      appConfigProvider.overrideWithValue(AppConfig.playManual()),
+      appConfigProvider.overrideWithValue(AppConfig.withFlavor(flavor)),
       smsPermissionGatewayProvider.overrideWithValue(_UnavailableGateway()),
       configurationRepositoryProvider.overrideWith(
         (ref) async => configRepo ?? _FakeConfigRepo(),
@@ -25,14 +28,12 @@ Widget _app({ConfigurationRepository? configRepo}) {
 }
 
 void main() {
-  group('SettingsPage (post M4.15 flattening)', () {
-    testWidgets('shows all four sections and no Configuration hub tile', (
-      tester,
-    ) async {
+  group('SettingsPage (modernist design)', () {
+    testWidgets('shows all three sections', (tester) async {
       await tester.pumpWidget(_app());
       await tester.pumpAndSettle();
 
-      expect(find.text('Security & Privacy'), findsOneWidget);
+      expect(find.text('SECURITY & PRIVACY'), findsOneWidget);
 
       final scrollable = find.descendant(
         of: find.byType(ListView),
@@ -40,101 +41,142 @@ void main() {
       );
 
       await tester.scrollUntilVisible(
-        find.text('SMS & Tracking'),
+        find.text('SMS & TRACKING'),
         250,
         scrollable: scrollable,
       );
-      expect(find.text('SMS & Tracking'), findsOneWidget);
+      expect(find.text('SMS & TRACKING'), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('Wallet'),
+        find.text('DATA & DIAGNOSTICS'),
         250,
         scrollable: scrollable,
       );
-      expect(find.text('Wallet'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('Data & Diagnostics'),
-        250,
-        scrollable: scrollable,
-      );
-      expect(find.text('Data & Diagnostics'), findsOneWidget);
-
-      // The hub page, its entry tile, and its duplicate sections are gone.
-      expect(find.text('Configuration hub', skipOffstage: false), findsNothing);
-      expect(find.text('MANAGE', skipOffstage: false), findsNothing);
-      expect(find.text('CAPABILITIES', skipOffstage: false), findsNothing);
-      expect(find.text('Delete app data', skipOffstage: false), findsNothing);
-      expect(find.text('Activity history', skipOffstage: false), findsNothing);
+      expect(find.text('DATA & DIAGNOSTICS'), findsOneWidget);
     });
 
-    testWidgets(
-      'playManual shows the permission status without a grant affordance',
-      (tester) async {
-        await tester.pumpWidget(_app());
-        await tester.pumpAndSettle();
+    testWidgets('shows system environment card', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
 
-        final scrollable = find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text('Message reading'),
-          250,
-          scrollable: scrollable,
-        );
+      expect(find.text('SYSTEM ENVIRONMENT'), findsOneWidget);
+      expect(find.text('Build: playManual'), findsOneWidget);
+    });
 
-        expect(find.text('Message reading'), findsOneWidget);
-        expect(find.text('Grant'), findsNothing);
-        expect(find.text('Allow'), findsNothing);
-      },
-    );
+    testWidgets('shows privateFull flavor in environment card', (tester) async {
+      await tester.pumpWidget(_app(flavor: AppFlavor.privateFull));
+      await tester.pumpAndSettle();
 
-    testWidgets(
-      'screenshot protection switch reflects and persists the state',
-      (tester) async {
-        final repo = _FakeConfigRepo(secureWindowEnabled: false);
-        await tester.pumpWidget(_app(configRepo: repo));
-        await tester.pumpAndSettle();
+      expect(find.text('Build: privateFull'), findsOneWidget);
+    });
 
-        final scrollable = find.descendant(
-          of: find.byType(ListView),
-          matching: find.byType(Scrollable),
-        );
-        await tester.scrollUntilVisible(
-          find.text('Screenshot protection'),
-          250,
-          scrollable: scrollable,
-        );
+    testWidgets('App lock tile navigates to security', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
 
-        final toggle = tester.widget<SwitchListTile>(
-          find.byType(SwitchListTile),
-        );
-        expect(toggle.value, isFalse);
+      expect(find.text('App lock'), findsOneWidget);
+      expect(find.text('Secure with biometrics/PIN'), findsOneWidget);
+    });
 
-        await tester.tap(find.byType(SwitchListTile));
-        await tester.pumpAndSettle();
+    testWidgets('Message reading tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
 
-        expect(repo.secureWindowUpdates, [true]);
-      },
-    );
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Message reading'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('Message reading'), findsOneWidget);
+      expect(find.text('Configure SMS permissions'), findsOneWidget);
+    });
+
+    testWidgets('History Import tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('History Import'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('History Import'), findsOneWidget);
+      expect(find.text('Import range settings'), findsOneWidget);
+    });
+
+    testWidgets('Tracked senders tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Tracked senders'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('Tracked senders'), findsOneWidget);
+    });
+
+    testWidgets('Data control tile is present', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.text('Data control'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.text('Data control'), findsOneWidget);
+      expect(find.text('Export or delete local cache'), findsOneWidget);
+    });
+
+    testWidgets('shows version info at bottom', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byType(ListView),
+        matching: find.byType(Scrollable),
+      );
+      await tester.scrollUntilVisible(
+        find.textContaining('version 2.4.1'),
+        250,
+        scrollable: scrollable,
+      );
+
+      expect(find.textContaining('version 2.4.1'), findsOneWidget);
+    });
   });
 }
 
 final class _FakeConfigRepo implements ConfigurationRepository {
-  _FakeConfigRepo({this.secureWindowEnabled = true});
-
-  final bool secureWindowEnabled;
-  final List<bool> secureWindowUpdates = [];
+  @override
+  Future<ConfigurationState> load() async => const ConfigurationState();
 
   @override
-  Future<ConfigurationState> load() async =>
-      ConfigurationState(secureWindowEnabled: secureWindowEnabled);
+  Future<void> updateSecureWindowEnabled(bool enabled) async {}
 
   @override
-  Future<void> updateSecureWindowEnabled(bool enabled) async {
-    secureWindowUpdates.add(enabled);
-  }
+  Future<void> updateAutoImportEnabled(bool enabled) async {}
 
   @override
   Future<void> updateTheme(AppThemeMode mode) async {}
@@ -150,6 +192,12 @@ final class _FakeConfigRepo implements ConfigurationRepository {
 
   @override
   Future<void> updateHistoryImport(HistoryImportPreferences prefs) async {}
+
+  @override
+  Future<void> updateAutoCreateEnabled(bool enabled) async {}
+
+  @override
+  Future<void> updateAutoImportIntervalMinutes(int minutes) async {}
 }
 
 final class _UnavailableGateway implements SmsPermissionGateway {

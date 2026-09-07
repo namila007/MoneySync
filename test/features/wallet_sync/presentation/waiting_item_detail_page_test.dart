@@ -9,6 +9,8 @@ import 'package:money_sync/features/wallet_sync/data/fake_wallet_api_data_source
 import 'package:money_sync/features/wallet_sync/data/wallet_repository.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/presentation/waiting_item_detail_page.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
 void main() {
   group('WaitingItemDetailPage', () {
@@ -73,7 +75,12 @@ void main() {
           );
     }
 
-    Widget wrap(AppDatabase db, String mutationId, {WalletRepository? repo}) {
+    Widget wrap(
+      AppDatabase db,
+      String mutationId, {
+      WalletRepository? repo,
+      WalletCatalog? catalog,
+    }) {
       return ProviderScope(
         overrides: [
           appDatabaseProvider.overrideWith((ref) async {
@@ -81,6 +88,8 @@ void main() {
             return db;
           }),
           if (repo != null) walletRepositoryProvider.overrideWithValue(repo),
+          if (catalog != null)
+            walletCatalogProvider.overrideWith((ref) async => catalog),
         ],
         child: MaterialApp(home: WaitingItemDetailPage(mutationId: mutationId)),
       );
@@ -198,6 +207,97 @@ void main() {
       // Direction is unchanged (debit), so the edited magnitude must come
       // back out negative — the M5.22 WP-M sign convention.
       expect(dataSource.lastCreatePayload!.amountMinor, -12050);
+    });
+
+    testWidgets('approve preserves labelIds from payload (M6.11)', (
+      tester,
+    ) async {
+      final db = createDb();
+      await db
+          .into(db.walletMutations)
+          .insert(
+            WalletMutationsCompanion.insert(
+              id: 'm-labels-detail',
+              operationKind: WalletMutationOperation.create,
+              payload:
+                  '{"amountMinor":7500,"currencyCode":"LKR","kind":"expense",'
+                  '"direction":"debit","paymentType":"debit_card",'
+                  '"accountId":"acc-1","categoryId":"cat-1",'
+                  '"counterParty":"Test Shop",'
+                  '"labelIds":["money_sync","wallet-1"]}',
+              state: WalletMutationState.queued,
+              lineageKey: 'lineage-m-labels-detail',
+              fingerprint: 'fp-m-labels-detail',
+              createdAtEpochMs: 1000000,
+              updatedAtEpochMs: 1000000,
+              candidateId: const Value('cand-labels-detail'),
+            ),
+          );
+      final dataSource = FakeWalletApiDataSource();
+      final repo = WalletRepository(dataSource: dataSource);
+      final mockCatalog = WalletCatalog(
+        accounts: [],
+        categories: [],
+        labels: [],
+      );
+
+      await tester.pumpWidget(
+        wrap(db, 'm-labels-detail', repo: repo, catalog: mockCatalog),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Approve'));
+      await tester.pumpAndSettle();
+
+      expect(dataSource.lastCreatePayload, isNotNull);
+      expect(
+        dataSource.lastCreatePayload!.labelIds,
+        equals(['money_sync', 'wallet-1']),
+      );
+    });
+
+    testWidgets('displays labels as chips (M6.11)', (tester) async {
+      final db = createDb();
+      await db
+          .into(db.walletMutations)
+          .insert(
+            WalletMutationsCompanion.insert(
+              id: 'm-labels-1',
+              operationKind: WalletMutationOperation.create,
+              payload:
+                  '{"amountMinor":5000,"currencyCode":"LKR","kind":"expense",'
+                  '"direction":"debit","paymentType":"debit_card",'
+                  '"accountId":"acc-1","categoryId":"cat-1",'
+                  '"counterParty":"Test","labelIds":["label-1","label-2"]}',
+              state: WalletMutationState.queued,
+              lineageKey: 'lineage-m-labels-1',
+              fingerprint: 'fp-m-labels-1',
+              createdAtEpochMs: 1000000,
+              updatedAtEpochMs: 1000000,
+            ),
+          );
+
+      final mockCatalog = WalletCatalog(
+        accounts: [],
+        categories: [],
+        labels: [
+          WalletLabel(id: 'label-1', name: 'Groceries'),
+          WalletLabel(id: 'label-2', name: 'Food'),
+        ],
+      );
+
+      await tester.pumpWidget(wrap(db, 'm-labels-1', catalog: mockCatalog));
+      await tester.pumpAndSettle();
+
+      // Scroll to bring label section into view
+      await tester.drag(find.byType(ListView), const Offset(0, -600));
+      await tester.pumpAndSettle();
+
+      // Labels row should be visible with chips (not comma-joined string)
+      expect(find.text('Labels'), findsOneWidget);
+      expect(find.byType(Chip), findsWidgets);
+      expect(find.text('Groceries'), findsOneWidget);
+      expect(find.text('Food'), findsOneWidget);
     });
   });
 }

@@ -1,214 +1,346 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:money_sync/app/settings_app_bar_action.dart';
-import 'package:money_sync/bootstrap/production_providers.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/dashboard/presentation/home_wallet_health.dart';
 
-final homeSummaryProvider = FutureProvider<({int imported, int candidates})>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  final events = await db.select(db.smsEvents).get();
-  final candidates = await db.select(db.transactionCandidates).get();
-  return (imported: events.length, candidates: candidates.length);
-});
-
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final summary = ref.watch(homeSummaryProvider);
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(homeWalletHealthProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final health = ref.watch(homeWalletHealthProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Home'),
-        actions: [const SettingsAppBarAction()],
-      ),
-      body: summary.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) =>
-            Center(child: Text('Your local review workspace is ready.')),
-        data: (counts) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Local messages',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${counts.imported} imported · ${counts.candidates} candidates',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(homeWalletHealthProvider);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 110),
+        children: [
+        // H1 title
+        Text('Dashboard', style: AppTypography.display),
+        const SizedBox(height: 4),
+        Text(
+          'Welcome back — your finances are synced.',
+          style: AppTypography.body.copyWith(
+            color: AppColors.text.withValues(alpha: 0.55),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Accent summary banner
+        health.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (h) => Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(color: AppColors.accent),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SYNCHRONIZATION SUMMARY',
+                  style: AppTypography.micro.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    letterSpacing: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${h.reviewCount} to review · ${h.succeededCount} synced',
+                  style: AppTypography.amount.copyWith(color: AppColors.bg),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Processing Status section
+        Text(
+          'PROCESSING STATUS',
+          style: AppTypography.h6.copyWith(color: AppColors.text),
+        ),
+        const SizedBox(height: 10),
+        health.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (h) => _ProcessingStatusGrid(health: h),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Latest Wallet Activity section
+        Text(
+          'LATEST WALLET ACTIVITY',
+          style: AppTypography.h6.copyWith(color: AppColors.text),
+        ),
+        const SizedBox(height: 10),
+        health.when(
+          loading: () => const SizedBox.shrink(),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (h) => _LatestActivitySection(health: h),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Primary actions
+        FilledButton.icon(
+          onPressed: () => context.push('/settings/history-import'),
+          icon: const Icon(Icons.search, size: 18),
+          label: const Text('Scan messages'),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: () => context.go('/inbox'),
+          icon: const Icon(Icons.inbox_outlined, size: 18),
+          label: const Text('Review inbox'),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Pro tip card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'PRO TIP',
+                style: AppTypography.micro.copyWith(
+                  color: AppColors.neutral600,
+                  letterSpacing: 1.1,
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            health.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (_, _) => const SizedBox.shrink(),
-              data: (h) => _WalletHealthCards(health: h),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => context.push('/settings/history-import'),
-              icon: const Icon(Icons.sms_outlined),
-              label: const Text('Scan messages'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => context.go('/inbox'),
-              icon: const Icon(Icons.inbox_outlined),
-              label: const Text('Review inbox'),
-            ),
-          ],
+              const SizedBox(height: 4),
+              Text(
+                'Connect your SMS bank alerts to automatically sync transactions from any financial institution.',
+                style: AppTypography.bodySmall,
+              ),
+            ],
+          ),
         ),
+      ],
       ),
     );
   }
 }
 
-/// The "3 Review / 1 Retry / 2 Waiting" counters plus the latest created
-/// record card (plan/04 §Home; M5.11). Pure read-only projection.
-class _WalletHealthCards extends StatelessWidget {
-  const _WalletHealthCards({required this.health});
+/// 4-column grid of count cards matching the design prototype's
+/// "Processing Status" section.
+class _ProcessingStatusGrid extends StatelessWidget {
+  const _ProcessingStatusGrid({required this.health});
 
   final HomeWalletHealth health;
 
   @override
   Widget build(BuildContext context) {
-    final hasAny =
-        health.reviewCount > 0 ||
-        health.retryCount > 0 ||
-        health.waitingCount > 0 ||
-        health.succeededCount > 0 ||
-        health.latestRecord != null;
-
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _CountTile(
-                label: 'Review',
-                count: health.reviewCount,
-                icon: Icons.rate_review_outlined,
-                onTap: () => context.push('/inbox'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _CountTile(
-                label: 'Retry',
-                count: health.retryCount,
-                icon: Icons.refresh,
-                onTap: () => context.push('/settings/wallet/retry'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _CountTile(
-                label: 'Waiting',
-                count: health.waitingCount,
-                icon: Icons.schedule,
-                onTap: () => context.push('/settings/wallet/waiting'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _CountTile(
-                label: 'Success',
-                count: health.succeededCount,
-                icon: Icons.check_circle_outline,
-                onTap: () => context.push('/settings/wallet/succeeded'),
-              ),
-            ),
-          ],
+        Expanded(
+          child: _CountTile(
+            label: 'REVIEW',
+            count: health.reviewCount,
+            onTap: () => context.go('/inbox'),
+          ),
         ),
-        if (health.latestRecord case final record?) ...[
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.account_balance_wallet_outlined),
-              title: Text('Latest Wallet transaction'),
-              subtitle: Text(
-                '${record.currencyCode} ${_formatAmount(record.amountMinor)} '
-                '· ${_formatTime(record.createdAtEpochMs)}',
-              ),
-              trailing: const Text('Created'),
-            ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CountTile(
+            label: 'RETRY',
+            count: health.retryCount,
+            onTap: () => context.push('/settings/wallet/retry'),
           ),
-        ] else if (hasAny)
-          const SizedBox.shrink()
-        else
-          Card(
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'No Wallet activity yet. Review a message to create your first record.',
-              ),
-            ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CountTile(
+            label: 'WAITING',
+            count: health.waitingCount,
+            onTap: () => context.push('/settings/wallet/waiting'),
           ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CountTile(
+            label: 'SUCCESS',
+            count: health.succeededCount,
+            onTap: () => context.push('/settings/wallet/succeeded'),
+          ),
+        ),
       ],
     );
-  }
-
-  String _formatAmount(int minorUnits) {
-    final sign = minorUnits < 0 ? '-' : '';
-    final abs = minorUnits.abs();
-    final whole = abs ~/ 100;
-    final fraction = (abs % 100).toString().padLeft(2, '0');
-    return '$sign$whole.$fraction';
-  }
-
-  String _formatTime(int epochMs) {
-    final dt = DateTime.fromMillisecondsSinceEpoch(epochMs);
-    return '${dt.day}/${dt.month}/${dt.year} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }
 
 class _CountTile extends StatelessWidget {
-  const _CountTile({
-    required this.label,
-    required this.count,
-    required this.icon,
-    this.onTap,
-  });
+  const _CountTile({required this.label, required this.count, this.onTap});
 
   final String label;
   final int count;
-  final IconData icon;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: InkWell(
+    return Semantics(
+      button: true,
+      label: '$label: $count',
+      child: GestureDetector(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: const BoxDecoration(color: AppColors.surface),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              Text('$count', style: AppTypography.count),
               const SizedBox(height: 4),
-              Text('$count', style: Theme.of(context).textTheme.headlineSmall),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.6,
+                  color: AppColors.neutral600,
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// Latest wallet activity cards matching the design prototype.
+class _LatestActivitySection extends StatelessWidget {
+  const _LatestActivitySection({required this.health});
+
+  final HomeWalletHealth health;
+
+  @override
+  Widget build(BuildContext context) {
+    final recentSuccesses = health.recentSuccesses;
+    if (recentSuccesses.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        for (final s in recentSuccesses) ...[
+          _SuccessCard(
+            kind: s.kind,
+            counterParty: s.counterParty,
+            amountMinor: s.amountMinor,
+            currencyCode: s.currencyCode,
+            createdAtEpochMs: s.createdAtEpochMs,
+          ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _SuccessCard extends StatelessWidget {
+  const _SuccessCard({
+    required this.kind,
+    required this.counterParty,
+    required this.amountMinor,
+    required this.currencyCode,
+    required this.createdAtEpochMs,
+  });
+
+  final String kind;
+  final String counterParty;
+  final int amountMinor;
+  final String currencyCode;
+  final int createdAtEpochMs;
+
+  @override
+  Widget build(BuildContext context) {
+    final dt = DateTime.fromMillisecondsSinceEpoch(createdAtEpochMs);
+    final timeStr =
+        '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+    final titleParts = <String>[];
+    if (kind.isNotEmpty) titleParts.add(_capitalize(kind));
+    if (counterParty.isNotEmpty) titleParts.add(counterParty);
+    final title = titleParts.join(' \u2014 ');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: const BoxDecoration(color: AppColors.surface),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTypography.h5.copyWith(fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  timeStr,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.neutral500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '$currencyCode ${_formatAmount(amountMinor)}',
+            style: AppTypography.amount.copyWith(
+              fontSize: 18,
+              color: AppColors.accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  String _formatAmount(int minorUnits) {
+    final abs = minorUnits.abs();
+    final majorUnits = abs / 100;
+    return majorUnits
+        .toStringAsFixed(2)
+        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
   }
 }

@@ -5,36 +5,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/bootstrap/production_providers.dart';
 import 'package:money_sync/core/database/app_database.dart';
+import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/transaction_parser/domain/transaction_candidate.dart';
+import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_create_payload.dart';
 import 'package:money_sync/features/wallet_sync/data/wallet_mutations_dao.dart';
 import 'package:money_sync/features/wallet_sync/domain/mutation_intent.dart';
 import 'package:money_sync/features/wallet_sync/domain/wallet_mutation_port.dart';
+import 'package:money_sync/features/wallet_sync/presentation/discardable_mutation_tile.dart';
 import 'package:money_sync/features/wallet_sync/presentation/mutation_state_label.dart';
-import 'package:money_sync/features/wallet_sync/presentation/wallet_success_view.dart'
-    show succeededMutationsProvider;
 
-/// Mutations in queued/syncing state, for the waiting view.
-/// WP5: FutureProvider with explicit invalidation in the submit handler.
-/// The home dashboard's Waiting tile uses the reactive homeWalletHealthProvider
-/// (StreamProvider watching wallet_mutations) for immediate count updates.
-final waitingMutationsProvider = FutureProvider<List<WalletMutation>>((
-  ref,
-) async {
-  final db = await ref.watch(appDatabaseProvider.future);
-  return (db.select(db.walletMutations)
-        ..where(
-          (m) => m.state.isIn([
-            storedMutationState(WalletMutationState.queued),
-            storedMutationState(WalletMutationState.syncing),
-          ]),
-        )
-        ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
-        ..limit(200))
-      .get();
-});
+final waitingMutationsProvider =
+    StreamProvider.autoDispose<List<WalletMutation>>((ref) async* {
+      final db = await ref.watch(appDatabaseProvider.future);
+      yield* (db.select(db.walletMutations)
+            ..where(
+              (m) => m.state.isIn([
+                storedMutationState(WalletMutationState.queued),
+                storedMutationState(WalletMutationState.syncing),
+              ]),
+            )
+            ..where((m) => m.discardedAtEpochMs.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.createdAtEpochMs)])
+            ..limit(200))
+          .watch();
+    });
 
 final _log = Logger('WalletWaitingView');
 
@@ -47,6 +47,9 @@ class WaitingView extends ConsumerStatefulWidget {
 
 class _WaitingViewState extends ConsumerState<WaitingView> {
   final _selected = <String>{};
+
+  /// Rows the user just swipe-deleted, hidden until the stream re-emits.
+  final _discarded = <String>{};
   bool _approvingAll = false;
 
   @override
@@ -56,28 +59,61 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Waiting'),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: _approvingAll ? null : _approveSelected,
-              child: Text('Approve (${_selected.length})'),
+              child: Text(
+                'Approve (${_selected.length})',
+                style: const TextStyle(color: AppColors.accent),
+              ),
             ),
           if (_selected.isNotEmpty)
             TextButton(
               onPressed: () => setState(() => _selected.clear()),
-              child: const Text('Clear'),
+              child: const Text(
+                'Clear',
+                style: TextStyle(color: AppColors.neutral600),
+              ),
             ),
         ],
       ),
       body: mutationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (mutations) {
+        data: (all) {
+          final mutations = all
+              .where((m) => !_discarded.contains(m.id))
+              .toList();
           if (mutations.isEmpty) {
-            return const Center(child: Text('No pending transactions.'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.hourglass_empty,
+                    size: 48,
+                    color: AppColors.neutral400,
+                  ),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    'No pending transactions.',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
-          return ListView.builder(
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
             itemCount: mutations.length,
+            separatorBuilder: (_, _) => Container(
+              height: 2,
+              color: AppColors.divider(Theme.of(context).brightness),
+            ),
             itemBuilder: (context, index) {
               final m = mutations[index];
               final selected = _selected.contains(m.id);
@@ -88,30 +124,120 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
               final currencyCode =
                   (payload['currencyCode'] as String?) ?? 'LKR';
               final kind = (payload['kind'] as String?) ?? 'expense';
+              final counterParty = (payload['counterParty'] as String?) ?? '';
+              final categoryId = payload['categoryId'] as String?;
 
-              return ListTile(
-                leading: Checkbox(
-                  value: selected,
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      _selected.add(m.id);
-                    } else {
-                      _selected.remove(m.id);
-                    }
-                  }),
+              final catalog = ref.watch(walletCatalogProvider).value;
+              final categoryName = _resolveCategoryName(catalog, categoryId);
+
+              final titleParts = <String>[];
+              if (counterParty.isNotEmpty) titleParts.add(counterParty);
+              if (kind.isNotEmpty) titleParts.add(_capitalizeKind(kind));
+              final title = titleParts.isNotEmpty
+                  ? titleParts.join(' \u2014 ')
+                  : categoryName.isNotEmpty
+                  ? categoryName
+                  : 'Unknown';
+
+              return DiscardableMutationTile(
+                mutationId: m.id,
+                onDiscarded: () => setState(() => _discarded.add(m.id)),
+                child: GestureDetector(
+                  onTap: () => context.push('/settings/wallet/waiting/${m.id}'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    color: selected ? AppColors.accent100 : AppColors.surface,
+                    child: Row(
+                      children: [
+                        // Checkbox
+                        Semantics(
+                          checked: selected,
+                          label: 'Select transaction',
+                          button: true,
+                          child: GestureDetector(
+                            key: ValueKey('checkbox-${m.id}'),
+                            onTap: () => setState(() {
+                              if (selected) {
+                                _selected.remove(m.id);
+                              } else {
+                                _selected.add(m.id);
+                              }
+                            }),
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: selected
+                                    ? AppColors.accent
+                                    : Colors.transparent,
+                                border: Border.all(
+                                  color: selected
+                                      ? AppColors.accent
+                                      : AppColors.neutral400,
+                                  width: 2,
+                                ),
+                              ),
+                              child: selected
+                                  ? const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 14,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$currencyCode ${_formatAmount(amountMinor)}',
+                                style: AppTypography.h5.copyWith(fontSize: 15),
+                              ),
+                              const SizedBox(height: 2),
+                      Text(
+                        title,
+                        style: AppTypography.bodySmall.copyWith(
+                          color: AppColors.neutral500,
+                        ),
+                      ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              kind.toUpperCase(),
+                              style: AppTypography.micro.copyWith(
+                                color: AppColors.neutral500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _formatTime(m.createdAtEpochMs),
+                              style: AppTypography.bodyXs.copyWith(
+                                color: AppColors.neutral400,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 18,
+                          color: AppColors.neutral400,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                title: Text(
-                  '$currencyCode ${_formatAmount(amountMinor)} · $kind',
-                ),
-                subtitle: Text(
-                  '${m.state.name} · ${_formatTime(m.createdAtEpochMs)}',
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  onPressed: () =>
-                      context.push('/settings/wallet/waiting/${m.id}'),
-                ),
-                onTap: () => context.push('/settings/wallet/waiting/${m.id}'),
               );
             },
           );
@@ -141,8 +267,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
         final payload = intent.payload;
         final snapshot = TransactionCandidateSnapshot(
           accountId: (payload['accountId'] as String?) ?? '',
-          // M5.22 WP-M: sign by the stored direction so an expense is not
-          // filed as income by Wallet's sign convention.
           amountMinor: signedMinorUnits(
             (payload['amountMinor'] is int) ? payload['amountMinor'] as int : 0,
             _directionFrom(payload['direction']),
@@ -156,6 +280,11 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
           recordState: WalletRecordState.cleared,
           counterParty: payload['counterParty'] as String?,
           categoryId: payload['categoryId'] as String?,
+          labelIds:
+              (payload['labelIds'] as List<dynamic>?)
+                  ?.whereType<String>()
+                  .toList() ??
+              const [],
         );
 
         final result = await repository
@@ -169,7 +298,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
             intent: intent,
             next: WalletMutationState.succeeded,
           );
-          // Move the candidate out of needsReview (M5.18 finding 3).
           if (intent.candidateId.isNotEmpty) {
             await dao.transitionCandidateState(
               candidateId: intent.candidateId,
@@ -190,11 +318,6 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
       _approvingAll = false;
       _selected.clear();
     });
-
-    ref.invalidate(waitingMutationsProvider);
-    // M5.22 WP-C: any approve that succeeded moved a mutation into
-    // `succeeded`, so the Success list is stale as well.
-    if (succeeded > 0) ref.invalidate(succeededMutationsProvider);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -218,11 +341,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
 
   String _formatAmount(int minorUnits) {
     final abs = minorUnits.abs();
-    final majorUnits = abs / 100;
-    final formatted = majorUnits
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-    return minorUnits < 0 ? '-$formatted' : formatted;
+    final whole = abs ~/ 100;
+    final fraction = abs % 100;
+    return '$whole.${fraction.toString().padLeft(2, '0')}'.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
   }
 
   String _formatTime(int epochMs) {
@@ -232,6 +356,24 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
     ).toLocal();
     return '${dt.day}/${dt.month}/${dt.year} '
         '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  static String _capitalizeKind(String kind) {
+    if (kind.isEmpty) return kind;
+    return kind[0].toUpperCase() + kind.substring(1);
+  }
+
+  static String _resolveCategoryName(
+    WalletCatalog? catalog,
+    String? categoryId,
+  ) {
+    if (categoryId == null || catalog == null) {
+      return categoryId ?? 'Uncategorized';
+    }
+    for (final c in catalog.categories) {
+      if (c.id == categoryId) return '${c.groupName} \u203a ${c.name}';
+    }
+    return categoryId;
   }
 
   static WalletPaymentType _wirePaymentType(String value) => switch (value) {
@@ -245,17 +387,12 @@ class _WaitingViewState extends ConsumerState<WaitingView> {
   };
 }
 
-/// Stored payload `direction` back to the enum. Unknown or missing values are
-/// neutral, which leaves the amount magnitude untouched rather than guessing
-/// a sign (M5.22 WP-M).
 TransactionDirection _directionFrom(Object? raw) => switch (raw) {
   'debit' => TransactionDirection.debit,
   'credit' => TransactionDirection.credit,
   _ => TransactionDirection.neutral,
 };
 
-/// Stored payload `kind` back to the enum, so the refund sign rule applies on
-/// the approve path too (M5.22, plan/05:108).
 TransactionKind? _kindFrom(Object? raw) => switch (raw) {
   'refund' => TransactionKind.refund,
   'income' => TransactionKind.income,

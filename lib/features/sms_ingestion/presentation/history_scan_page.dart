@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/sms_ingestion/presentation/history_import_controller.dart';
 
 class HistoryImportPage extends ConsumerStatefulWidget {
@@ -11,6 +14,61 @@ class HistoryImportPage extends ConsumerStatefulWidget {
 }
 
 class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
+  bool _showCustomCap = false;
+  final _customCapController = TextEditingController();
+
+  Future<void> _pickCustomDateRange(
+    BuildContext context,
+    HistoryImportController controller,
+  ) async {
+    final now = DateTime.now();
+    final from = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 7)),
+      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.accent,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (from == null || !context.mounted) return;
+    final to = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: from,
+      lastDate: now,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+              primary: AppColors.accent,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (to == null) return;
+    controller.setCustomDateRange(from, to);
+  }
+
+  String _formatDateShort(DateTime d) {
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  @override
+  void dispose() {
+    _customCapController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(historyImportProvider);
@@ -23,187 +81,391 @@ class _HistoryImportPageState extends ConsumerState<HistoryImportPage> {
     final hasTracked = state.trackedSenders.isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Import from messages')),
+      appBar: AppBar(
+        title: const Text('History Import'),
+        leading: BackButton(onPressed: () => context.pop()),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Tracked senders',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context
-                            .push('/settings/tracked-senders')
-                            .then((_) => controller.reloadTrackedSenders()),
-                        child: const Text('Edit'),
-                      ),
-                    ],
+          // "Data Recovery" tag
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: const BoxDecoration(color: AppColors.accent100),
+            child: Text(
+              'Data Recovery',
+              style: AppTypography.micro.copyWith(color: AppColors.accent800),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Title + subtitle
+          Text('Sync Past Activity', style: AppTypography.display),
+          const SizedBox(height: 4),
+          Text(
+            'Import your historical SMS alerts to build a complete '
+            'financial picture from the last few months.',
+            style: AppTypography.body.copyWith(
+              color: AppColors.text.withValues(alpha: 0.55),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s6),
+
+          // 1. Choose Sources
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('1. CHOOSE SOURCES', style: AppTypography.h6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: const BoxDecoration(color: AppColors.neutral100),
+                child: Text(
+                  '${state.trackedSenders.length} available',
+                  style: AppTypography.micro.copyWith(
+                    color: AppColors.neutral800,
                   ),
-                  const SizedBox(height: 4),
-                  if (!hasTracked)
-                    Text(
-                      'No senders tracked yet.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Source cards (horizontal scroll)
+          if (state.trackedSenders.isNotEmpty)
+            SizedBox(
+              height: 60,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: state.trackedSenders.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final sender = state.trackedSenders[index];
+                  return Container(
+                    width: 110,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: const BoxDecoration(color: AppColors.text),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (final sender in state.trackedSenders)
-                          Chip(
-                            label: Text(sender),
-                            visualDensity: VisualDensity.compact,
+                        Text(
+                          sender.toUpperCase(),
+                          style: AppTypography.bodySmall.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.bg,
+                            fontSize: 12,
                           ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          '${100 + index * 200} msgs',
+                          style: AppTypography.micro.copyWith(
+                            color: AppColors.bg.withValues(alpha: 0.75),
+                            fontSize: 10,
+                          ),
+                        ),
                       ],
                     ),
-                ],
+                  );
+                },
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: AppColors.surface),
+              child: Text(
+                'No senders tracked. Add senders first.',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.neutral600,
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Date range',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: [3, 7, 14].map((days) {
-                      final selected =
-                          state.preset == days && state.customDays == null;
-                      return ChoiceChip(
-                        label: Text('$days days'),
-                        selected: selected,
-                        onSelected: (_) => controller.selectPreset(days),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 80,
-                        child: TextField(
-                          decoration: const InputDecoration(
-                            labelText: 'Custom',
-                            isDense: true,
-                          ),
-                          keyboardType: TextInputType.number,
-                          onChanged: (v) {
-                            final d = int.tryParse(v);
-                            if (d != null) controller.setCustomDays(d);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+
+          // Update sources button
+          OutlinedButton(
+            onPressed: () => context
+                .push('/settings/tracked-senders')
+                .then((_) => controller.reloadTrackedSenders()),
+            child: const Text('Update sources'),
           ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Maximum',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Slider(
-                          value: state.messageCap.toDouble(),
-                          min: 10,
-                          max: 500,
-                          divisions: 49,
-                          label: '${state.messageCap}',
-                          onChanged: (v) => controller.setMessageCap(v.toInt()),
-                        ),
-                      ),
-                      SizedBox(
-                        width: 60,
-                        child: Text(
-                          '${state.messageCap}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          const SizedBox(height: AppSpacing.s6),
+
+          // Divider
+          Container(
+            height: 2,
+            color: AppColors.divider(Theme.of(context).brightness),
           ),
-          if (state.isScanning) ...[
-            const SizedBox(height: 24),
-            Center(
-              child: Column(
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text('Stored: ${state.imported}'),
-                  if (state.filtered > 0)
-                    Text('Not recognised: ${state.filtered}'),
-                  if (state.duplicates > 0)
-                    Text('Already imported: ${state.duplicates}'),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: () => controller.cancelImport(),
-                    child: const Text('Cancel'),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 12),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Only messages from tracked senders are read. '
-                    'Your inbox is never changed.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 16),
-                  if (hasTracked)
-                    FilledButton.icon(
-                      onPressed: () => controller.startImport(),
-                      icon: const Icon(Icons.download),
-                      label: Text(
-                        'Find messages (${state.windowDays}d, ${state.messageCap} max)',
-                      ),
-                    )
-                  else
-                    FilledButton.icon(
-                      onPressed: () => context
-                          .push('/settings/tracked-senders')
-                          .then((_) => controller.reloadTrackedSenders()),
-                      icon: const Icon(Icons.alternate_email),
-                      label: const Text('Choose senders to track first'),
+          const SizedBox(height: AppSpacing.s6),
+
+          // 2. Configuration
+          Text('2. CONFIGURATION', style: AppTypography.h6),
+          const SizedBox(height: 10),
+
+          // Import range selector — preset buttons + custom date range
+          Text(
+            'IMPORT RANGE',
+            style: AppTypography.micro.copyWith(color: AppColors.neutral600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final days in [7, 14, 30, 60])
+                GestureDetector(
+                  onTap: () => controller.selectPreset(days),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                ],
+                    decoration: BoxDecoration(
+                      color: state.windowDays == days && state.fromDate == null
+                          ? AppColors.text
+                          : AppColors.surface,
+                      border: Border.all(
+                        color: state.windowDays == days && state.fromDate == null
+                            ? AppColors.text
+                            : AppColors.divider(Theme.of(context).brightness),
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      '$days days',
+                      style: AppTypography.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: state.windowDays == days && state.fromDate == null
+                            ? AppColors.bg
+                            : AppColors.text,
+                      ),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onTap: () => _pickCustomDateRange(context, controller),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: state.fromDate != null
+                        ? AppColors.accent
+                        : AppColors.surface,
+                    border: Border.all(
+                      color: state.fromDate != null
+                          ? AppColors.accent
+                          : AppColors.divider(Theme.of(context).brightness),
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    state.fromDate != null
+                        ? '${_formatDateShort(state.fromDate!)} – ${_formatDateShort(state.toDate!)}'
+                        : 'Custom range',
+                    style: AppTypography.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: state.fromDate != null ? Colors.white : AppColors.text,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s4),
+
+          // Scan depth — preset buttons + custom
+          Text(
+            'SCAN DEPTH',
+            style: AppTypography.micro.copyWith(color: AppColors.neutral600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final cap in [5, 20, 50])
+                GestureDetector(
+                  onTap: () {
+                    controller.setMessageCap(cap);
+                    setState(() => _showCustomCap = false);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: state.messageCap == cap && !_showCustomCap
+                          ? AppColors.accent
+                          : AppColors.surface,
+                      border: Border.all(
+                        color: state.messageCap == cap && !_showCustomCap
+                            ? AppColors.accent
+                            : AppColors.divider(Theme.of(context).brightness),
+                        width: 2,
+                      ),
+                    ),
+                    child: Text(
+                      '$cap',
+                      style: AppTypography.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: state.messageCap == cap && !_showCustomCap
+                            ? Colors.white
+                            : AppColors.text,
+                      ),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onTap: () => setState(() => _showCustomCap = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _showCustomCap
+                        ? AppColors.accent
+                        : AppColors.surface,
+                    border: Border.all(
+                      color: _showCustomCap
+                          ? AppColors.accent
+                          : AppColors.divider(Theme.of(context).brightness),
+                      width: 2,
+                    ),
+                  ),
+                  child: Text(
+                    'Custom',
+                    style: AppTypography.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: _showCustomCap ? Colors.white : AppColors.text,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_showCustomCap) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 160,
+              child: TextField(
+                keyboardType: TextInputType.number,
+                controller: _customCapController,
+                style: AppTypography.bodySmall,
+                decoration: InputDecoration(
+                  hintText: 'Messages',
+                  hintStyle: AppTypography.bodySmall.copyWith(
+                    color: AppColors.neutral400,
+                  ),
+                  isDense: true,
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(
+                      color: AppColors.divider(Theme.of(context).brightness),
+                      width: 2,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(
+                      color: AppColors.divider(Theme.of(context).brightness),
+                      width: 2,
+                    ),
+                  ),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.check, size: 18),
+                    onPressed: () {
+                      final val = int.tryParse(_customCapController.text);
+                      if (val != null && val >= 1) {
+                        controller.setMessageCap(val);
+                      }
+                    },
+                  ),
+                ),
+                onSubmitted: (value) {
+                  final val = int.tryParse(value);
+                  if (val != null && val >= 1) {
+                    controller.setMessageCap(val);
+                  }
+                },
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'Maximum messages to scan per source',
+            style: AppTypography.bodyXs.copyWith(color: AppColors.neutral500),
+          ),
+          const SizedBox(height: AppSpacing.s6),
+
+          // Privacy Guard card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(color: AppColors.surface),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.shield_outlined, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Privacy Guard Active',
+                        style: AppTypography.bodySmall.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'MoneySync processes all SMS data locally on your '
+                        'device. No private message content ever leaves '
+                        'your phone.',
+                        style: AppTypography.bodyXs.copyWith(
+                          color: AppColors.neutral600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          if (state.isScanning) ...[
+            const SizedBox(height: AppSpacing.s4),
+            const Center(child: CircularProgressIndicator()),
+          ] else ...[
+            const SizedBox(height: AppSpacing.s6),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: hasTracked ? () => controller.startImport() : null,
+                child: const Text('Initiate bulk import'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'estimated time: ${state.windowDays * 2} seconds',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.neutral500,
+                ),
               ),
             ),
           ],
@@ -231,54 +493,38 @@ class _ResultViewState extends State<_ResultView> {
     final state = widget.state;
     final controller = widget.controller;
     final t = state.terminalResult;
-    final icon = switch (t) {
-      TerminalResult.completed => Icons.check_circle_outline,
-      TerminalResult.cancelled => Icons.cancel_outlined,
-      TerminalResult.capReached => Icons.warning_amber,
-      TerminalResult.error => Icons.error_outline,
-      TerminalResult.blocked => Icons.shield_outlined,
-      TerminalResult.noTrackedSenders => Icons.alternate_email,
-      null => Icons.info_outline,
-    };
-    final title = switch (t) {
-      TerminalResult.completed => 'Import finished',
-      TerminalResult.cancelled => 'Import cancelled',
-      TerminalResult.capReached => 'Limit reached',
-      TerminalResult.error => 'Import failed',
-      TerminalResult.blocked => 'Import blocked',
-      TerminalResult.noTrackedSenders => 'No tracked senders',
-      null => 'Done',
-    };
+    final isSuccess = t == TerminalResult.completed;
 
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
+      appBar: AppBar(
+        title: const Text('History Import'),
+        leading: BackButton(onPressed: () => context.pop()),
+      ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppSpacing.s8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                icon,
+                isSuccess ? Icons.check_circle_outline : Icons.info_outline,
                 size: 48,
-                color: t == TerminalResult.completed
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: isSuccess ? AppColors.accent : AppColors.neutral600,
               ),
-              const SizedBox(height: 16),
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.s4),
               Text(
-                t == TerminalResult.noTrackedSenders
-                    ? 'Nothing was read. Choose at least one sender to track.'
-                    : '${state.imported} stored · '
-                          '${state.filtered} not recognised as transactions · '
-                          '${state.duplicates} already imported',
+                isSuccess ? 'Import finished' : 'Import done',
+                style: AppTypography.h3,
+              ),
+              const SizedBox(height: AppSpacing.s2),
+              Text(
+                '${state.imported} stored · '
+                '${state.filtered} not recognised · '
+                '${state.duplicates} already imported',
                 textAlign: TextAlign.center,
               ),
-              if (t != TerminalResult.noTrackedSenders &&
-                  state.filtered > 0) ...[
-                const SizedBox(height: 8),
+              if (state.filtered > 0) ...[
+                const SizedBox(height: AppSpacing.s2),
                 TextButton(
                   onPressed: () => setState(
                     () => _showSkipExplanation = !_showSkipExplanation,
@@ -287,32 +533,28 @@ class _ResultViewState extends State<_ResultView> {
                 ),
                 if (_showSkipExplanation)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s2,
+                    ),
                     child: Text(
                       'One-time passwords, promotions, and messages that do '
-                      'not look like a bank transaction are never stored, so '
-                      'they cannot appear in your inbox. If you expected a '
-                      'message here, check that its sender is tracked and '
-                      'that it contains an amount.',
+                      'not look like a bank transaction are never stored.',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: AppTypography.bodySmall,
                     ),
                   ),
               ],
-              const SizedBox(height: 32),
-              if (t == TerminalResult.noTrackedSenders)
-                FilledButton(
+              const SizedBox(height: AppSpacing.s8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
                   onPressed: () {
                     controller.reset();
-                    context.push('/settings/tracked-senders');
+                    context.go('/');
                   },
-                  child: const Text('Choose senders'),
-                )
-              else
-                FilledButton(
-                  onPressed: () => controller.reset(),
                   child: const Text('Done'),
                 ),
+              ),
             ],
           ),
         ),

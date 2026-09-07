@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
 import 'package:money_sync/features/mappings/presentation/mapping_providers.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 
-/// Read-only detail screens for the wallet connection metadata rows
-/// (Accounts / Categories / Eligible targets). Bug 3.
 enum WalletCatalogDetailMode { accounts, categories, eligibleTargets }
 
 class WalletCatalogDetailScreen extends ConsumerWidget {
@@ -22,7 +22,10 @@ class WalletCatalogDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final catalogAsync = ref.watch(walletCatalogProvider);
     return Scaffold(
-      appBar: AppBar(title: Text(_title())),
+      appBar: AppBar(
+        title: Text(_title()),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
       body: catalogAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => const Center(child: Text('Could not load catalog.')),
@@ -61,23 +64,45 @@ class _AccountList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (accounts.isEmpty) {
-      return Center(child: Text(emptyMessage ?? 'No accounts in catalog.'));
+      return Center(
+        child: Text(
+          emptyMessage ?? 'No accounts in catalog.',
+          style: AppTypography.body.copyWith(color: AppColors.neutral500),
+        ),
+      );
     }
-    return ListView.builder(
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
       itemCount: accounts.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final account = accounts[index];
-        return ListTile(
-          leading: Icon(
-            account.isBankSynced
-                ? Icons.sync
-                : account.isArchived
-                ? Icons.archive_outlined
-                : Icons.account_balance_wallet_outlined,
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  account.name,
+                  style: AppTypography.h5.copyWith(fontSize: 15),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.accent, width: 1),
+                ),
+                child: Text(
+                  account.currencyCode,
+                  style: AppTypography.micro.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
           ),
-          title: Text(account.name),
-          subtitle: Text(account.currencyCode),
-          trailing: _EligibilityBadge(eligibility: account.eligibility),
         );
       },
     );
@@ -95,16 +120,14 @@ class _CategoryList extends StatelessWidget {
       return const Center(child: Text('No categories in catalog.'));
     }
 
-    // Group by groupId, then sort groups alphabetically.
     final grouped = <String, List<WalletCategory>>{};
     for (final c in categories) {
       grouped.putIfAbsent(c.groupId, () => []).add(c);
     }
     final groupIds = grouped.keys.toList()..sort();
 
-    // Within each group: base categories first (alphabetical), then custom
-    // categories nested under their parentId.
     return ListView.builder(
+      padding: const EdgeInsets.all(16),
       itemCount: groupIds.length,
       itemBuilder: (context, index) {
         final groupId = groupIds[index];
@@ -119,69 +142,82 @@ class _CategoryList extends StatelessWidget {
         final customCats = groupCats.where((c) => c.customCategory).toList()
           ..sort((a, b) => a.name.compareTo(b.name));
 
-        return ExpansionTile(
-          leading: const Icon(Icons.folder_outlined),
-          title: Text(groupName),
-          children: [
-            for (final cat in baseCats) ...[
-              ListTile(
-                leading: const Icon(Icons.label_outlined),
-                title: Text(cat.name),
-                subtitle: cat.cardinality != null
-                    ? Text(cat.cardinality!)
-                    : null,
+        return Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+            childrenPadding: const EdgeInsets.only(left: 24, right: 12),
+            title: Text(
+              groupName,
+              style: AppTypography.h5.copyWith(
+                fontSize: 15,
+                color: AppColors.accent,
               ),
-              // Custom sub-categories under this base category.
-              for (final sub in customCats.where((c) => c.parentId == cat.id))
-                ListTile(
-                  leading: const Icon(Icons.subdirectory_arrow_right),
-                  title: Text(sub.name),
-                  subtitle: const Text('Custom'),
+            ),
+            iconColor: AppColors.accent,
+            collapsedIconColor: AppColors.accent,
+            children: [
+              for (final cat in baseCats) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        '\u2014',
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.neutral500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(cat.name, style: AppTypography.body),
+                      ),
+                    ],
+                  ),
+                ),
+                for (final sub in customCats.where((c) => c.parentId == cat.id))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        Text(
+                          '\u2014',
+                          style: AppTypography.body.copyWith(
+                            color: AppColors.neutral500,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(sub.name, style: AppTypography.body),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+              for (final sub in customCats.where(
+                (c) => !baseCats.any((b) => b.id == c.parentId),
+              ))
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(
+                        '\u2014',
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.neutral500,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(sub.name, style: AppTypography.body),
+                      ),
+                    ],
+                  ),
                 ),
             ],
-            // Orphan custom categories (parentId not matching any base).
-            for (final sub in customCats.where(
-              (c) => !baseCats.any((b) => b.id == c.parentId),
-            ))
-              ListTile(
-                leading: const Icon(Icons.subdirectory_arrow_right),
-                title: Text(sub.name),
-                subtitle: const Text('Custom'),
-              ),
-          ],
+          ),
         );
       },
-    );
-  }
-}
-
-class _EligibilityBadge extends StatelessWidget {
-  const _EligibilityBadge({required this.eligibility});
-
-  final WalletAccountEligibility eligibility;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (eligibility) {
-      WalletAccountEligibility.eligible => ('Eligible', Colors.green),
-      WalletAccountEligibility.archived => ('Archived', Colors.grey),
-      WalletAccountEligibility.bankSynced => ('Bank-synced', Colors.blue),
-      WalletAccountEligibility.unwritable => ('Not writable', Colors.orange),
-      WalletAccountEligibility.missingRequiredFields => (
-        'Incomplete',
-        Colors.orange,
-      ),
-      WalletAccountEligibility.foreignCurrencyReviewOnly => (
-        'Review only',
-        Colors.orange,
-      ),
-    };
-    return Chip(
-      label: Text(label, style: const TextStyle(fontSize: 11)),
-      backgroundColor: color.withValues(alpha: 0.1),
-      side: BorderSide(color: color.withValues(alpha: 0.3)),
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
     );
   }
 }

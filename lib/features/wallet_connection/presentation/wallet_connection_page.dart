@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/app_colors.dart';
+import 'package:money_sync/app/theme/app_spacing.dart';
+import 'package:money_sync/app/theme/app_typography.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_connection_models.dart';
 import 'package:money_sync/features/wallet_connection/domain/wallet_token.dart';
 import 'package:money_sync/features/wallet_connection/presentation/wallet_catalog_detail_screen.dart';
@@ -17,8 +21,6 @@ class _WalletConnectionPageState extends ConsumerState<WalletConnectionPage> {
   @override
   void initState() {
     super.initState();
-    // Ensure auto-refresh fires when the page is first visited, not just
-    // on the controller's first build (which may have already completed).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = ref.read(walletConnectionControllerProvider);
       if (state is WalletConnected && state.isStale) {
@@ -31,9 +33,12 @@ class _WalletConnectionPageState extends ConsumerState<WalletConnectionPage> {
   Widget build(BuildContext context) {
     final state = ref.watch(walletConnectionControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Wallet connection')),
+      appBar: AppBar(
+        title: const Text('Wallet connection'),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
         child: switch (state) {
           WalletPrerequisiteUnavailable() => const _BlockedBody(),
           WalletDisconnected() => const _DisconnectedBody(),
@@ -78,25 +83,22 @@ class _BlockedBody extends StatelessWidget {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
+        const Icon(
           Icons.account_balance_wallet_outlined,
           size: 48,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          color: AppColors.neutral400,
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Wallet connection',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.s4),
+        Text('Wallet connection', style: AppTypography.h3),
+        const SizedBox(height: AppSpacing.s2),
         Text(
           'Not available yet',
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: AppTypography.body.copyWith(color: AppColors.neutral500),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.s2),
         Text(
           'Secure storage and device authentication must be set up first.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral500),
           textAlign: TextAlign.center,
         ),
       ],
@@ -173,30 +175,21 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
   @override
   Widget build(BuildContext context) => ListView(
     children: [
-      const SizedBox(height: 16),
-      if (widget.failureMessage != null) ...[
-        Card(
-          color: Theme.of(context).colorScheme.errorContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                const Icon(Icons.error_outline, size: 20),
-                const SizedBox(width: 8),
-                Expanded(child: Text(widget.failureMessage!)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-      ],
-      Text('Connect Wallet', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 8),
+      // Big title
+      Text('Connect your\nwallet', style: AppTypography.display),
+      const SizedBox(height: AppSpacing.s4),
       Text(
-        'Enter your personal Wallet API token. It will be stored securely in device Keystore.',
-        style: Theme.of(context).textTheme.bodyMedium,
+        'Paste your Wallet API token to link accounts, categories and targets.',
+        style: AppTypography.body.copyWith(color: AppColors.neutral600),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: AppSpacing.s6),
+
+      // API token field
+      Text(
+        'API token',
+        style: AppTypography.micro.copyWith(color: AppColors.neutral600),
+      ),
+      const SizedBox(height: 6),
       TextField(
         controller: _tokenController,
         obscureText: true,
@@ -205,38 +198,82 @@ class _DisconnectedBodyState extends ConsumerState<_DisconnectedBody> {
         enableIMEPersonalizedLearning: false,
         autofillHints: const [],
         contextMenuBuilder: (_, _) => const SizedBox.shrink(),
+        style: AppTypography.bodySmall,
         decoration: InputDecoration(
-          labelText: 'API token',
+          hintText: 'Paste your Wallet API token',
+          hintStyle: AppTypography.bodySmall.copyWith(
+            color: AppColors.neutral400,
+          ),
           errorText: _validationError,
-          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: AppColors.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.zero,
+            borderSide: BorderSide(
+              color: AppColors.divider(Theme.of(context).brightness),
+              width: 2,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.zero,
+            borderSide: BorderSide(
+              color: AppColors.divider(Theme.of(context).brightness),
+              width: 2,
+            ),
+          ),
         ),
       ),
-      const SizedBox(height: 16),
-      FilledButton.icon(
-        onPressed: _submitting ? null : _connect,
-        icon: const Icon(Icons.link),
-        label: Text(_submitting ? 'Connecting...' : 'Save & connect'),
+      const SizedBox(height: AppSpacing.s4),
+
+      // Save & connect button
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _submitting ? null : _connect,
+          child: Text(
+            _submitting ? 'Connecting...' : 'Save & connect',
+            style: AppTypography.label.copyWith(color: Colors.white),
+          ),
+        ),
       ),
-      const SizedBox(height: 24),
-      Card(
-        child: Padding(
+      const SizedBox(height: AppSpacing.s4),
+
+      // Info card
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: const BoxDecoration(color: AppColors.surface),
+        child: Text(
+          'The Wallet API links MoneySync to your budgeting wallet so approved '
+          'transactions post automatically.',
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral600),
+        ),
+      ),
+
+      if (widget.failureMessage != null) ...[
+        const SizedBox(height: AppSpacing.s4),
+        Container(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          decoration: const BoxDecoration(color: AppColors.accent100),
+          child: Row(
             children: [
-              Text(
-                'About Wallet API',
-                style: Theme.of(context).textTheme.titleSmall,
+              const Icon(
+                Icons.error_outline,
+                size: 18,
+                color: AppColors.accent,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'You need a Wallet Premium account. Generate a personal API token in your Wallet web app settings under Integrations > REST API.',
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  widget.failureMessage!,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.accent800,
+                  ),
+                ),
               ),
             ],
           ),
         ),
-      ),
+      ],
     ],
   );
 }
@@ -256,8 +293,39 @@ class _ConnectedBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ListView(
       children: [
-        _StatusHeader(isStale: isStale, refreshedAt: refreshedAt),
-        const Divider(height: 24),
+        // Status card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(color: AppColors.surface),
+          child: Row(
+            children: [
+              Icon(
+                Icons.circle,
+                size: 12,
+                color: isStale
+                    ? MoneySyncTheme.of(context).warning
+                    : MoneySyncTheme.of(context).success,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isStale ? 'Connected (offline)' : 'Connected',
+                style: AppTypography.h5,
+              ),
+              const Spacer(),
+              Text(
+                isStale
+                    ? 'cached ${DateTime.now().difference(refreshedAt).inMinutes}m ago'
+                    : 'live',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.neutral500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Info rows
         _InfoRow(
           icon: Icons.account_balance,
           label: 'Accounts',
@@ -271,9 +339,8 @@ class _ConnectedBody extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
         _InfoRow(
-          icon: Icons.category,
+          icon: Icons.category_outlined,
           label: 'Categories',
           value:
               '${catalog.categories.length} \u00b7 refreshed ${_timeAgo(refreshedAt)}',
@@ -285,7 +352,6 @@ class _ConnectedBody extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
         _InfoRow(
           icon: Icons.check_circle_outline,
           label: 'Eligible targets',
@@ -299,13 +365,21 @@ class _ConnectedBody extends ConsumerWidget {
             ),
           ),
         ),
-        const Divider(height: 24),
+
+        // Divider
+        Container(
+          height: 2,
+          color: AppColors.divider(Theme.of(context).brightness),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Action buttons
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => _handleTest(context, ref),
-                icon: const Icon(Icons.wifi_find, size: 18),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
                 label: const Text('Test connection'),
               ),
             ),
@@ -319,41 +393,61 @@ class _ConnectedBody extends ConsumerWidget {
             ),
           ],
         ),
-        const Divider(height: 24),
-        ListTile(
-          leading: const Icon(Icons.vpn_key_outlined),
-          title: const Text('API token'),
-          subtitle: const Text(
-            '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
-          ),
-          trailing: TextButton(
-            onPressed: () => _handleReplace(context, ref),
-            child: const Text('Replace'),
-          ),
+
+        // Divider
+        Container(
+          height: 2,
+          color: AppColors.divider(Theme.of(context).brightness),
         ),
-        const SizedBox(height: 8),
-        ListTile(
-          leading: const Icon(Icons.settings_outlined),
-          title: const Text('Processing default'),
-          subtitle: const Text('Review'),
-        ),
-        const Divider(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => _handleDisconnect(context, ref),
-            icon: const Icon(Icons.link_off),
-            label: const Text('Disconnect Wallet'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.error,
+        const SizedBox(height: AppSpacing.s6),
+
+        // API token + Processing
+        _InfoRow(
+          icon: Icons.vpn_key_outlined,
+          label: 'API token',
+          value:
+              '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022',
+          trailing: GestureDetector(
+            onTap: () => _handleReplace(context, ref),
+            child: Text(
+              'Replace',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.accent,
+                decoration: TextDecoration.underline,
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        _InfoRow(
+          icon: Icons.settings_outlined,
+          label: 'Processing default',
+          value: 'Review',
+        ),
+
+        // Divider
+        Container(
+          height: 2,
+          color: AppColors.divider(Theme.of(context).brightness),
+        ),
+        const SizedBox(height: AppSpacing.s6),
+
+        // Disconnect button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => _handleDisconnect(context, ref),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.accent, width: 2),
+              foregroundColor: AppColors.accent,
+            ),
+            child: const Text('Disconnect Wallet'),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s4),
         Text(
           'Disconnecting removes the stored token and cached metadata. '
           'It does not change inbox SMS or remote Wallet records.',
-          style: Theme.of(context).textTheme.bodySmall,
+          style: AppTypography.bodySmall.copyWith(color: AppColors.neutral500),
           textAlign: TextAlign.center,
         ),
       ],
@@ -453,40 +547,11 @@ class _ConnectedBody extends ConsumerWidget {
               );
               await controller.disconnect(confirmed: true);
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.accent),
             child: const Text('Disconnect'),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.isStale, required this.refreshedAt});
-
-  final bool isStale;
-  final DateTime refreshedAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isStale ? Colors.amber : Colors.green;
-    final label = isStale ? 'Connected (offline)' : 'Connected';
-    final diff = DateTime.now().difference(refreshedAt);
-
-    return Row(
-      children: [
-        Icon(Icons.circle, size: 12, color: color),
-        const SizedBox(width: 8),
-        Text(label, style: Theme.of(context).textTheme.titleMedium),
-        const Spacer(),
-        Text(
-          isStale ? 'cached ${diff.inMinutes}m ago' : 'live',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
     );
   }
 }
@@ -496,25 +561,59 @@ class _InfoRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.trailing,
     this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Widget? trailing;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(label),
-      subtitle: Text(value),
-      dense: true,
+    return InkWell(
       onTap: onTap,
-      trailing: onTap != null
-          ? const Icon(Icons.chevron_right, size: 20)
-          : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: const BoxDecoration(color: AppColors.surface),
+        margin: const EdgeInsets.only(bottom: 2),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: AppColors.neutral700),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.neutral500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (trailing != null)
+              trailing!
+            else if (onTap != null)
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: AppColors.neutral400,
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

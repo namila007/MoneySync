@@ -10,11 +10,26 @@ void main() {
       isComplete: false,
     );
 
-    test('smsAccessDecision is the last step, not disclosure', () {
+    test('notificationPermissionDecision is the last step', () {
       expect(at(OnboardingStep.disclosure).isLastStep, isFalse);
-      expect(at(OnboardingStep.smsAccessDecision).isLastStep, isTrue);
+      expect(at(OnboardingStep.smsAccessDecision).isLastStep, isFalse);
+      expect(
+        at(OnboardingStep.notificationPermissionDecision).isLastStep,
+        isTrue,
+      );
       expect(OnboardingState.initial().isLastStep, isFalse);
     });
+
+    test(
+      'nextStep from smsAccessDecision lands on notificationPermissionDecision',
+      () {
+        final decision = at(OnboardingStep.smsAccessDecision);
+        expect(
+          decision.nextStep().currentStep,
+          OnboardingStep.notificationPermissionDecision,
+        );
+      },
+    );
 
     test(
       'nextStep walks welcome -> ... -> smsAccessDecision then completes',
@@ -30,15 +45,15 @@ void main() {
       },
     );
 
-    test('totalStepCount is 8 in privateFull (SMS access available)', () {
+    test('totalStepCount is 9 in privateFull (SMS access available)', () {
       final state = OnboardingState.initial();
-      expect(state.totalStepCount, 8);
-      expect(state.nextStep().totalStepCount, 8);
+      expect(state.totalStepCount, 9);
+      expect(state.nextStep().totalStepCount, 9);
     });
 
-    test('totalStepCount is 7 when SMS is unavailable', () {
+    test('totalStepCount is 8 when SMS is unavailable', () {
       final state = OnboardingState.initial(smsAccessAvailable: false);
-      expect(state.totalStepCount, 7);
+      expect(state.totalStepCount, 8);
     });
 
     test(
@@ -66,18 +81,19 @@ void main() {
         state = state.nextStep();
       }
       expect(visited, isNot(contains(OnboardingStep.smsAccessDisclosure)));
-      expect(visited.last, OnboardingStep.smsAccessDecision);
+      expect(visited.last, OnboardingStep.notificationPermissionDecision);
     });
 
-    test('SMS-unavailable progress shows 7 of 7 at the decision step', () {
+    test('SMS-unavailable progress shows 8 of 8 at the decision step', () {
       var state = OnboardingState.initial(smsAccessAvailable: false);
-      while (state.currentStep != OnboardingStep.smsAccessDecision) {
+      while (state.currentStep !=
+          OnboardingStep.notificationPermissionDecision) {
         state = state.nextStep();
       }
-      // Decision is the 7th visible step (index 6, zero-based); the indicator
-      // colours dots index <= current, so all 7 dots are filled.
-      expect(state.completedStepCount, 6);
-      expect(state.totalStepCount, 7);
+      // Decision is the 8th visible step (index 7, zero-based); the indicator
+      // colours dots index <= current, so all 8 dots are filled.
+      expect(state.completedStepCount, 7);
+      expect(state.totalStepCount, 8);
     });
 
     test('goBack from the decision step returns to the disclosure step', () {

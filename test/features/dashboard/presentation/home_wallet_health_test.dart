@@ -8,9 +8,6 @@ void main() {
   ProviderScope wrap(HomeWalletHealth health) {
     return ProviderScope(
       overrides: [
-        homeSummaryProvider.overrideWith(
-          (ref) async => (imported: 5, candidates: 3),
-        ),
         homeWalletHealthProvider.overrideWith((ref) => Stream.value(health)),
       ],
       child: const MaterialApp(home: HomePage()),
@@ -31,35 +28,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('3'), findsOneWidget);
-    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('REVIEW'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('RETRY'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
-    expect(find.text('Waiting'), findsOneWidget);
+    expect(find.text('WAITING'), findsOneWidget);
   });
 
   testWidgets('renders the latest created record card', (tester) async {
     await tester.pumpWidget(
       wrap(
-        HomeWalletHealth(
+        const HomeWalletHealth(
           reviewCount: 0,
           retryCount: 0,
           waitingCount: 0,
-          succeededCount: 0,
-          latestRecord: LatestWalletRecord(
-            remoteId: 'record-9',
-            amountMinor: -123456,
-            currencyCode: 'LKR',
-            createdAtEpochMs: 1_700_000_000_000,
-          ),
+          succeededCount: 3,
+          recentSuccesses: [
+            SucceededMutationSummary(
+              id: 'm1',
+              kind: 'expense',
+              counterParty: 'Keells Super',
+              amountMinor: 620000,
+              currencyCode: 'LKR',
+              createdAtEpochMs: 1_700_000_000_000,
+            ),
+          ],
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Latest Wallet transaction'), findsOneWidget);
-    expect(find.textContaining('LKR -1234.56'), findsOneWidget);
-    expect(find.text('Created'), findsOneWidget);
+    expect(find.textContaining('Keells Super'), findsOneWidget);
+    expect(find.textContaining('LKR'), findsOneWidget);
   });
 
   testWidgets(
@@ -68,7 +68,8 @@ void main() {
       await tester.pumpWidget(wrap(HomeWalletHealth.empty));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('No Wallet activity yet'), findsOneWidget);
+      // No success cards shown when health is empty
+      expect(find.textContaining('LKR'), findsNothing);
     },
   );
 }

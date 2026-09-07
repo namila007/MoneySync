@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:money_sync/app/theme/moneysync_theme.dart';
+import 'package:money_sync/bootstrap/foreground_composition.dart';
 import 'package:money_sync/features/data_control/domain/data_clear_scope.dart';
 import 'package:money_sync/features/data_control/presentation/data_control_controller.dart';
+import 'package:money_sync/features/settings/domain/configuration.dart';
+import 'package:money_sync/features/settings/presentation/configuration_providers.dart';
 
 class DataControlPage extends ConsumerWidget {
   const DataControlPage({super.key});
@@ -10,12 +15,21 @@ class DataControlPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(dataControlControllerProvider);
     final controller = ref.read(dataControlControllerProvider.notifier);
+    final configAsync = ref.watch(configurationProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Data Control')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          configAsync.when(
+            data: (config) => config != null
+                ? _RetentionSection(config: config)
+                : const SizedBox.shrink(),
+            loading: () => const SizedBox.shrink(),
+            error: (_, _) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
           _ClearActivityCard(
             busy:
                 state is DataControlBusy &&
@@ -29,15 +43,19 @@ class DataControlPage extends ConsumerWidget {
                 state.scope == DataClearScope.resetAllLocalData,
             onReset: () => _confirmResetAll(context, controller),
           ),
-          if (state is DataControlSuccess) ...[
+          if (state is DataControlSuccess &&
+              state.scope == DataClearScope.clearActivity) ...[
             const SizedBox(height: 16),
             _ResultBanner(
               success: true,
-              message: state.scope == DataClearScope.clearActivity
-                  ? 'Activity cleared.'
-                  : 'All local data reset. The app will restart.',
+              message: 'Activity cleared.',
               onDismiss: () => controller.resetToIdle(),
             ),
+          ],
+          if (state is DataControlSuccess &&
+              state.scope == DataClearScope.resetAllLocalData) ...[
+            const SizedBox(height: 16),
+            const _ResetCompleteBanner(),
           ],
           if (state is DataControlPartialFailure) ...[
             const SizedBox(height: 16),
@@ -100,7 +118,10 @@ class DataControlPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: MoneySyncTheme.of(context).warning,
+        ),
         title: const Text('Reset all local data?'),
         content: const Text(
           'This deletes the database, security keys, wallet token, '
@@ -265,6 +286,53 @@ class _ResultBanner extends StatelessWidget {
   }
 }
 
+/// Shown after a successful full reset. The database, keys and local files
+/// are gone; the running process still holds disposed providers, so the only
+/// safe next step is to close and reopen the app (which re-runs bootstrap
+/// against a fresh database). The old "the app will restart" copy was never
+/// backed by any restart call.
+class _ResetCompleteBanner extends StatelessWidget {
+  const _ResetCompleteBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.check_circle_outline,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'All local data was reset. Close MoneySync and open it '
+                    'again to finish.',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: () => SystemNavigator.pop(),
+                child: const Text('Close MoneySync'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PartialFailureBanner extends StatelessWidget {
   const _PartialFailureBanner({
     required this.failure,
@@ -323,4 +391,151 @@ class _PartialFailureBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RetentionSection extends ConsumerWidget {
+  const _RetentionSection({required this.config});
+  final ConfigurationState config;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          child: Text(
+            'Local copy retention',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        ),
+        ListTile(
+          title: const Text('Raw app copy'),
+          subtitle: Text(
+            config.retention.rawCopyDays > 0
+                ? 'Keep for ${config.retention.rawCopyDays} days'
+                : 'Purge after processing',
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showRawCopyRetentionDialog(context, config, ref),
+        ),
+        ListTile(
+          title: const Text('Activity history'),
+          subtitle: Text('${config.retention.activityRetentionDays} days'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => _showActivityRetentionDialog(context, config, ref),
+        ),
+      ],
+    );
+  }
+}
+
+void _showRawCopyRetentionDialog(
+  BuildContext context,
+  ConfigurationState config,
+  WidgetRef ref,
+) {
+  var selected = config.retention.rawCopyDays;
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('Raw app copy retention'),
+        content: RadioGroup<int>(
+          groupValue: selected,
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => selected = v);
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<int>(
+                title: Text('Purge after processing'),
+                value: 0,
+              ),
+              RadioListTile<int>(title: Text('7 days'), value: 7),
+              RadioListTile<int>(title: Text('14 days'), value: 14),
+              RadioListTile<int>(title: Text('30 days'), value: 30),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final repo = ref
+                  .read(configurationRepositoryProvider)
+                  .requireValue;
+              await repo.updateRetention(
+                RetentionPreferences(
+                  rawCopyDays: selected,
+                  activityRetentionDays: config.retention.activityRetentionDays,
+                ),
+              );
+              ref.invalidate(configurationProvider);
+              if (context.mounted) Navigator.of(context).pop();
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _showActivityRetentionDialog(
+  BuildContext context,
+  ConfigurationState config,
+  WidgetRef ref,
+) {
+  var selected = config.retention.activityRetentionDays;
+  showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) => AlertDialog(
+        title: const Text('Activity retention'),
+        content: RadioGroup<int>(
+          groupValue: selected,
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => selected = v);
+          },
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<int>(title: Text('90 days'), value: 90),
+              RadioListTile<int>(title: Text('180 days'), value: 180),
+              RadioListTile<int>(title: Text('365 days'), value: 365),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final repo = ref
+                  .read(configurationRepositoryProvider)
+                  .requireValue;
+              await repo.updateRetention(
+                RetentionPreferences(
+                  rawCopyDays: config.retention.rawCopyDays,
+                  activityRetentionDays: selected,
+                ),
+              );
+              ref.invalidate(configurationProvider);
+              if (context.mounted) Navigator.of(context).pop();
+            },
+            child: const Text('Apply'),
+          ),
+        ],
+      ),
+    ),
+  );
 }
