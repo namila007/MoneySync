@@ -36,13 +36,13 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Download Play APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: apk-playmanual-release
           path: release-assets/
 
       - name: Download Private APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: apk-privatefull-release
           path: release-assets/
