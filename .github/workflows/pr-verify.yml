@@ -12,10 +12,3 @@ jobs:
   test:
     name: Test and Analyze
     uses: ./.github/workflows/reusable-test-and-analyze.yml
-
-  build:
-    name: Build APKs
-    needs: test
-    uses: ./.github/workflows/reusable-build-apks.yml
-    with:
-      build-mode: debug
