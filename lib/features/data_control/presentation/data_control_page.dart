@@ -113,7 +113,10 @@ class DataControlPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: MoneySyncTheme.of(context).warning),
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: MoneySyncTheme.of(context).warning,
+        ),
         title: const Text('Reset all local data?'),
         content: const Text(
           'This deletes the database, security keys, wallet token, '

@@ -57,6 +57,7 @@ Future<ProviderContainer> _pumpEvents(
   await tester.pumpAndSettle();
   return container;
 }
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -242,10 +243,7 @@ void main() {
       expect(find.text('full body 1'), findsOneWidget);
 
       // Type sender key in search to filter
-      await tester.enterText(
-        find.byType(TextField),
-        'SENDER_B',
-      );
+      await tester.enterText(find.byType(TextField), 'SENDER_B');
       await tester.pumpAndSettle();
 
       expect(find.text('full body 0'), findsNothing);

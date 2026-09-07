@@ -119,9 +119,7 @@ void main() {
     group('populated state', () {
       testWidgets('shows source card for tracked sender', (tester) async {
         await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(trackedSenders: ['SAMPATHTX']),
-          ),
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
         );
         expect(find.text('SAMPATHTX'), findsWidgets);
         expect(find.text('1 available'), findsOneWidget);
@@ -129,9 +127,7 @@ void main() {
 
       testWidgets('enables import button when senders tracked', (tester) async {
         await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(trackedSenders: ['SAMPATHTX']),
-          ),
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
         );
         await tester.pumpAndSettle();
         // The button exists in the widget tree (may be off-screen in ListView)
@@ -143,9 +139,7 @@ void main() {
 
       testWidgets('shows estimated time', (tester) async {
         await tester.pumpWidget(
-          _buildApp(
-            const HistoryImportState(trackedSenders: ['SAMPATHTX']),
-          ),
+          _buildApp(const HistoryImportState(trackedSenders: ['SAMPATHTX'])),
         );
         await tester.pumpAndSettle();
         expect(

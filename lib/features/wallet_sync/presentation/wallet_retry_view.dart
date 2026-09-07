@@ -47,9 +47,7 @@ class _RetryViewState extends ConsumerState<RetryView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Retry Failed'),
-        leading: BackButton(
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: BackButton(onPressed: () => Navigator.of(context).pop()),
         actions: [
           if (_selected.isNotEmpty)
             TextButton(
@@ -77,11 +75,7 @@ class _RetryViewState extends ConsumerState<RetryView> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.refresh,
-                    size: 48,
-                    color: AppColors.neutral400,
-                  ),
+                  Icon(Icons.refresh, size: 48, color: AppColors.neutral400),
                   const SizedBox(height: AppSpacing.s4),
                   Text(
                     'No failed transactions to retry.',
@@ -105,8 +99,7 @@ class _RetryViewState extends ConsumerState<RetryView> {
               final selected = _selected.contains(m.id);
               final payload = _decodePayload(m.payload);
               final kind = (payload['kind'] as String?) ?? 'expense';
-              final counterParty =
-                  (payload['counterParty'] as String?) ?? '';
+              final counterParty = (payload['counterParty'] as String?) ?? '';
               final categoryId = payload['categoryId'] as String?;
 
               final catalog = ref.watch(walletCatalogProvider).value;
@@ -162,88 +155,94 @@ class _RetryViewState extends ConsumerState<RetryView> {
                 },
                 onDismissed: (_) => _deleteMutation(m.id),
                 child: GestureDetector(
-                onTap: () => setState(() {
-                  if (selected) {
-                    _selected.remove(m.id);
-                  } else {
-                    _selected.add(m.id);
-                  }
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 14,
-                  ),
-                  color: selected ? AppColors.accent100 : AppColors.surface,
-                  child: Row(
-                    children: [
-                      // Checkbox
-                      Container(
-                        width: 22,
-                        height: 22,
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.accent : Colors.transparent,
-                          border: Border.all(
+                  onTap: () => setState(() {
+                    if (selected) {
+                      _selected.remove(m.id);
+                    } else {
+                      _selected.add(m.id);
+                    }
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 14,
+                    ),
+                    color: selected ? AppColors.accent100 : AppColors.surface,
+                    child: Row(
+                      children: [
+                        // Checkbox
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
                             color: selected
                                 ? AppColors.accent
-                                : AppColors.neutral400,
-                            width: 2,
+                                : Colors.transparent,
+                            border: Border.all(
+                              color: selected
+                                  ? AppColors.accent
+                                  : AppColors.neutral400,
+                              width: 2,
+                            ),
+                          ),
+                          child: selected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 14,
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        // Content
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                caption,
+                                style: AppTypography.h5.copyWith(fontSize: 15),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _formatTime(m.updatedAtEpochMs),
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.neutral500,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: selected
-                            ? const Icon(Icons.check, color: Colors.white, size: 14)
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      // Content
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              caption,
-                              style: AppTypography.h5.copyWith(fontSize: 15),
+                              kind.toUpperCase(),
+                              style: AppTypography.micro.copyWith(
+                                color: AppColors.neutral500,
+                              ),
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              _formatTime(m.updatedAtEpochMs),
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.neutral500,
+                            GestureDetector(
+                              onTap: () => _retrySingle(m.id),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: const BoxDecoration(
+                                  color: AppColors.accent100,
+                                ),
+                                child: const Icon(
+                                  Icons.refresh,
+                                  size: 16,
+                                  color: AppColors.accent,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            kind.toUpperCase(),
-                            style: AppTypography.micro.copyWith(
-                              color: AppColors.neutral500,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          GestureDetector(
-                            onTap: () => _retrySingle(m.id),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: AppColors.accent100,
-                              ),
-                              child: const Icon(
-                                Icons.refresh,
-                                size: 16,
-                                color: AppColors.accent,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
               );
             },
           );
@@ -255,9 +254,9 @@ class _RetryViewState extends ConsumerState<RetryView> {
   Future<void> _deleteMutation(String mutationId) async {
     final db = ref.read(appDatabaseProvider).asData?.value;
     if (db == null) return;
-    await (db.delete(db.walletMutations)
-          ..where((m) => m.id.equals(mutationId)))
-        .go();
+    await (db.delete(
+      db.walletMutations,
+    )..where((m) => m.id.equals(mutationId))).go();
   }
 
   Future<void> _retrySingle(String mutationId) async {

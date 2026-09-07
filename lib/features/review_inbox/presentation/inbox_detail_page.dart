@@ -123,10 +123,7 @@ class InboxDetailPage extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
             children: [
               // Sender name
-              Text(
-                senderName.toUpperCase(),
-                style: AppTypography.h3,
-              ),
+              Text(senderName.toUpperCase(), style: AppTypography.h3),
               const SizedBox(height: 4),
               Text(
                 'Key: ${event.senderKey} \u00b7 ${_formatTime(event.receivedAtEpochMs)}',
@@ -300,9 +297,12 @@ class _AmountCard extends StatelessWidget {
               ),
               ('Kind', summary.kind),
               ('Direction', summary.direction),
-              ('Date', summary.transactionAtUtc != null
-                  ? '${summary.transactionAtUtc!.year}-${summary.transactionAtUtc!.month.toString().padLeft(2, '0')}-${summary.transactionAtUtc!.day.toString().padLeft(2, '0')}'
-                  : 'Unknown'),
+              (
+                'Date',
+                summary.transactionAtUtc != null
+                    ? '${summary.transactionAtUtc!.year}-${summary.transactionAtUtc!.month.toString().padLeft(2, '0')}-${summary.transactionAtUtc!.day.toString().padLeft(2, '0')}'
+                    : 'Unknown',
+              ),
               ('Confidence', _confidenceLabel(summary.confidenceBasisPoints)),
               ('Category', summary.lifecycle),
             ])

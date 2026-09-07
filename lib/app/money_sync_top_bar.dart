@@ -33,11 +33,7 @@ class MoneySyncTopBar extends StatelessWidget implements PreferredSizeWidget {
             height: 30,
             color: AppColors.text,
             alignment: Alignment.center,
-            child: const Icon(
-              Icons.sync,
-              color: AppColors.bg,
-              size: 18,
-            ),
+            child: const Icon(Icons.sync, color: AppColors.bg, size: 18),
           ),
           const SizedBox(width: 10),
           // Wordmark

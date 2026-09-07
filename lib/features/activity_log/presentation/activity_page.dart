@@ -123,9 +123,7 @@ class _FilterBar extends StatelessWidget {
                 selectedColor: AppColors.accent,
                 checkmarkColor: AppColors.bg,
                 labelStyle: AppTypography.micro.copyWith(
-                  color: selected == code
-                      ? AppColors.bg
-                      : AppColors.neutral700,
+                  color: selected == code ? AppColors.bg : AppColors.neutral700,
                 ),
                 backgroundColor: AppColors.surface,
                 side: BorderSide(
@@ -352,5 +350,3 @@ class _ActivityMessage extends StatelessWidget {
     );
   }
 }
-
-

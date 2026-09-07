@@ -185,10 +185,7 @@ class _SystemEnvironmentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(
-                'Build: $flavorName',
-                style: AppTypography.h5,
-              ),
+              Text('Build: $flavorName', style: AppTypography.h5),
             ],
           ),
           Container(

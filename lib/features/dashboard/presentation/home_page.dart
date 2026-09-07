@@ -69,9 +69,7 @@ class HomePage extends ConsumerWidget {
         // Processing Status section
         Text(
           'PROCESSING STATUS',
-          style: AppTypography.h6.copyWith(
-            color: AppColors.text,
-          ),
+          style: AppTypography.h6.copyWith(color: AppColors.text),
         ),
         const SizedBox(height: 10),
         health.when(
@@ -84,9 +82,7 @@ class HomePage extends ConsumerWidget {
         // Latest Wallet Activity section
         Text(
           'LATEST WALLET ACTIVITY',
-          style: AppTypography.h6.copyWith(
-            color: AppColors.text,
-          ),
+          style: AppTypography.h6.copyWith(color: AppColors.text),
         ),
         const SizedBox(height: 10),
         health.when(
@@ -186,11 +182,7 @@ class _ProcessingStatusGrid extends StatelessWidget {
 }
 
 class _CountTile extends StatelessWidget {
-  const _CountTile({
-    required this.label,
-    required this.count,
-    this.onTap,
-  });
+  const _CountTile({required this.label, required this.count, this.onTap});
 
   final String label;
   final int count;
@@ -206,10 +198,7 @@ class _CountTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '$count',
-              style: AppTypography.count,
-            ),
+            Text('$count', style: AppTypography.count),
             const SizedBox(height: 4),
             Text(
               label,
@@ -241,8 +230,7 @@ class _LatestActivitySection extends StatelessWidget {
     }
 
     final dt = DateTime.fromMillisecondsSinceEpoch(latest.createdAtEpochMs);
-    final timeStr =
-        '${_dayLabel(dt)}, ${_hour(dt)}:${_min(dt)}';
+    final timeStr = '${_dayLabel(dt)}, ${_hour(dt)}:${_min(dt)}';
 
     return Column(
       children: [
@@ -317,9 +305,7 @@ class _LatestActivitySection extends StatelessWidget {
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
-  String _hour(DateTime dt) =>
-      dt.hour.toString().padLeft(2, '0');
+  String _hour(DateTime dt) => dt.hour.toString().padLeft(2, '0');
 
-  String _min(DateTime dt) =>
-      dt.minute.toString().padLeft(2, '0');
+  String _min(DateTime dt) => dt.minute.toString().padLeft(2, '0');
 }

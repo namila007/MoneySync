@@ -30,7 +30,11 @@ void main() {
         }
       }
     }
-    expect(violations, isEmpty, reason: 'Found non-zero BorderRadius:\n${violations.join('\n')}');
+    expect(
+      violations,
+      isEmpty,
+      reason: 'Found non-zero BorderRadius:\n${violations.join('\n')}',
+    );
   });
 
   test('no hardcoded Colors.* in lib/', () {
@@ -50,7 +54,11 @@ void main() {
         }
       }
     }
-    expect(violations, isEmpty, reason: 'Found hardcoded Colors:\n${violations.join('\n')}');
+    expect(
+      violations,
+      isEmpty,
+      reason: 'Found hardcoded Colors:\n${violations.join('\n')}',
+    );
   });
 
   test('no inline TextStyle(fontSize:) in lib/', () {
@@ -66,6 +74,10 @@ void main() {
         }
       }
     }
-    expect(violations, isEmpty, reason: 'Found inline TextStyle(fontSize:):\n${violations.join('\n')}');
+    expect(
+      violations,
+      isEmpty,
+      reason: 'Found inline TextStyle(fontSize:):\n${violations.join('\n')}',
+    );
   });
 }
