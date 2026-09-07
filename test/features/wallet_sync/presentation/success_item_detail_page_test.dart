@@ -84,7 +84,7 @@ void main() {
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
       // Amount appears once in the summary and once in the detail row.
       expect(find.textContaining('LKR 75.00'), findsNWidgets(2));
-      expect(find.text('Test Shop · Food › Groceries'), findsOneWidget);
+      expect(find.text('Test Shop › Food › Groceries'), findsOneWidget);
       expect(find.text('Added to Cash Wallet on 14 Nov 2023'), findsOneWidget);
 
       // Detail rows are still present below the summary.

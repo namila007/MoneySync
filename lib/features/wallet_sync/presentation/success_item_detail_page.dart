@@ -257,12 +257,15 @@ class SuccessItemDetailPage extends ConsumerWidget {
   }
 
   String _formatDateOnly(int epochMs) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
     final dt = DateTime.fromMillisecondsSinceEpoch(
       epochMs,
       isUtc: true,
     ).toLocal();
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
-        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
   }
 
   String _capitalizeKind(String kind) {
