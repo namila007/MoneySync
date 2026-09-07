@@ -39,6 +39,8 @@ jobs:
 
       - name: Verify no changes
         run: |
+          git config --global --add safe.directory /__w/MoneySync/MoneySync
+          git status
           git diff --exit-code
           test -z "$(git ls-files --others --exclude-standard)"
 
