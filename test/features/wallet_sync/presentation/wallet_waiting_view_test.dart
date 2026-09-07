@@ -127,8 +127,8 @@ void main() {
 
       expect(find.textContaining('Approve'), findsNothing);
 
-      // Tap the row to toggle selection (custom checkbox container)
-      await tester.tap(find.textContaining('LKR'));
+      // Tap the checkbox by its key
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Approve (1)'), findsOneWidget);
@@ -143,11 +143,11 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve (1)'), findsOneWidget);
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve'), findsNothing);
       await flushDrift(tester);
@@ -160,7 +160,7 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
       expect(find.textContaining('Approve (1)'), findsOneWidget);
 
@@ -180,13 +180,10 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      // Tap each row to select
-      final lkrWidgets = find.textContaining('LKR');
-      expect(lkrWidgets, findsNWidgets(3));
-
-      await tester.tap(lkrWidgets.at(0));
+      // Tap checkboxes to select
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
-      await tester.tap(lkrWidgets.at(1));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m2')));
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Approve (2)'), findsOneWidget);
@@ -224,7 +221,7 @@ void main() {
       await tester.pumpWidget(makeApp(database));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
 
       final approveBtn = find.textContaining('Approve');
@@ -394,7 +391,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m1')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.textContaining('Approve'));
@@ -552,7 +549,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('LKR'));
+      await tester.tap(find.byKey(const ValueKey('checkbox-m-fail')));
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Approve'));
       await tester.pumpAndSettle();
